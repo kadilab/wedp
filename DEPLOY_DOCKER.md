@@ -1,12 +1,13 @@
 # Déploiement avec Docker (VPS)
 
-Ce projet se déploie avec 3 conteneurs orchestrés par `docker-compose.yml` :
+Ce projet se déploie avec 4 conteneurs orchestrés par `docker-compose.yml` :
 
 - **mysql** — base de données MySQL 8, données persistées dans un volume Docker.
 - **backend** — API Express/Prisma (port interne 5000, jamais exposé directement).
-- **frontend** — build Vite servi par nginx, qui sert le site et reverse-proxy `/api`, `/uploads`, `/templates` et `/socket.io` vers le backend. C'est le seul service exposé sur le VPS (port 80).
+- **frontend** — build Vite servi par nginx, qui sert le dashboard web et reverse-proxy `/api`, `/uploads`, `/templates` et `/socket.io` vers le backend. Exposé sur le VPS au port 80.
+- **checkin** — l'application mobile (PWA) de check-in, voir `checkin-app/README` plus bas. Exposée sur le port 8080.
 
-Aucun nom de domaine n'est requis pour démarrer : le site sera accessible sur `http://IP_DU_VPS`. Tu pourras ajouter un domaine + HTTPS plus tard (voir tout en bas).
+Aucun nom de domaine n'est requis pour démarrer : le site sera accessible sur `http://IP_DU_VPS` et l'app de check-in sur `http://IP_DU_VPS:8080`. Tu pourras ajouter un domaine + HTTPS plus tard (voir tout en bas).
 
 ## 1. Prérequis sur le VPS
 
@@ -99,9 +100,29 @@ docker compose down                   # arrêter (garde les volumes/données)
 docker compose exec mysql sh -c 'mysqldump -u root -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' > backup_$(date +%Y%m%d).sql
 ```
 
-## 9. Ajouter un domaine + HTTPS plus tard
+## 9. Application mobile de check-in (PWA)
+
+Accessible sur `http://IP_DU_VPS:8080`. C'est une PWA (Progressive Web App) : depuis le navigateur mobile (Chrome/Safari), ouvrir l'URL puis "Ajouter à l'écran d'accueil" pour l'installer comme une vraie app, avec icône.
+
+Utilisation le jour J :
+
+1. Se connecter (même compte que le dashboard web) — nécessite une connexion la première fois.
+2. Ouvrir le mariage, cliquer **Télécharger** pendant qu'il y a du réseau (Wi-Fi du lieu, 4G...) : la liste complète des invités (nom, table, type Couple/Singleton, code d'invitation) est mise en cache sur le téléphone.
+3. Scanner les QR codes : ça fonctionne désormais **même sans connexion** — chaque scan affiche immédiatement le nom de l'invité, sa table et son type d'invitation, et passe en "Arrivé" localement.
+4. Dès que la connexion revient (même brièvement), les check-ins enregistrés hors-ligne se synchronisent automatiquement avec le serveur (bouton manuel de synchro aussi disponible). Le compteur "en attente de synchro" indique combien de scans n'ont pas encore été envoyés.
+
+Le firewall doit aussi autoriser ce port :
+
+```bash
+ufw allow 8080/tcp
+```
+
+## 10. Ajouter un domaine + HTTPS plus tard
 
 Quand un nom de domaine pointe vers le VPS :
+
 1. Mets à jour `FRONTEND_URL` dans `.env` avec `https://tondomaine.com`.
-2. Mets en place un reverse proxy TLS devant le conteneur `frontend` (le plus simple : installer `nginx` + `certbot` directement sur l'hôte en frontal du port 80 du conteneur, ou remplacer le service `frontend` par une image Caddy qui gère Let's Encrypt automatiquement). Dis-moi quand tu en es là, je peux préparer cette partie.
+2. Mets en place un reverse proxy TLS devant les conteneurs `frontend`/`checkin` (le plus simple : installer `nginx` + `certbot` directement sur l'hôte en frontal des ports 80/8080 des conteneurs, ou remplacer ces services par une image Caddy qui gère Let's Encrypt automatiquement). Dis-moi quand tu en es là, je peux préparer cette partie.
 3. Redémarre : `docker compose up -d`.
+
+Note : une PWA installée nécessite HTTPS pour fonctionner hors-ligne sur la plupart des navigateurs mobiles modernes (le Service Worker qui permet le mode hors-ligne est bloqué en HTTP sauf sur `localhost`). Tant qu'il n'y a pas de domaine + HTTPS, l'app de check-in reste utilisable dans le navigateur mais le cache hors-ligne (IndexedDB) et l'installation sur écran d'accueil peuvent être limités selon le navigateur. Pour un vrai usage terrain sans réseau, prévoir un nom de domaine + HTTPS avant le jour J.

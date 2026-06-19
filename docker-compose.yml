@@ -59,6 +59,17 @@ services:
     networks:
       - wedding_net
 
+  checkin:
+    build:
+      context: ./checkin-app
+    restart: unless-stopped
+    ports:
+      - "${CHECKIN_HTTP_PORT:-8080}:80"
+    depends_on:
+      - backend
+    networks:
+      - wedding_net
+
 volumes:
   mysql_data:
   backend_uploads:

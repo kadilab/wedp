@@ -272,6 +272,159 @@ router.get('/:weddingId/live', authenticate, async (req, res) => {
 });
 
 /**
+ * @route   GET /api/checkin/:weddingId/manifest
+ * @desc    Full guest + invitation list for offline check-in (mobile app download)
+ * @access  Private
+ */
+router.get('/:weddingId/manifest', authenticate, async (req, res) => {
+  try {
+    const { weddingId } = req.params;
+
+    const wedding = await prisma.wedding.findFirst({
+      where: {
+        id: weddingId,
+        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
+      },
+      include: {
+        guests: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            tableNumber: true,
+            plusOnes: true,
+            rsvpStatus: true,
+            invitation: { select: { uniqueCode: true } }
+          }
+        },
+        checkIns: {
+          select: { guestId: true, checkedInAt: true, plusOnesPresent: true }
+        }
+      }
+    });
+
+    if (!wedding) {
+      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+    }
+
+    const checkedInMap = new Map(wedding.checkIns.map(c => [c.guestId, c]));
+
+    const guests = wedding.guests
+      .filter(g => g.invitation?.uniqueCode)
+      .map(g => ({
+        guestId: g.id,
+        uniqueCode: g.invitation.uniqueCode,
+        firstName: g.firstName,
+        lastName: g.lastName,
+        tableNumber: g.tableNumber,
+        plusOnes: g.plusOnes,
+        invitationType: g.plusOnes > 0 ? 'Couple' : 'Singleton',
+        rsvpStatus: g.rsvpStatus,
+        checkedIn: checkedInMap.has(g.id),
+        checkedInAt: checkedInMap.get(g.id)?.checkedInAt || null
+      }));
+
+    res.json({
+      wedding: {
+        id: wedding.id,
+        brideName: wedding.brideName,
+        groomName: wedding.groomName,
+        weddingDate: wedding.weddingDate
+      },
+      guests,
+      generatedAt: new Date()
+    });
+  } catch (error) {
+    logger.error('Get check-in manifest error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+/**
+ * @route   POST /api/checkin/:weddingId/sync
+ * @desc    Bulk-sync check-ins recorded offline by the mobile app
+ * @access  Private
+ */
+router.post('/:weddingId/sync', authenticate, async (req, res) => {
+  try {
+    const { weddingId } = req.params;
+    const scans = Array.isArray(req.body.scans) ? req.body.scans : [];
+
+    const wedding = await prisma.wedding.findFirst({
+      where: {
+        id: weddingId,
+        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
+      }
+    });
+
+    if (!wedding) {
+      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+    }
+
+    const io = req.app.get('io');
+    const results = [];
+
+    for (const scan of scans) {
+      const { uniqueCode, scannedAt, deviceId } = scan;
+
+      const invitation = await prisma.invitation.findUnique({
+        where: { uniqueCode },
+        include: { guest: true }
+      });
+
+      if (!invitation || invitation.weddingId !== weddingId) {
+        results.push({ uniqueCode, status: 'invalid' });
+        continue;
+      }
+
+      const existing = await prisma.checkIn.findFirst({
+        where: { guestId: invitation.guestId, weddingId }
+      });
+
+      if (existing) {
+        results.push({ uniqueCode, status: 'duplicate', guestId: invitation.guestId });
+        continue;
+      }
+
+      const checkIn = await prisma.checkIn.create({
+        data: {
+          weddingId,
+          guestId: invitation.guestId,
+          checkedInBy: req.user.id,
+          deviceInfo: deviceId || 'mobile-offline-sync',
+          plusOnesPresent: invitation.guest.plusOnes,
+          checkedInAt: scannedAt ? new Date(scannedAt) : new Date()
+        }
+      });
+
+      await prisma.wedding.update({
+        where: { id: weddingId },
+        data: { confirmedGuests: { increment: 1 + invitation.guest.plusOnes } }
+      });
+
+      if (io) {
+        io.to(`wedding-${weddingId}`).emit('guest-checked-in', {
+          weddingId,
+          guest: {
+            id: invitation.guest.id,
+            name: `${invitation.guest.firstName} ${invitation.guest.lastName}`,
+            tableNumber: invitation.guest.tableNumber
+          },
+          checkIn
+        });
+      }
+
+      results.push({ uniqueCode, status: 'ok', guestId: invitation.guestId, checkInId: checkIn.id });
+    }
+
+    res.json({ results });
+  } catch (error) {
+    logger.error('Check-in sync error:', error);
+    res.status(500).json({ error: 'Erreur lors de la synchronisation' });
+  }
+});
+
+/**
  * @route   DELETE /api/checkin/:weddingId/:checkInId
  * @desc    Undo check-in
  * @access  Private
