@@ -5,7 +5,7 @@ import useSiteSettingsStore from '../stores/siteSettingsStore'
 
 export default function PublicLayout() {
   const { isAuthenticated, user } = useAuthStore()
-  const { siteName, siteLogo, logoHeight } = useSiteSettingsStore()
+  const { siteName, siteLogo, logoHeight, contactEmail, supportPhone } = useSiteSettingsStore()
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -102,8 +102,13 @@ export default function PublicLayout() {
             <div>
               <h3 className="font-semibold mb-4">Support</h3>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="mailto:support@weddinginvite.pro" className="hover:text-white transition-colors">Contact</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">FAQ</a></li>
+                {contactEmail && (
+                  <li><a href={`mailto:${contactEmail}`} className="hover:text-white transition-colors">{contactEmail}</a></li>
+                )}
+                {supportPhone && (
+                  <li><a href={`tel:${supportPhone}`} className="hover:text-white transition-colors">{supportPhone}</a></li>
+                )}
+                <li><a href="#contact" className="hover:text-white transition-colors">Contact</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Conditions d'utilisation</a></li>
               </ul>
             </div>

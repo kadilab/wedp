@@ -40,7 +40,7 @@ export default function AdminSettings() {
   const [logoPreview, setLogoPreview] = useState(null)
   const [logoHeight, setLogoHeight] = useState(32)
   const logoInputRef = useRef(null)
-  const { updateSiteName, updateSiteLogo, updateLogoHeight } = useSiteSettingsStore()
+  const { updateSiteName, updateSiteLogo, updateLogoHeight, updateContactInfo } = useSiteSettingsStore()
 
   const { data: settingsData, isLoading, isError, error: fetchError } = useQuery(
     'admin-settings',
@@ -85,6 +85,7 @@ export default function AdminSettings() {
       queryClient.invalidateQueries('admin-settings')
       updateSiteName(formData.siteName)
       updateLogoHeight(logoHeight)
+      updateContactInfo(formData.contactEmail, formData.supportPhone)
       toast.success('Paramètres enregistrés')
     },
     onError: (err) => toast.error(err.response?.data?.error || err.response?.data?.message || 'Erreur lors de la sauvegarde')
@@ -357,6 +358,7 @@ export default function AdminSettings() {
                       id="contactEmail"
                       type="email"
                       className="input"
+                      placeholder="contact@weddinginvite.pro"
                       value={formData.contactEmail}
                       onChange={(e) => updateField('contactEmail', e.target.value)}
                     />
@@ -369,11 +371,15 @@ export default function AdminSettings() {
                       id="supportPhone"
                       type="tel"
                       className="input"
+                      placeholder="+221 77 XXX XX XX"
                       value={formData.supportPhone}
                       onChange={(e) => updateField('supportPhone', e.target.value)}
                     />
                   </div>
                 </div>
+                <p className="text-xs text-gray-400">
+                  Cet email et ce numéro sont affichés publiquement dans la section Contact de la page d'accueil.
+                </p>
               </div>
             )}
 

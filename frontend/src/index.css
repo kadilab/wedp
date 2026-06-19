@@ -140,12 +140,16 @@
 
   /* Sidebar styles */
   .sidebar-link {
-    @apply flex items-center px-4 py-3 text-gray-600 rounded-lg 
-           hover:bg-primary-50 hover:text-primary-700 transition-all duration-200;
+    @apply flex items-center px-4 py-3 text-gray-600 rounded-lg border-l-[3px] border-transparent
+           hover:bg-primary-50 hover:text-primary-700 hover:translate-x-0.5 transition-all duration-200;
   }
 
   .sidebar-link-active {
-    @apply bg-primary-100 text-primary-700 font-medium;
+    @apply bg-primary-100 text-primary-700 font-medium border-primary-600;
+  }
+
+  .sidebar-section-label {
+    @apply px-4 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400;
   }
 
   /* Modal overlay */

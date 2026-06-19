@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import useSiteSettingsStore from '../../stores/siteSettingsStore'
 import {
   SparklesIcon,
   DevicePhoneMobileIcon,
@@ -8,10 +9,13 @@ import {
   HeartIcon,
   CheckCircleIcon,
   PhotoIcon,
-  CurrencyDollarIcon
+  CurrencyDollarIcon,
+  EnvelopeIcon,
+  PhoneIcon
 } from '@heroicons/react/24/outline'
 
 export default function Home() {
+  const { contactEmail, supportPhone } = useSiteSettingsStore()
   const features = [
     {
       icon: SparklesIcon,
@@ -261,6 +265,60 @@ export default function Home() {
                 </div>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Contact Section */}
+      <section id="contact" className="py-24 bg-gray-50">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl lg:text-4xl font-serif font-bold text-gray-900">
+              Une question ? Contactez-nous
+            </h2>
+            <p className="mt-4 text-xl text-gray-600">
+              Notre équipe vous répond rapidement, par email ou par téléphone
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+            <motion.a
+              href={contactEmail ? `mailto:${contactEmail}` : undefined}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              viewport={{ once: true }}
+              className={`bg-white rounded-2xl p-8 shadow-lg text-center transition-all ${
+                contactEmail ? 'hover:shadow-xl hover:-translate-y-1' : 'cursor-default opacity-75'
+              }`}
+            >
+              <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-primary-100 text-primary-600 mb-6">
+                <EnvelopeIcon className="h-8 w-8" />
+              </div>
+              <h3 className="text-xl font-serif font-bold text-gray-900 mb-2">Par email</h3>
+              <p className="text-gray-600">
+                {contactEmail || 'Adresse en cours de configuration'}
+              </p>
+            </motion.a>
+
+            <motion.a
+              href={supportPhone ? `tel:${supportPhone}` : undefined}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              viewport={{ once: true }}
+              className={`bg-white rounded-2xl p-8 shadow-lg text-center transition-all ${
+                supportPhone ? 'hover:shadow-xl hover:-translate-y-1' : 'cursor-default opacity-75'
+              }`}
+            >
+              <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-gold-100 text-gold-600 mb-6">
+                <PhoneIcon className="h-8 w-8" />
+              </div>
+              <h3 className="text-xl font-serif font-bold text-gray-900 mb-2">Par téléphone</h3>
+              <p className="text-gray-600">
+                {supportPhone || 'Numéro en cours de configuration'}
+              </p>
+            </motion.a>
           </div>
         </div>
       </section>

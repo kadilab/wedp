@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Environment variables (keep .env.example as the template)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Build output
+dist/
+build/
+
+# Uploads (user-generated runtime content, not source)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Prisma local database
+backend/prisma/*.db
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Misc caches
+.eslintcache
+*.tmp
