@@ -9,7 +9,11 @@ class SocketService {
   connect() {
     if (this.socket?.connected) return
 
-    this.socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+    // Dev: Vite doesn't proxy websockets, so talk to the backend directly.
+    // Prod: nginx proxies /socket.io/ on the same origin, so no URL is needed.
+    const socketUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000' : undefined)
+
+    this.socket = io(socketUrl, {
       transports: ['websocket', 'polling'],
       autoConnect: true
     })

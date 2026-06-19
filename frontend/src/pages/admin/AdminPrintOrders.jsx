@@ -383,7 +383,7 @@ export default function AdminPrintOrders() {
                     <div className="flex items-center justify-between mb-3">
                       <h5 className="font-medium text-indigo-700">PDF généré avec succès</h5>
                       <a
-                        href={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'}${printLayoutResult.pdfUrl}`}
+                        href={printLayoutResult.pdfUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn-primary text-sm flex items-center"
