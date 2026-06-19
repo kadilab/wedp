@@ -1,0 +1,565 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  CLIENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum WeddingStatus {
+  DRAFT
+  PENDING_PAYMENT
+  PENDING_ACTIVATION
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PrintOrderStatus {
+  PENDING
+  CONFIRMED
+  PRINTING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum RSVPStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+}
+
+enum PlanType {
+  BASIC
+  PREMIUM
+  VIP
+}
+
+enum LogAction {
+  LOGIN
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  PAYMENT
+  ACTIVATION
+  QR_SCAN
+}
+
+// ==================== TABLES ====================
+
+model User {
+  id                String      @id @default(uuid())
+  email             String      @unique
+  password          String
+  firstName         String      @map("first_name")
+  lastName          String      @map("last_name")
+  phone             String?
+  avatar            String?
+  role              UserRole    @default(CLIENT)
+  status            UserStatus  @default(ACTIVE)
+  planId            String?     @map("plan_id")
+  subscriptionStatus String    @default("NONE") @map("subscription_status") // NONE, PENDING, ACTIVE, EXPIRED
+  planExpiresAt     DateTime?   @map("plan_expires_at")
+  emailVerified     Boolean     @default(false) @map("email_verified")
+  emailVerifyToken  String?     @map("email_verify_token")
+  resetPasswordToken String?    @map("reset_password_token")
+  resetPasswordExpires DateTime? @map("reset_password_expires")
+  preferredLanguage String      @default("fr") @map("preferred_language")
+  darkMode          Boolean     @default(false) @map("dark_mode")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  plan              Plan?       @relation(fields: [planId], references: [id])
+  weddings          Wedding[]
+  payments          Payment[]
+  invitationOrders  InvitationOrder[]
+  logs              Log[]
+  couponsUsed       CouponUsage[]
+  printOrders       PrintOrder[]
+  templates         Template[]
+
+  @@map("users")
+}
+
+model Plan {
+  id                String      @id @default(uuid())
+  name              String      @unique
+  type              PlanType
+  price             Decimal     @db.Decimal(10, 2)
+  maxGuests         Int         @map("max_guests")
+  maxTemplates      Int         @map("max_templates")
+  customDomain      Boolean     @default(false) @map("custom_domain")
+  whatsappEnabled   Boolean     @default(false) @map("whatsapp_enabled")
+  emailEnabled      Boolean     @default(true) @map("email_enabled")
+  pdfEnabled        Boolean     @default(true) @map("pdf_enabled")
+  analyticsEnabled  Boolean     @default(false) @map("analytics_enabled")
+  prioritySupport   Boolean     @default(false) @map("priority_support")
+  description       String?     @db.Text
+  features          Json?
+  isActive          Boolean     @default(true) @map("is_active")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  users             User[]
+  weddings          Wedding[]
+  payments          Payment[]
+
+  @@map("plans")
+}
+
+model Template {
+  id                String      @id @default(uuid())
+  name              String
+  slug              String      @unique
+  description       String?     @db.Text
+  thumbnail         String?
+  previewImage      String?     @map("preview_image")
+  backgroundUrl     String?     @map("background_url")      // Image de fond principale du template
+  backgroundOpacity Int?        @default(100) @map("background_opacity")
+  htmlContent       String?     @db.LongText @map("html_content")
+  cssContent        String?     @db.LongText @map("css_content")
+  config            Json?       // Visual editor configuration: designElements positions, fonts, colors, etc.
+  category          String      @default("MODERN")
+  isPremium         Boolean     @default(false) @map("is_premium")
+  isActive          Boolean     @default(true) @map("is_active")
+  allowBackgroundChange Boolean @default(true) @map("allow_background_change")
+  colorScheme       Json?       @map("color_scheme")
+  previewImages     Json?       @map("preview_images")
+  canvasWidth       Int?        @default(800) @map("canvas_width")
+  canvasHeight      Int?        @default(1120) @map("canvas_height")
+  userId            String?     @map("user_id")
+  isCustom          Boolean     @default(false) @map("is_custom")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  user              User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weddings          Wedding[]
+
+  @@map("templates")
+}
+
+model Wedding {
+  id                String        @id @default(uuid())
+  userId            String        @map("user_id")
+  planId            String?       @map("plan_id")
+  templateId        String?       @map("template_id")
+  
+  // Wedding Details
+  brideName         String        @map("bride_name")
+  groomName         String        @map("groom_name")
+  weddingDate       DateTime      @map("wedding_date")
+  ceremonyTime      String?       @map("ceremony_time")
+  receptionTime     String?       @map("reception_time")
+  
+  // Programme du mariage (étapes avec dates et heures)
+  program           Json?         // [{type: 'commune'|'eglise'|'reception', title, date, time, venue, address}]
+  
+  // Étapes individuelles (rétrocompatibilité)
+  communeDate       DateTime?     @map("commune_date")
+  communeTime       String?       @map("commune_time")
+  communeVenue      String?       @map("commune_venue")
+  communeAddress    String?       @db.Text @map("commune_address")
+  
+  egliseDate        DateTime?     @map("eglise_date")
+  egliseTime        String?       @map("eglise_time")
+  egliseVenue       String?       @map("eglise_venue")
+  egliseAddress     String?       @db.Text @map("eglise_address")
+  
+  receptionDate     DateTime?     @map("reception_date")
+  receptionStartTime String?      @map("reception_start_time")
+  receptionVenue    String?       @map("reception_venue")
+  receptionAddress  String?       @db.Text @map("reception_address")
+  
+  // Location (lieu principal/par défaut)
+  venueName         String?       @map("venue_name")
+  venueAddress      String?       @db.Text @map("venue_address")
+  venueCity         String?       @map("venue_city")
+  venueCountry      String?       @map("venue_country")
+  venueMapUrl       String?       @db.Text @map("venue_map_url")
+  
+  // Customization
+  customMessage     String?       @db.Text @map("custom_message")
+  primaryColor      String?       @default("#D4AF37") @map("primary_color")
+  secondaryColor    String?       @default("#FFFFFF") @map("secondary_color")
+  textColor         String?       @map("text_color")
+  bgColor           String?       @map("bg_color")
+  fontFamily        String?       @default("Playfair Display") @map("font_family")
+  coverPhoto        String?       @map("cover_photo")
+  galleryPhotos     Json?         @map("gallery_photos")
+  logo              String?
+  musicUrl          String?       @map("music_url")
+  
+  // Backgrounds
+  backgroundImage   String?       @map("background_image")
+  backgroundType    String?       @default("color") @map("background_type") // color, image, gradient
+  backgroundGradient String?      @map("background_gradient")
+  backgroundOpacity Int?          @default(100) @map("background_opacity")
+  
+  // QR Code Customization
+  qrCodeStyle       String?       @default("classic") @map("qr_code_style") // classic, rounded, dots, elegant
+  qrCodeColor       String?       @default("#000000") @map("qr_code_color")
+  qrCodeBgColor     String?       @default("#FFFFFF") @map("qr_code_bg_color")
+  qrCodeLogo        String?       @map("qr_code_logo")
+  qrCodeSize        Int?          @default(300) @map("qr_code_size")
+  
+  // Print Service
+  wantsPrintService Boolean       @default(false) @map("wants_print_service")
+  printQuantity     Int?          @map("print_quantity")
+  printPaperType    String?       @map("print_paper_type") // standard, premium, luxury
+  printFinish       String?       @map("print_finish") // mat, glossy, satin
+  printSize         String?       @map("print_size") // A5, A6, custom
+  printNotes        String?       @db.Text @map("print_notes")
+  
+  // Extra Personalization
+  couplePhoto       String?       @map("couple_photo")
+  dressCode         String?       @map("dress_code")
+  eventTheme        String?       @map("event_theme")
+  rsvpDeadline      DateTime?     @map("rsvp_deadline")
+  additionalInfo    String?       @db.Text @map("additional_info")
+  socialLinks       Json?         @map("social_links") // {instagram, website, hashtag}
+  tables            Json?         // ["Table VIP", "Table 1", "Table 2", ...] - noms des tables prédéfinis
+  
+  // Custom Domain
+  customDomain      String?       @unique @map("custom_domain")
+  subdomain         String?       @unique
+  
+  // Status
+  status            WeddingStatus @default(DRAFT)
+  isPublished       Boolean       @default(false) @map("is_published")
+  publishedAt       DateTime?     @map("published_at")
+  
+  // Metadata
+  slug              String        @unique
+  qrCodeUrl         String?       @map("qr_code_url")
+  totalGuests       Int           @default(0) @map("total_guests")
+  confirmedGuests   Int           @default(0) @map("confirmed_guests")
+  
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan              Plan?         @relation(fields: [planId], references: [id])
+  template          Template?     @relation(fields: [templateId], references: [id])
+  guests            Guest[]
+  invitations       Invitation[]
+  payments          Payment[]
+  invitationOrders  InvitationOrder[]
+  checkIns          CheckIn[]
+  printOrders       PrintOrder[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("weddings")
+}
+
+model Guest {
+  id                String      @id @default(uuid())
+  weddingId         String      @map("wedding_id")
+  
+  firstName         String      @map("first_name")
+  lastName          String      @map("last_name")
+  email             String?
+  phone             String?
+  tableNumber       String?     @map("table_number")
+  plusOnes          Int         @default(0) @map("plus_ones")
+  dietaryRestrictions String?   @db.Text @map("dietary_restrictions")
+  notes             String?     @db.Text
+  
+  rsvpStatus        RSVPStatus  @default(PENDING) @map("rsvp_status")
+  rsvpDate          DateTime?   @map("rsvp_date")
+  rsvpMessage       String?     @db.Text @map("rsvp_message")
+  
+  invitationSent    Boolean     @default(false) @map("invitation_sent")
+  invitationSentAt  DateTime?   @map("invitation_sent_at")
+  invitationViewed  Boolean     @default(false) @map("invitation_viewed")
+  invitationViewedAt DateTime?  @map("invitation_viewed_at")
+  
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  wedding           Wedding     @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  invitation        Invitation?
+  checkIns          CheckIn[]
+
+  @@unique([weddingId, email])
+  @@index([weddingId])
+  @@map("guests")
+}
+
+model Invitation {
+  id                String      @id @default(uuid())
+  weddingId         String      @map("wedding_id")
+  guestId           String      @unique @map("guest_id")
+  
+  uniqueCode        String      @unique @map("unique_code")
+  qrCodeData        String      @db.Text @map("qr_code_data")
+  qrCodeUrl         String?     @db.Text @map("qr_code_url")
+  pdfUrl            String?     @db.Text @map("pdf_url")
+  imageUrl          String?     @db.Text @map("image_url")
+  shortUrl          String?     @map("short_url")
+  
+  viewCount         Int         @default(0) @map("view_count")
+  lastViewedAt      DateTime?   @map("last_viewed_at")
+  
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  wedding           Wedding     @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  guest             Guest       @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@index([weddingId])
+  @@index([uniqueCode])
+  @@map("invitations")
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  userId            String        @map("user_id")
+  weddingId         String?       @map("wedding_id")
+  planId            String?       @map("plan_id")
+  
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("USD")
+  method            String?
+  reference         String?
+  transactionId     String?       @map("transaction_id")
+  proofUrl          String?       @map("proof_url")
+  
+  status            PaymentStatus @default(PENDING)
+  requestedAt       DateTime      @default(now()) @map("requested_at")
+  processedAt       DateTime?     @map("processed_at")
+  processedBy       String?       @map("processed_by")
+  adminNote         String?       @db.Text @map("admin_note")
+  
+  couponId          String?       @map("coupon_id")
+  discountAmount    Decimal?      @db.Decimal(10, 2) @map("discount_amount")
+  
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wedding           Wedding?      @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  plan              Plan?         @relation(fields: [planId], references: [id])
+  coupon            Coupon?       @relation(fields: [couponId], references: [id])
+
+  @@index([userId])
+  @@index([weddingId])
+  @@index([status])
+  @@map("payments")
+}
+
+model InvitationOrder {
+  id              String        @id @default(uuid())
+  userId          String        @map("user_id")
+  weddingId       String        @map("wedding_id")
+
+  quantity        Int
+  unitPrice       Decimal       @db.Decimal(10, 2) @map("unit_price")
+  totalAmount     Decimal       @db.Decimal(10, 2) @map("total_amount")
+  currency        String        @default("USD")
+
+  paymentProvider String?       @map("payment_provider")
+  payerPhone      String?       @map("payer_phone")
+  transactionId   String?       @map("transaction_id")
+  proofUrl        String?       @map("proof_url")
+
+  status          PaymentStatus @default(PENDING)
+  submittedAt     DateTime?     @map("submitted_at")
+  processedAt     DateTime?     @map("processed_at")
+  processedBy     String?       @map("processed_by")
+  adminNote       String?       @db.Text @map("admin_note")
+
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wedding         Wedding       @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([weddingId])
+  @@index([status])
+  @@map("invitation_orders")
+}
+
+model Coupon {
+  id                String      @id @default(uuid())
+  code              String      @unique
+  description       String?
+  discountType      String      @default("percentage") @map("discount_type") // percentage or fixed
+  discountValue     Decimal     @db.Decimal(10, 2) @map("discount_value")
+  maxUses           Int?        @map("max_uses")
+  usedCount         Int         @default(0) @map("used_count")
+  minPurchase       Decimal?    @db.Decimal(10, 2) @map("min_purchase")
+  validFrom         DateTime    @default(now()) @map("valid_from")
+  validUntil        DateTime?   @map("valid_until")
+  isActive          Boolean     @default(true) @map("is_active")
+  
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  payments          Payment[]
+  usages            CouponUsage[]
+
+  @@map("coupons")
+}
+
+model CouponUsage {
+  id                String      @id @default(uuid())
+  couponId          String      @map("coupon_id")
+  userId            String      @map("user_id")
+  usedAt            DateTime    @default(now()) @map("used_at")
+
+  coupon            Coupon      @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, userId])
+  @@map("coupon_usages")
+}
+
+model CheckIn {
+  id                String      @id @default(uuid())
+  weddingId         String      @map("wedding_id")
+  guestId           String      @map("guest_id")
+  
+  checkedInAt       DateTime    @default(now()) @map("checked_in_at")
+  checkedInBy       String?     @map("checked_in_by")
+  deviceInfo        String?     @map("device_info")
+  location          String?
+  plusOnesPresent   Int         @default(0) @map("plus_ones_present")
+  notes             String?     @db.Text
+
+  wedding           Wedding     @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  guest             Guest       @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@index([weddingId])
+  @@index([guestId])
+  @@map("check_ins")
+}
+
+model Log {
+  id                String      @id @default(uuid())
+  userId            String?     @map("user_id")
+  action            LogAction
+  entity            String?
+  entityId          String?     @map("entity_id")
+  details           Json?
+  ipAddress         String?     @map("ip_address")
+  userAgent         String?     @db.Text @map("user_agent")
+  
+  createdAt         DateTime    @default(now()) @map("created_at")
+
+  user              User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("logs")
+}
+
+model Setting {
+  id                String      @id @default(uuid())
+  key               String      @unique
+  value             String      @db.Text
+  type              String      @default("string")
+  description       String?
+  
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+model Notification {
+  id                String      @id @default(uuid())
+  userId            String      @map("user_id")
+  type              String
+  title             String
+  message           String      @db.Text
+  data              Json?
+  isRead            Boolean     @default(false) @map("is_read")
+  readAt            DateTime?   @map("read_at")
+  
+  createdAt         DateTime    @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+model PrintOrder {
+  id                String            @id @default(uuid())
+  weddingId         String            @map("wedding_id")
+  userId            String            @map("user_id")
+  
+  quantity          Int
+  paperType         String            @default("premium") @map("paper_type")
+  finish            String            @default("mat")
+  size              String            @default("A5")
+  notes             String?           @db.Text
+  
+  price             Decimal           @db.Decimal(10, 2)
+  status            PrintOrderStatus  @default(PENDING)
+  
+  shippingAddress   String?           @db.Text @map("shipping_address")
+  shippingCity      String?           @map("shipping_city")
+  shippingCountry   String?           @map("shipping_country")
+  shippingPhone     String?           @map("shipping_phone")
+  trackingNumber    String?           @map("tracking_number")
+  
+  estimatedDelivery DateTime?         @map("estimated_delivery")
+  processedAt       DateTime?         @map("processed_at")
+  shippedAt         DateTime?         @map("shipped_at")
+  deliveredAt       DateTime?         @map("delivered_at")
+  
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  wedding           Wedding           @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([weddingId])
+  @@index([userId])
+  @@index([status])
+  @@map("print_orders")
+}
+
+model BackgroundImage {
+  id                String      @id @default(uuid())
+  name              String
+  url               String
+  thumbnailUrl      String?     @map("thumbnail_url")
+  category          String      @default("general") // floral, geometric, watercolor, minimal, nature, texture
+  isPublic          Boolean     @default(true) @map("is_public")
+  uploadedBy        String?     @map("uploaded_by")
+  
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  @@map("background_images")
+}

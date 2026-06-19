@@ -1,0 +1,54 @@
+{
+  "name": "wedding-invite-pro-backend",
+  "version": "1.0.0",
+  "description": "WeddingInvite Pro - Professional Digital Wedding Invitation SaaS Platform",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "build": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:push": "prisma db push",
+    "prisma:seed": "node prisma/seed.js",
+    "seed:templates": "node prisma/seed-templates.js",
+    "prisma:studio": "prisma studio"
+  },
+  "keywords": [
+    "wedding",
+    "invitation",
+    "qrcode",
+    "saas"
+  ],
+  "author": "WeddingInvite Pro",
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/client": "^5.10.0",
+    "archiver": "^6.0.1",
+    "axios": "^1.13.4",
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.1.0",
+    "i18next": "^23.8.2",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.8",
+    "pdfkit": "^0.14.0",
+    "puppeteer": "^21.7.0",
+    "qrcode": "^1.5.3",
+    "socket.io": "^4.7.4",
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3",
+    "prisma": "^5.10.0"
+  }
+}
