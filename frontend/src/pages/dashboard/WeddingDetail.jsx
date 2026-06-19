@@ -203,7 +203,7 @@ export default function WeddingDetail() {
         <div className="stat-card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="stat-value">{stats.confirmed || 0}</p>
+              <p className="stat-value">{stats.rsvp?.confirmed || 0}</p>
               <p className="stat-label">Confirmés</p>
             </div>
             <TicketIcon className="h-8 w-8 text-green-500" />
@@ -212,7 +212,7 @@ export default function WeddingDetail() {
         <div className="stat-card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="stat-value">{stats.pending || 0}</p>
+              <p className="stat-value">{stats.rsvp?.pending || 0}</p>
               <p className="stat-label">En attente</p>
             </div>
             <ClockIcon className="h-8 w-8 text-yellow-500" />
@@ -221,7 +221,7 @@ export default function WeddingDetail() {
         <div className="stat-card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="stat-value">{stats.checkedIn || 0}</p>
+              <p className="stat-value">{stats.checkIns?.unique || 0}</p>
               <p className="stat-label">Check-ins</p>
             </div>
             <QrCodeIcon className="h-8 w-8 text-primary-500" />

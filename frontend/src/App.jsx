@@ -23,6 +23,7 @@ import WeddingEdit from './pages/dashboard/WeddingEdit'
 import Guests from './pages/dashboard/Guests'
 import Invitations from './pages/dashboard/Invitations'
 import CheckIn from './pages/dashboard/CheckIn'
+import WeddingStats from './pages/dashboard/WeddingStats'
 import Templates from './pages/dashboard/Templates'
 import Payments from './pages/dashboard/Payments'
 import PrintOrders from './pages/dashboard/PrintOrders'
@@ -92,6 +93,7 @@ function App() {
         <Route path="/weddings/:id/guests" element={<Guests />} />
         <Route path="/weddings/:id/invitations" element={<Invitations />} />
         <Route path="/weddings/:id/checkin" element={<CheckIn />} />
+        <Route path="/weddings/:id/stats" element={<WeddingStats />} />
         <Route path="/templates" element={<Templates />} />
         <Route path="/payments" element={<Payments />} />
         <Route path="/print-orders" element={<PrintOrders />} />
