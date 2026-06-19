@@ -424,30 +424,6 @@ export default function WeddingDetail() {
       {/* Gestion des tables */}
       <TableManager weddingId={id} />
 
-      {/* Public Link */}
-      <div className="bg-gradient-to-r from-primary-50 to-gold-50 rounded-xl p-6 border border-primary-100">
-        <h3 className="text-lg font-serif font-bold text-gray-900 mb-2">
-          Lien public de l'invitation
-        </h3>
-        <p className="text-gray-600 mb-4">
-          Partagez ce lien avec vos invités pour qu'ils puissent voir leurs invitations.
-        </p>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 bg-white px-4 py-2 rounded-lg text-sm text-gray-700 border">
-            {window.location.origin}/i/{wedding.slug}
-          </code>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(`${window.location.origin}/i/${wedding.slug}`)
-              toast.success('Lien copié !')
-            }}
-            className="btn-primary"
-          >
-            Copier
-          </button>
-        </div>
-      </div>
-
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
