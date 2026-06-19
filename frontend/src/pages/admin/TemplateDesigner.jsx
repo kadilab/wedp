@@ -1,0 +1,2337 @@
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from 'react-query'
+import { adminAPI, templateAPI } from '../../services/api'
+import toast from 'react-hot-toast'
+import {
+  ArrowLeftIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  TrashIcon,
+  PlusIcon,
+  PhotoIcon,
+  ArrowUpTrayIcon,
+  LockClosedIcon,
+  LockOpenIcon,
+  DocumentArrowDownIcon,
+  Squares2X2Icon,
+  CursorArrowRaysIcon,
+  ArrowPathIcon,
+  CheckIcon,
+  Cog6ToothIcon,
+  SparklesIcon,
+  StarIcon,
+  ArrowsPointingOutIcon
+} from '@heroicons/react/24/outline'
+
+// ===================== CONSTANTS =====================
+
+const FONT_FAMILIES = [
+  'Playfair Display', 'Great Vibes', 'Cormorant Garamond', 'Montserrat',
+  'Lora', 'Dancing Script', 'Josefin Sans', 'Crimson Text',
+  'Poppins', 'Raleway', 'Roboto', 'Open Sans', 'Merriweather',
+  'Satisfy', 'Pacifico', 'Alex Brush', 'Sacramento', 'Tangerine'
+]
+
+const DEFAULT_CANVAS_WIDTH = 800
+const DEFAULT_CANVAS_HEIGHT = 1120
+const MAX_CANVAS_DIMENSION = 4000
+const MIN_CANVAS_DIMENSION = 300
+
+const FORMAT_PRESETS = [
+  { id: 'a5-portrait', label: 'A5 Portrait', w: 874, h: 1240, desc: '148×210 mm' },
+  { id: 'a5-landscape', label: 'A5 Paysage', w: 1240, h: 874, desc: '210×148 mm' },
+  { id: 'a6-portrait', label: 'A6 Portrait', w: 620, h: 874, desc: '105×148 mm' },
+  { id: 'a6-landscape', label: 'A6 Paysage', w: 874, h: 620, desc: '148×105 mm' },
+  { id: 'dl', label: 'DL (Long)', w: 585, h: 1240, desc: '99×210 mm' },
+  { id: 'square', label: 'Carré', w: 900, h: 900, desc: '150×150 mm' },
+  { id: 'instagram-post', label: 'Post Instagram', w: 1080, h: 1080, desc: '1080×1080 px' },
+  { id: 'instagram-story', label: 'Story', w: 1080, h: 1920, desc: '1080×1920 px' },
+  { id: 'custom', label: 'Personnalisé', w: null, h: null, desc: 'Dimensions libres' }
+]
+
+const DEFAULT_MARGINS = { top: 0, right: 0, bottom: 0, left: 0 }
+
+// Helper: hex color + opacity (0-100) -> rgba() string, used for the photo border style
+const hexToRgba = (hex, alphaPercent = 100) => {
+  let h = (hex || '#FFFFFF').replace('#', '')
+  if (h.length === 3) h = h.split('').map(c => c + c).join('')
+  const r = parseInt(h.substring(0, 2), 16) || 0
+  const g = parseInt(h.substring(2, 4), 16) || 0
+  const b = parseInt(h.substring(4, 6), 16) || 0
+  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(100, alphaPercent)) / 100})`
+}
+
+const DEFAULT_ELEMENTS = [
+  {
+    id: 'title',
+    type: 'text',
+    label: 'Titre',
+    content: 'Invitation au Mariage',
+    x: 100, y: 40, width: 600, height: 40,
+    fontSize: 14, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#8B7355', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 4, textTransform: 'uppercase', locked: false, textShadow: 'none', shadowColor: '#000000'
+  },
+  {
+    id: 'brideGroomNames',
+    type: 'names',
+    label: 'Noms des mariés',
+    content: '{{bride_name}} & {{groom_name}}',
+    x: 50, y: 100, width: 700, height: 80,
+    fontSize: 48, fontFamily: 'Great Vibes', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#2D2D2D', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'guestName',
+    type: 'guest',
+    label: "Nom de l'invité",
+    content: 'Cher(e) {{guest_name}}',
+    x: 150, y: 200, width: 500, height: 40,
+    fontSize: 20, fontFamily: 'Cormorant Garamond', fontWeight: 'normal', fontStyle: 'italic',
+    color: '#4A4A4A', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'invitationType',
+    type: 'invitationType',
+    label: "Type d'invitation",
+    content: '{{invitation_type}}',
+    x: 250, y: 250, width: 300, height: 30,
+    fontSize: 14, fontFamily: 'Montserrat', fontWeight: 'bold', fontStyle: 'normal',
+    color: '#8B7355', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 1, textTransform: 'uppercase', locked: false
+  },
+  {
+    id: 'message',
+    type: 'message',
+    label: 'Message personnalisé',
+    content: '{{custom_message}}',
+    x: 100, y: 290, width: 600, height: 50,
+    fontSize: 14, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'italic',
+    color: '#666666', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'date',
+    type: 'date',
+    label: 'Date du mariage',
+    content: '{{wedding_date}}',
+    x: 200, y: 360, width: 400, height: 40,
+    fontSize: 24, fontFamily: 'Playfair Display', fontWeight: 'bold', fontStyle: 'normal',
+    color: '#2D2D2D', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 1, textTransform: 'none', locked: false
+  },
+  {
+    id: 'time',
+    type: 'time',
+    label: 'Heure de cérémonie',
+    content: 'à {{ceremony_time}}',
+    x: 280, y: 410, width: 240, height: 30,
+    fontSize: 16, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#666666', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  // ======== Programme: Commune ========
+  {
+    id: 'communeLabel',
+    type: 'communeLabel',
+    label: 'Commune — Titre',
+    content: '🏛️ Commune',
+    iconUrl: '',
+    x: 50, y: 460, width: 220, height: 30,
+    fontSize: 14, fontFamily: 'Montserrat', fontWeight: 'bold', fontStyle: 'normal',
+    color: '#2D2D2D', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'communeDate',
+    type: 'communeDate',
+    label: 'Commune — Date/Heure',
+    content: '{{commune_date}} à {{commune_time}}',
+    x: 50, y: 492, width: 220, height: 24,
+    fontSize: 11, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#666666', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'communeVenue',
+    type: 'communeVenue',
+    label: 'Commune — Lieu',
+    content: '{{commune_venue}}',
+    x: 50, y: 518, width: 220, height: 24,
+    fontSize: 12, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'italic',
+    color: '#8B7355', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'communeAddress',
+    type: 'communeAddress',
+    label: 'Commune — Adresse',
+    content: '{{commune_address}}',
+    x: 50, y: 544, width: 220, height: 22,
+    fontSize: 10, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#999999', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  // ======== Programme: Église ========
+  {
+    id: 'egliseLabel',
+    type: 'egliseLabel',
+    label: 'Église — Titre',
+    content: '⛪ Église',
+    iconUrl: '',
+    x: 290, y: 460, width: 220, height: 30,
+    fontSize: 14, fontFamily: 'Montserrat', fontWeight: 'bold', fontStyle: 'normal',
+    color: '#2D2D2D', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'egliseDate',
+    type: 'egliseDate',
+    label: 'Église — Date/Heure',
+    content: '{{eglise_date}} à {{eglise_time}}',
+    x: 290, y: 492, width: 220, height: 24,
+    fontSize: 11, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#666666', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'egliseVenue',
+    type: 'egliseVenue',
+    label: 'Église — Lieu',
+    content: '{{eglise_venue}}',
+    x: 290, y: 518, width: 220, height: 24,
+    fontSize: 12, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'italic',
+    color: '#8B7355', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'egliseAddress',
+    type: 'egliseAddress',
+    label: 'Église — Adresse',
+    content: '{{eglise_address}}',
+    x: 290, y: 544, width: 220, height: 22,
+    fontSize: 10, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#999999', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  // ======== Programme: Réception ========
+  {
+    id: 'receptionLabel',
+    type: 'receptionLabel',
+    label: 'Réception — Titre',
+    content: '🎉 Réception',
+    iconUrl: '',
+    x: 530, y: 460, width: 220, height: 30,
+    fontSize: 14, fontFamily: 'Montserrat', fontWeight: 'bold', fontStyle: 'normal',
+    color: '#2D2D2D', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'receptionDate',
+    type: 'receptionDate',
+    label: 'Réception — Date/Heure',
+    content: '{{reception_date}} à {{reception_time}}',
+    x: 530, y: 492, width: 220, height: 24,
+    fontSize: 11, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#666666', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'receptionVenue',
+    type: 'receptionVenue',
+    label: 'Réception — Lieu',
+    content: '{{reception_venue}}',
+    x: 530, y: 518, width: 220, height: 24,
+    fontSize: 12, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'italic',
+    color: '#8B7355', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'receptionAddress',
+    type: 'receptionAddress',
+    label: 'Réception — Adresse',
+    content: '{{reception_address}}',
+    x: 530, y: 544, width: 220, height: 22,
+    fontSize: 10, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#999999', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'qrCode',
+    type: 'qrcode',
+    label: 'QR Code',
+    content: '{{qr_code}}',
+    x: 300, y: 610, width: 200, height: 200,
+    fontSize: 12, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#333333', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'tableNumber',
+    type: 'table',
+    label: 'Numéro de table',
+    content: 'Table {{table_number}}',
+    x: 300, y: 830, width: 200, height: 35,
+    fontSize: 16, fontFamily: 'Montserrat', fontWeight: 'bold', fontStyle: 'normal',
+    color: '#8B7355', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'rsvpDate',
+    type: 'rsvp',
+    label: 'Date RSVP',
+    content: 'RSVP avant le {{rsvp_date}}',
+    x: 200, y: 880, width: 400, height: 30,
+    fontSize: 12, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#999999', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  }
+]
+
+// Helper: parse date to separate components (day name, day num, month, year)
+const parseDateComponents = (dateStr) => {
+  if (!dateStr) return { day_name: '', day_num: '', month_name: '', year: '' }
+  
+  // Parse format "20 Juin 2026" or "1er Mai 2026"
+  const match = dateStr.match(/(\d{1,2})(er)?\s+([A-Za-zÀ-ÿ]+)\s+(\d{4})/)
+  if (!match) return { day_name: '', day_num: '', month_name: '', year: '' }
+  
+  const dayNum = match[1]
+  const monthNameRaw = match[3]
+  const monthNameUpper = monthNameRaw.toUpperCase()
+  const year = match[4]
+  
+  // Month mapping
+  const months = {
+    'janvier': 0, 'février': 1, 'mars': 2, 'avril': 3, 'mai': 4, 'juin': 5,
+    'juillet': 6, 'août': 7, 'septembre': 8, 'octobre': 9, 'novembre': 10, 'décembre': 11,
+    'JANVIER': 0, 'FÉVRIER': 1, 'MARS': 2, 'AVRIL': 3, 'MAI': 4, 'JUIN': 5,
+    'JUILLET': 6, 'AOÛT': 7, 'SEPTEMBRE': 8, 'OCTOBRE': 9, 'NOVEMBRE': 10, 'DÉCEMBRE': 11
+  }
+  
+  const dayNames = ['DIMANCHE', 'LUNDI', 'MARDI', 'MERCREDI', 'JEUDI', 'VENDREDI', 'SAMEDI']
+  const monthNum = months[monthNameUpper]
+  
+  if (monthNum !== undefined) {
+    const date = new Date(parseInt(year), monthNum, parseInt(dayNum))
+    const dayName = dayNames[date.getDay()] || ''
+    
+    return {
+      day_name: dayName || '',
+      day_num: dayNum || '',
+      month_name: monthNameUpper || '',
+      year: year || ''
+    }
+  }
+  return { day_name: '', day_num: '', month_name: '', year: '' }
+}
+
+const SAMPLE_DATA = {
+  bride_name: 'Marie',
+  groom_name: 'Jean',
+  guest_name: 'Sophie Dupont',
+  custom_message: 'Nous serions honorés de votre présence pour célébrer notre union',
+  wedding_date: '20 Juin 2026',
+  ceremony_time: '15h00',
+  table_number: 'VIP',
+  rsvp_date: '1er Mai 2026',
+  invitation_type: 'Couple',
+  qr_code: 'QR',
+  // Wedding Date — Separated components
+  wedding_day_name: parseDateComponents('20 Juin 2026').day_name || 'LUNDI',
+  wedding_day_num: parseDateComponents('20 Juin 2026').day_num || '20',
+  wedding_month_name: parseDateComponents('20 Juin 2026').month_name || 'JUIN',
+  wedding_year: parseDateComponents('20 Juin 2026').year || '2026',
+  // Programme — Commune
+  commune_date: '20 Juin 2026',
+  commune_time: '10h00',
+  commune_venue: 'Mairie de Dakar',
+  commune_address: 'Place de l\'Indépendance',
+  commune_day_name: parseDateComponents('20 Juin 2026').day_name || 'LUNDI',
+  commune_day_num: parseDateComponents('20 Juin 2026').day_num || '20',
+  commune_month_name: parseDateComponents('20 Juin 2026').month_name || 'JUIN',
+  commune_year: parseDateComponents('20 Juin 2026').year || '2026',
+  // Programme — Église
+  eglise_date: '20 Juin 2026',
+  eglise_time: '14h00',
+  eglise_venue: 'Cathédrale de Dakar',
+  eglise_address: 'Blvd de la République',
+  eglise_day_name: parseDateComponents('20 Juin 2026').day_name || 'LUNDI',
+  eglise_day_num: parseDateComponents('20 Juin 2026').day_num || '20',
+  eglise_month_name: parseDateComponents('20 Juin 2026').month_name || 'JUIN',
+  eglise_year: parseDateComponents('20 Juin 2026').year || '2026',
+  // Programme — Réception
+  reception_date: '20 Juin 2026',
+  reception_time: '18h00',
+  reception_venue: 'Château des Roses',
+  reception_address: '12 Rue des Fleurs, Dakar',
+  reception_day_name: parseDateComponents('20 Juin 2026').day_name || 'LUNDI',
+  reception_day_num: parseDateComponents('20 Juin 2026').day_num || '20',
+  reception_month_name: parseDateComponents('20 Juin 2026').month_name || 'JUIN',
+  reception_year: parseDateComponents('20 Juin 2026').year || '2026',
+  // RSVP Date — Separated components
+  rsvp_day_name: parseDateComponents('1er Mai 2026').day_name || 'MERCREDI',
+  rsvp_day_num: parseDateComponents('1er Mai 2026').day_num || '1',
+  rsvp_month_name: parseDateComponents('1er Mai 2026').month_name || 'MAI',
+  rsvp_year: parseDateComponents('1er Mai 2026').year || '2026'
+}
+
+// Helper: scale elements to fit any canvas dimensions
+const scaleElementsToCanvas = (els, targetW, targetH, refW = DEFAULT_CANVAS_WIDTH, refH = DEFAULT_CANVAS_HEIGHT) => {
+  const scaleX = targetW / refW
+  const scaleY = targetH / refH
+  return els.map(el => ({
+    ...el,
+    x: Math.round(el.x * scaleX),
+    y: Math.round(el.y * scaleY),
+    width: Math.round(el.width * scaleX),
+    height: Math.round(el.height * scaleY)
+  }))
+}
+
+const CATEGORIES = [
+  { value: 'ELEGANT', label: 'Élégant' },
+  { value: 'MODERN', label: 'Moderne' },
+  { value: 'ROMANTIC', label: 'Romantique' },
+  { value: 'MINIMALIST', label: 'Minimaliste' },
+  { value: 'TRADITIONAL', label: 'Traditionnel' }
+]
+
+// ===================== COMPONENT =====================
+
+export default function TemplateDesigner({ clientMode = false }) {
+  const params = useParams()
+  const templateId = params.id || params.templateId
+  const [searchParams] = useSearchParams()
+  const weddingId = searchParams.get('wedding')
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const isEditing = !!templateId
+
+  // Template metadata
+  const [templateName, setTemplateName] = useState('')
+  const [templateDescription, setTemplateDescription] = useState('')
+  const [templateCategory, setTemplateCategory] = useState('MODERN')
+  const [isPremium, setIsPremium] = useState(false)
+  const [previewImage, setPreviewImage] = useState('')
+
+  // Design state
+  const [elements, setElements] = useState(DEFAULT_ELEMENTS)
+  const [selectedId, setSelectedId] = useState(null)
+  const [selectedIds, setSelectedIds] = useState([]) // Multiple selection
+  const [backgroundUrl, setBackgroundUrl] = useState('')
+  const [backgroundOpacity, setBackgroundOpacity] = useState(100)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isResizing, setIsResizing] = useState(false)
+  const [resizeDir, setResizeDir] = useState(null)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [elementStart, setElementStart] = useState({ x: 0, y: 0, w: 0, h: 0 })
+  const [showGrid, setShowGrid] = useState(true)
+  const [zoom, setZoom] = useState(0.65)
+  const [saving, setSaving] = useState(false)
+  const [activePanel, setActivePanel] = useState('format') // format, background, elements, properties, settings
+  const [uploading, setUploading] = useState(false)
+  const [canvasWidth, setCanvasWidth] = useState(DEFAULT_CANVAS_WIDTH)
+  const [canvasHeight, setCanvasHeight] = useState(DEFAULT_CANVAS_HEIGHT)
+  const [selectedFormat, setSelectedFormat] = useState('a5-portrait')
+  const [margins, setMargins] = useState(DEFAULT_MARGINS)
+  const [showSelectionBox, setShowSelectionBox] = useState(false) // Selection box for multi-select
+  const [selectionStart, setSelectionStart] = useState({ x: 0, y: 0 })
+  const [selectionEnd, setSelectionEnd] = useState({ x: 0, y: 0 })
+  const [multiDragStart, setMultiDragStart] = useState({}) // id -> {x,y} snapshot taken when a drag starts
+
+  const canvasRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const iconInputRef = useRef(null)
+  const previewInputRef = useRef(null)
+
+  // Load existing template if editing
+  const { data: templateData, isLoading } = useQuery(
+    ['admin-template', templateId],
+    () => clientMode ? templateAPI.getOne(templateId) : adminAPI.getTemplate(templateId),
+    { enabled: isEditing }
+  )
+
+  // Initialize from existing template
+  useEffect(() => {
+    if (templateData?.data?.template) {
+      const t = templateData.data.template
+      console.log('Loading template DATA from server:', JSON.stringify(t, null, 2))
+      console.log('Loading template:', {
+        name: t.name,
+        hasConfig: !!t.config,
+        configKeys: t.config ? Object.keys(t.config) : [],
+        designElementsCount: t.config?.designElements?.length || 0,
+        backgroundUrl: t.backgroundUrl,
+        previewImage: t.previewImage,
+        canvasWidth: t.config?.canvasWidth || t.canvasWidth,
+        canvasHeight: t.config?.canvasHeight || t.canvasHeight
+      })
+
+      setTemplateName(t.name || '')
+      setTemplateDescription(t.description || '')
+      setTemplateCategory(t.category || 'MODERN')
+      setIsPremium(t.isPremium || false)
+      setPreviewImage(t.previewImage || '')
+      setBackgroundUrl(t.previewImage || t.backgroundUrl || t.config?.backgroundImage || '')
+      setBackgroundOpacity(t.backgroundOpacity ?? t.config?.backgroundOpacity ?? 100)
+      
+      // Load canvas dimensions first
+      if (t.config?.canvasWidth) {
+        console.log('Setting canvas width from config:', t.config.canvasWidth)
+        setCanvasWidth(t.config.canvasWidth)
+      }
+      if (t.config?.canvasHeight) {
+        console.log('Setting canvas height from config:', t.config.canvasHeight)
+        setCanvasHeight(t.config.canvasHeight)
+      }
+      
+      // Load design elements - with logging
+      if (t.config?.designElements) {
+        console.log('Found designElements in config:', typeof t.config.designElements, Array.isArray(t.config.designElements))
+        if (Array.isArray(t.config.designElements) && t.config.designElements.length > 0) {
+          console.log('Setting elements from config - COUNT:', t.config.designElements.length)
+          console.log('First element:', t.config.designElements[0])
+          setElements(t.config.designElements)
+        } else {
+          console.warn('designElements exists but is not a valid array!', t.config.designElements)
+        }
+      } else {
+        console.warn('No design elements found in template config!')
+      }
+      
+      if (t.config?.margins) setMargins(t.config.margins)
+      if (t.config?.selectedFormat) setSelectedFormat(t.config.selectedFormat)
+      // Switch to elements panel since background is already set
+      if (t.previewImage || t.backgroundUrl || t.config?.backgroundImage) {
+        setActivePanel('elements')
+      }
+    }
+  }, [templateData])
+
+  const selectedElement = elements.find(el => el.id === selectedId)
+  const selectionGroupIds = Array.from(new Set([selectedId, ...selectedIds].filter(Boolean)))
+
+  // ===================== CANVAS MOUSE HANDLERS =====================
+
+  const getCanvasCoords = useCallback((e) => {
+    if (!canvasRef.current) return { x: 0, y: 0 }
+    const rect = canvasRef.current.getBoundingClientRect()
+    const scaleX = canvasWidth / rect.width
+    const scaleY = canvasHeight / rect.height
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
+    }
+  }, [canvasWidth, canvasHeight])
+
+  const handleCanvasMouseDown = useCallback((e) => {
+    if (e.target === canvasRef.current || e.target.dataset.canvas) {
+      setSelectedId(null)
+    }
+  }, [])
+
+  const handleElementMouseDown = useCallback((e, elementId) => {
+    e.stopPropagation()
+    const el = elements.find(item => item.id === elementId)
+    if (!el || el.locked) return
+
+    let groupIds
+    if (e.ctrlKey || e.metaKey) {
+      // Multi-select avec Ctrl/Cmd + Click — part de la sélection courante (simple ou multiple)
+      const base = selectedIds.length > 0 ? selectedIds : (selectedId ? [selectedId] : [])
+      groupIds = base.includes(elementId) ? base.filter(id => id !== elementId) : [...base, elementId]
+      setSelectedIds(groupIds)
+      setSelectedId(elementId)
+    } else if (selectedIds.length > 1 && selectedIds.includes(elementId)) {
+      // Clic (sans Ctrl) sur un élément qui fait déjà partie d'une sélection multiple : on déplace tout le groupe
+      groupIds = selectedIds
+      setSelectedId(elementId)
+    } else {
+      // Sélection simple
+      groupIds = [elementId]
+      setSelectedIds([])
+      setSelectedId(elementId)
+    }
+
+    setActivePanel('properties')
+    const coords = getCanvasCoords(e)
+    setDragStart(coords)
+    setElementStart({ x: el.x, y: el.y, w: el.width, h: el.height })
+
+    // Snapshot des positions de départ de tous les éléments du groupe : le même delta de souris
+    // sera appliqué à chacun, ce qui préserve les distances relatives entre eux pendant le déplacement.
+    const starts = {}
+    groupIds.forEach(id => {
+      const groupEl = elements.find(item => item.id === id)
+      if (groupEl) starts[id] = { x: groupEl.x, y: groupEl.y }
+    })
+    setMultiDragStart(starts)
+
+    setIsDragging(true)
+  }, [elements, getCanvasCoords, selectedIds, selectedId])
+
+  const handleResizeMouseDown = useCallback((e, direction) => {
+    e.stopPropagation()
+    if (!selectedElement || selectedElement.locked) return
+    const coords = getCanvasCoords(e)
+    setDragStart(coords)
+    setElementStart({
+      x: selectedElement.x, y: selectedElement.y,
+      w: selectedElement.width, h: selectedElement.height
+    })
+    setResizeDir(direction)
+    setIsResizing(true)
+  }, [selectedElement, getCanvasCoords])
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isDragging && !isResizing) return
+    const coords = getCanvasCoords(e)
+    const dx = coords.x - dragStart.x
+    const dy = coords.y - dragStart.y
+
+    setElements(prev => prev.map(el => {
+      if (isDragging) {
+        const start = multiDragStart[el.id]
+        if (!start) return el
+        // Le même delta (dx, dy) est appliqué à la position de départ propre à chaque élément,
+        // donc les distances relatives entre éléments sélectionnés sont conservées.
+        let newX = Math.round(start.x + dx)
+        let newY = Math.round(start.y + dy)
+        if (showGrid) { newX = Math.round(newX / 10) * 10; newY = Math.round(newY / 10) * 10 }
+        newX = Math.max(0, Math.min(canvasWidth - el.width, newX))
+        newY = Math.max(0, Math.min(canvasHeight - el.height, newY))
+        return { ...el, x: newX, y: newY }
+      }
+      // Resize only primary selected element
+      if (isResizing && el.id === selectedId) {
+        let newW = elementStart.w, newH = elementStart.h, newX = elementStart.x, newY = elementStart.y
+        if (resizeDir.includes('e')) newW = Math.max(40, elementStart.w + dx)
+        if (resizeDir.includes('w')) { newW = Math.max(40, elementStart.w - dx); newX = elementStart.x + dx }
+        if (resizeDir.includes('s')) newH = Math.max(20, elementStart.h + dy)
+        if (resizeDir.includes('n')) { newH = Math.max(20, elementStart.h - dy); newY = elementStart.y + dy }
+        if (showGrid) { newW = Math.round(newW / 10) * 10; newH = Math.round(newH / 10) * 10; newX = Math.round(newX / 10) * 10; newY = Math.round(newY / 10) * 10 }
+        return { ...el, x: newX, y: newY, width: newW, height: newH }
+      }
+      return el
+    }))
+  }, [isDragging, isResizing, dragStart, elementStart, multiDragStart, selectedId, showGrid, resizeDir, canvasWidth, canvasHeight, getCanvasCoords])
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false)
+    setIsResizing(false)
+    setResizeDir(null)
+  }, [])
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [handleMouseMove, handleMouseUp])
+
+  // Keyboard shortcuts handler
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!canvasRef.current) return
+
+      // Delete key - delete selected or multi-selected elements
+      if (e.key === 'Delete') {
+        e.preventDefault()
+        if (selectedIds.length > 0) {
+          deleteSelectedElements()
+        } else if (selectedId) {
+          deleteElement(selectedId)
+        }
+      }
+
+      // Ctrl+D (or Cmd+D on Mac) - duplicate selected elements
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault()
+        if (selectedIds.length > 0) {
+          duplicateSelectedElements()
+        } else if (selectedId) {
+          duplicateElement(selectedId)
+        }
+      }
+
+      // Escape - clear multi-selection
+      if (e.key === 'Escape') {
+        setSelectedIds([])
+        setSelectedId(null)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedId, selectedIds])
+
+  // ===================== ELEMENT OPERATIONS =====================
+
+  const updateElement = (id, updates) => {
+    setElements(prev => {
+      const updated = prev.map(el => el.id === id ? { ...el, ...updates } : el)
+      // Ensure data integrity
+      return updated.filter(el => el && el.id)
+    })
+  }
+
+  const toggleVisibility = (id) => {
+    setElements(prev => prev.map(el => el.id === id ? { ...el, visible: !el.visible } : el))
+  }
+
+  const toggleLock = (id) => {
+    setElements(prev => prev.map(el => el.id === id ? { ...el, locked: !el.locked } : el))
+  }
+
+  const addCustomText = () => {
+    const id = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const w = Math.min(400, Math.round(canvasWidth * 0.5))
+    const h = 40
+    const newElement = {
+      id, type: 'custom', label: 'Texte personnalisé', content: 'Nouveau texte',
+      x: Math.round((canvasWidth - w) / 2), y: Math.round(canvasHeight * 0.4), width: w, height: h,
+      fontSize: 16, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+      color: '#333333', textAlign: 'center', verticalAlign: 'middle', visible: true,
+      letterSpacing: 0, textTransform: 'none', locked: false
+    }
+    setElements(prev => [...prev, newElement])
+    setSelectedId(id)
+    setActivePanel('properties')
+  }
+
+  // Ajoute un emplacement photo (ex: photo des mariés) que le client remplira avec sa propre image
+  const addPhotoElement = () => {
+    const id = `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const w = Math.min(300, Math.round(canvasWidth * 0.4))
+    const h = w
+    const newElement = {
+      id, type: 'photo', label: 'Photo des mariés', content: '{{couple_photo}}',
+      x: Math.round((canvasWidth - w) / 2), y: Math.round(canvasHeight * 0.3), width: w, height: h,
+      visible: true, locked: false,
+      objectFit: 'cover', borderWidth: 4, borderColor: '#FFFFFF', borderOpacity: 100, borderRadius: 12
+    }
+    setElements(prev => [...prev, newElement])
+    setSelectedId(id)
+    setActivePanel('properties')
+  }
+
+  const DELETABLE_TYPES = ['custom', 'photo']
+
+  const deleteElement = (id) => {
+    const el = elements.find(e => e.id === id)
+    if (DELETABLE_TYPES.includes(el?.type)) {
+      setElements(prev => prev.filter(e => e.id !== id))
+      if (selectedId === id) setSelectedId(null)
+      if (selectedIds.includes(id)) setSelectedIds(prev => prev.filter(sid => sid !== id))
+    }
+  }
+
+  const duplicateElement = (id) => {
+    const el = elements.find(e => e.id === id)
+    if (!el) return
+    
+    const newId = `${el.type}-${Date.now()}`
+    const duplicate = {
+      ...el,
+      id: newId,
+      x: el.x + 10,
+      y: el.y + 10
+    }
+    setElements(prev => [...prev, duplicate])
+    setSelectedId(newId)
+    toast.success('Élément dupliqué')
+  }
+
+  // Opérations sur multi-sélection
+  const deleteSelectedElements = () => {
+    const toDelete = [selectedId, ...selectedIds].filter(Boolean)
+    if (toDelete.length === 0) return toast.error('Aucun élément sélectionné')
+    
+    const customOnly = toDelete.every(id => DELETABLE_TYPES.includes(elements.find(e => e.id === id)?.type))
+    if (!customOnly) return toast.error('Seuls les éléments personnalisés peuvent être supprimés')
+    
+    setElements(prev => prev.filter(e => !toDelete.includes(e.id)))
+    setSelectedId(null)
+    setSelectedIds([])
+    toast.success(`${toDelete.length} élément(s) supprimé(s)`)
+  }
+
+  const toggleLockSelected = () => {
+    const toToggle = [selectedId, ...selectedIds].filter(Boolean)
+    if (toToggle.length === 0) return
+    
+    const firstLocked = elements.find(e => toToggle.includes(e.id))?.locked
+    const newLocked = !firstLocked
+    
+    setElements(prev => prev.map(el => 
+      toToggle.includes(el.id) ? { ...el, locked: newLocked } : el
+    ))
+    toast.success(`${toToggle.length} élément(s) ${newLocked ? 'verrouillé(s)' : 'déverrouillé(s)'}`)
+  }
+
+  const toggleVisibilitySelected = () => {
+    const toToggle = [selectedId, ...selectedIds].filter(Boolean)
+    if (toToggle.length === 0) return
+    
+    const firstVisible = elements.find(e => toToggle.includes(e.id))?.visible
+    const newVisible = !firstVisible
+    
+    setElements(prev => prev.map(el => 
+      toToggle.includes(el.id) ? { ...el, visible: newVisible } : el
+    ))
+    toast.success(`${toToggle.length} élément(s) ${newVisible ? 'affiché(s)' : 'caché(s)'}`)
+  }
+
+  const duplicateSelectedElements = () => {
+    const toDuplicate = [selectedId, ...selectedIds].filter(Boolean)
+    if (toDuplicate.length === 0) return
+    
+    const newElements = []
+    toDuplicate.forEach(id => {
+      const original = elements.find(e => e.id === id)
+      if (original) {
+        const duplicated = {
+          ...JSON.parse(JSON.stringify(original)),
+          id: `${original.id}_copy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          x: original.x + 20,
+          y: original.y + 20
+        }
+        newElements.push(duplicated)
+      }
+    })
+    
+    setElements(prev => [...prev, ...newElements])
+    setSelectedIds(newElements.map(el => el.id))
+    toast.success(`${newElements.length} élément(s) dupliqué(s)`)
+  }
+
+  // Aligne les éléments sélectionnés entre eux (gauche/centre/droite, haut/centre/bas)
+  // en se basant sur le rectangle englobant de la sélection — comportement standard des outils de design.
+  const alignSelected = (mode) => {
+    const ids = selectionGroupIds
+    if (ids.length < 2) return toast.error('Sélectionnez au moins 2 éléments')
+
+    const group = elements.filter(e => ids.includes(e.id))
+    const minX = Math.min(...group.map(e => e.x))
+    const maxX = Math.max(...group.map(e => e.x + e.width))
+    const minY = Math.min(...group.map(e => e.y))
+    const maxY = Math.max(...group.map(e => e.y + e.height))
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+
+    setElements(prev => prev.map(el => {
+      if (!ids.includes(el.id) || el.locked) return el
+      let newX = el.x, newY = el.y
+      switch (mode) {
+        case 'left': newX = minX; break
+        case 'centerH': newX = Math.round(centerX - el.width / 2); break
+        case 'right': newX = maxX - el.width; break
+        case 'top': newY = minY; break
+        case 'centerV': newY = Math.round(centerY - el.height / 2); break
+        case 'bottom': newY = maxY - el.height; break
+        default: break
+      }
+      newX = Math.max(0, Math.min(canvasWidth - el.width, newX))
+      newY = Math.max(0, Math.min(canvasHeight - el.height, newY))
+      return { ...el, x: newX, y: newY }
+    }))
+    toast.success('Éléments alignés')
+  }
+
+  const resetLayout = () => {
+    setElements(scaleElementsToCanvas(DEFAULT_ELEMENTS, canvasWidth, canvasHeight))
+    setSelectedId(null)
+    setSelectedIds([])
+  }
+
+  // ===================== BACKGROUND UPLOAD =====================
+
+  const handleBackgroundUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) return toast.error('Seules les images sont acceptées')
+    if (file.size > 10 * 1024 * 1024) return toast.error('Image trop volumineuse (max 10 Mo)')
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('templateBackground', file)
+      const res = await templateAPI.uploadBackground(formData)
+      const path = res.data.backgroundUrl
+      setBackgroundUrl(path)
+      toast.success('Image de fond chargée !')
+      // Auto-switch to elements panel
+      setActivePanel('elements')
+    } catch (err) {
+      // Fallback: local preview
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        setBackgroundUrl(ev.target.result)
+        setActivePanel('elements')
+      }
+      reader.readAsDataURL(file)
+      toast.success('Image chargée (aperçu local)')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  // ===================== ICON UPLOAD =====================
+
+  const handleIconUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const validTypes = ['image/png', 'image/svg+xml', 'image/jpeg', 'image/webp']
+    if (!validTypes.includes(file.type)) return toast.error('Seuls les fichiers PNG, SVG, JPEG ou WEBP sont acceptés')
+    if (file.size > 5 * 1024 * 1024) return toast.error('Image trop volumineuse (max 5 Mo)')
+
+    try {
+      const formData = new FormData()
+      formData.append('icon', file)
+      const res = await templateAPI.uploadIcon(formData)
+      const iconPath = res.data.iconUrl
+      updateElement(selectedId, { iconUrl: iconPath })
+      toast.success('Icône chargée !')
+    } catch (err) {
+      // Fallback: local preview via data URL
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        updateElement(selectedId, { iconUrl: ev.target.result })
+      }
+      reader.readAsDataURL(file)
+      toast.success('Icône chargée (aperçu local)')
+    }
+    // Reset input
+    if (iconInputRef.current) iconInputRef.current.value = ''
+  }
+
+  const handlePreviewUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const validTypes = ['image/png', 'image/jpeg', 'image/webp']
+    if (!validTypes.includes(file.type)) return toast.error('Seuls les fichiers PNG, JPEG ou WEBP sont acceptés')
+    if (file.size > 5 * 1024 * 1024) return toast.error('Image trop volumineuse (max 5 Mo)')
+
+    try {
+      const formData = new FormData()
+      formData.append('previewImage', file)
+      const res = await templateAPI.uploadPreviewImage(formData)
+      const previewUrl = res.data.previewUrl
+      setPreviewImage(previewUrl)
+      toast.success('Aperçu chargé !')
+    } catch (err) {
+      console.error('Preview upload error:', err)
+      toast.error('Erreur lors du chargement de l\'aperçu')
+    }
+    // Reset input
+    if (previewInputRef.current) previewInputRef.current.value = ''
+  }
+
+  // ===================== SAVE =====================
+
+  const handleSave = async () => {
+    if (!clientMode && !templateName.trim()) {
+      toast.error('Veuillez entrer un nom pour le template')
+      setActivePanel('settings')
+      return
+    }
+    if (!clientMode && !backgroundUrl) {
+      toast.error("Veuillez d'abord choisir une image de fond")
+      setActivePanel('background')
+      return
+    }
+    if (!elements || elements.length === 0) {
+      toast.error('Le template doit contenir au moins un élément')
+      return
+    }
+
+    setSaving(true)
+    try {
+      // Ensure all element properties are preserved
+      const cleanElements = elements.map(el => ({
+        id: el.id,
+        type: el.type,
+        label: el.label,
+        content: el.content,
+        x: el.x,
+        y: el.y,
+        width: el.width,
+        height: el.height,
+        fontSize: el.fontSize ?? 16,
+        fontFamily: el.fontFamily || 'Montserrat',
+        fontWeight: el.fontWeight ?? 'normal',
+        fontStyle: el.fontStyle ?? 'normal',
+        color: el.color || '#000000',
+        textAlign: el.textAlign ?? 'center',
+        verticalAlign: el.verticalAlign ?? 'middle',
+        visible: el.visible ?? true,
+        letterSpacing: el.letterSpacing ?? 0,
+        lineHeight: el.lineHeight ?? 1.2,
+        textTransform: el.textTransform ?? 'none',
+        locked: el.locked ?? false,
+        textShadow: el.textShadow ?? 'none',
+        shadowColor: el.shadowColor ?? '#000000',
+        zIndex: el.zIndex ?? 0,
+        iconUrl: el.iconUrl || '',  // Preserve icon URLs for programme labels
+        // Photo element styling (border/opacity/radius/cadrage)
+        objectFit: el.objectFit || 'cover',
+        borderWidth: el.borderWidth ?? 0,
+        borderColor: el.borderColor || '#FFFFFF',
+        borderOpacity: el.borderOpacity ?? 100,
+        borderRadius: el.borderRadius ?? 0
+      }))
+
+      // Debug: verify clean elements
+      if (cleanElements.length === 0) {
+        console.error('ERROR: cleanElements is empty after mapping!')
+        toast.error('Erreur: Aucun élément à sauvegarder')
+        setSaving(false)
+        return
+      }
+
+      console.log('Clean elements created successfully:', {
+        count: cleanElements.length,
+        first: cleanElements[0],
+        last: cleanElements[cleanElements.length - 1]
+      })
+
+      const templateData = {
+        name: templateName.trim(),
+        description: templateDescription,
+        category: templateCategory,
+        isPremium,
+        backgroundUrl,
+        backgroundOpacity,
+        previewImage: previewImage || backgroundUrl, // Use preview image or fallback to background
+        designElements: cleanElements, // Required at root level for POST /templates endpoint
+        canvasWidth,
+        canvasHeight,
+        margins,
+        selectedFormat,
+        config: {
+          designElements: cleanElements,
+          backgroundImage: backgroundUrl,
+          backgroundOpacity,
+          canvasWidth,
+          canvasHeight,
+          margins,
+          selectedFormat
+        }
+      }
+
+      console.log('Template data to send:', templateData)
+
+      if (clientMode) {
+        // Client saves via design endpoint (owner permission)
+        await templateAPI.saveDesign(templateId, {
+          designElements: cleanElements,
+          backgroundImage: backgroundUrl,
+          backgroundOpacity,
+          canvasWidth,
+          canvasHeight,
+          margins,
+          selectedFormat
+        })
+        queryClient.invalidateQueries(['admin-template', templateId])
+        toast.success('Template sauvegardé avec succès !')
+      } else if (isEditing) {
+        // Update existing
+        console.log('Updating template:', templateId)
+        await adminAPI.updateTemplate(templateId, templateData)
+        // Invalidate cache to ensure fresh data
+        queryClient.invalidateQueries(['admin-template', templateId])
+        queryClient.invalidateQueries(['admin-templates'])
+        toast.success('Template mis à jour avec succès !')
+      } else {
+        // Create new
+        console.log('Creating new template')
+        const res = await adminAPI.createTemplate(templateData)
+        console.log('Template created response:', res.data)
+        
+        const newId = res.data.template?.id
+        if (newId) {
+          // Immediately invalidate the new template's cache so it loads fresh from backend
+          queryClient.invalidateQueries(['admin-template', newId])
+          queryClient.invalidateQueries(['admin-templates'])
+          
+          toast.success('Template créé avec succès !')
+          console.log('Redirecting to template:', newId)
+          navigate(`/admin/templates/${newId}/design`, { replace: true })
+        } else {
+          toast.error('Erreur: ID du template non reçu')
+        }
+      }
+    } catch (err) {
+      console.error('Erreur sauvegarde complète:', err)
+      console.error('Response data:', err.response?.data)
+      console.error('Error message:', err.message)
+      const errorMessage = err.response?.data?.error || err.message || 'Erreur lors de la sauvegarde'
+      toast.error(errorMessage)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // ===================== RENDER ELEMENT CONTENT =====================
+
+  const renderElementContent = (el) => {
+
+    // Helper pour formater une date en JJ-MM-YYYY HH:mm
+    function formatDateTime(str) {
+      if (!str) return '';
+      // Essaye de parser les formats "2026-02-10 20:00" ou "2026-02-10T20:00"
+      let d = str.includes('T') ? new Date(str) : new Date(str.replace(' ', 'T'));
+      if (isNaN(d.getTime())) return str;
+      const pad = n => n.toString().padStart(2, '0');
+      return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    let text = el.content || '';
+    // Pour chaque variable, applique le formatage si c'est une date/heure de programme
+    Object.entries(SAMPLE_DATA).forEach(([key, val]) => {
+      if ([
+        'wedding_date', 'commune_date', 'eglise_date', 'reception_date', 'rsvp_date'
+      ].includes(key)) {
+        text = text.replace(new RegExp(`\\{\\{${key}\\}\}`, 'g'), formatDateTime(val));
+      } else {
+        // Convert to string to handle all value types
+        text = text.replace(new RegExp(`\\{\\{${key}\\}\}`, 'g'), String(val || ''));
+      }
+    });
+
+    if (el.type === 'qrcode') {
+      return (
+        <div className="w-full h-full flex items-center justify-center bg-white/80 border-2 border-dashed border-gray-300 rounded-lg">
+          <div className="text-center">
+            <div className="w-3/4 h-3/4 mx-auto mb-1 bg-gray-200 rounded flex items-center justify-center">
+              <svg className="w-1/2 h-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.5 14.625v2.25m0 3v.75m3-3h.75m-6 0h.75m3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-3.75 3.75a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+              </svg>
+            </div>
+            <span className="text-xs text-gray-500">QR Code</span>
+          </div>
+        </div>
+      )
+    }
+
+    // Image placeholder (ex: photo des mariés) — le client remplit cet emplacement lors de la création de son mariage
+    if (el.type === 'photo') {
+      return (
+        <div
+          className="w-full h-full overflow-hidden bg-gray-100 flex items-center justify-center"
+          style={{
+            border: `${el.borderWidth || 0}px solid ${hexToRgba(el.borderColor || '#FFFFFF', el.borderOpacity ?? 100)}`,
+            borderRadius: `${el.borderRadius || 0}px`,
+            boxSizing: 'border-box'
+          }}
+        >
+          <div className="text-center text-gray-400">
+            <PhotoIcon className="h-8 w-8 mx-auto mb-1" />
+            <span className="text-[10px]">Photo des mariés</span>
+          </div>
+        </div>
+      )
+    }
+
+    // Programme label with custom icon
+    const isLabelElement = ['communeLabel', 'egliseLabel', 'receptionLabel'].includes(el.type)
+    if (isLabelElement && el.iconUrl) {
+      const apiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || ''
+      const iconSrc = el.iconUrl.startsWith('data:') || el.iconUrl.startsWith('http') ? el.iconUrl : `${apiBase}${el.iconUrl}`
+      return (
+        <span
+          className="w-full h-full overflow-hidden whitespace-pre-wrap break-words leading-tight"
+          style={{
+            fontFamily: el.fontFamily,
+            fontSize: `${el.fontSize}px`,
+            fontWeight: el.fontWeight,
+            fontStyle: el.fontStyle,
+            color: el.color,
+            textAlign: el.textAlign,
+            letterSpacing: `${el.letterSpacing || 0}px`,
+            textTransform: el.textTransform || 'none',
+            display: 'flex',
+            alignItems: el.verticalAlign === 'top' ? 'flex-start' : el.verticalAlign === 'bottom' ? 'flex-end' : 'center',
+            gap: '6px',
+            justifyContent: el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start',
+            lineHeight: el.lineHeight || 1.2
+          }}
+        >
+          <img src={iconSrc} alt="" className="inline-block flex-shrink-0" style={{ height: `${el.fontSize + 4}px`, width: `${el.fontSize + 4}px`, objectFit: 'contain' }} />
+          {text}
+        </span>
+      )
+    }
+
+    return (
+      <span
+        className="block w-full h-full overflow-hidden whitespace-pre-wrap break-words leading-tight"
+        style={{
+          fontFamily: el.fontFamily,
+          fontSize: `${el.fontSize}px`,
+          fontWeight: el.fontWeight,
+          fontStyle: el.fontStyle,
+          color: el.color,
+          textAlign: el.textAlign,
+          letterSpacing: `${el.letterSpacing || 0}px`,
+          textTransform: el.textTransform || 'none',
+          display: 'flex',
+          alignItems: el.verticalAlign === 'top' ? 'flex-start' : el.verticalAlign === 'bottom' ? 'flex-end' : 'center',
+          justifyContent: el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start',
+          textShadow: el.textShadow && el.textShadow !== 'none' ? `${el.textShadow} ${el.shadowColor || '#000000'}` : 'none',
+          lineHeight: el.lineHeight || 1.2
+        }}
+      >
+        {text}
+      </span>
+    )
+  }
+
+  // ===================== LOADING STATE =====================
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    )
+  }
+
+  // ===================== RENDER =====================
+
+  return (
+    <div className="h-screen flex flex-col bg-gray-100">
+      {/* Top Bar */}
+      <div className="bg-white border-b px-4 py-3 flex items-center justify-between shrink-0 shadow-sm">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(clientMode ? (weddingId ? `/weddings/${weddingId}/invitations` : '/templates') : '/admin/templates')} className="p-2 hover:bg-gray-100 rounded-lg">
+            <ArrowLeftIcon className="h-5 w-5 text-gray-600" />
+          </button>
+          <div>
+            <h1 className="text-lg font-bold text-gray-900">
+              {clientMode ? 'Personnaliser mon template' : isEditing ? 'Modifier le template' : 'Créer un template'}
+            </h1>
+            <p className="text-xs text-gray-500">
+              {!backgroundUrl 
+                ? '1. Définissez le format, puis chargez une image de fond' 
+                : !templateName 
+                  ? '2. Positionnez les éléments puis renseignez le nom' 
+                  : '3. Positionnez les éléments et sauvegardez'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Zoom */}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1">
+            <button onClick={() => setZoom(z => Math.max(0.3, z - 0.1))} className="text-sm font-bold px-1">-</button>
+            <span className="text-xs w-12 text-center">{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="text-sm font-bold px-1">+</button>
+          </div>
+
+          {/* Grid */}
+          <button
+            onClick={() => setShowGrid(!showGrid)}
+            className={`p-2 rounded-lg ${showGrid ? 'bg-primary-100 text-primary-600' : 'text-gray-400 hover:text-gray-600'}`}
+            title="Grille d'alignement"
+          >
+            <Squares2X2Icon className="h-5 w-5" />
+          </button>
+
+          {/* Reset */}
+          <button onClick={resetLayout} className="p-2 text-gray-400 hover:text-orange-500 rounded-lg" title="Réinitialiser les éléments">
+            <ArrowPathIcon className="h-5 w-5" />
+          </button>
+
+          {/* Save */}
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 font-medium text-sm shadow-sm"
+          >
+            {saving ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <CheckIcon className="h-4 w-4" />
+            )}
+            {isEditing ? 'Mettre à jour' : 'Enregistrer le template'}
+          </button>
+        </div>
+      </div>
+
+      {/* Main Area */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Panel */}
+        <div className="w-72 bg-white border-r flex flex-col shrink-0 overflow-hidden">
+          {/* Panel Tabs */}
+          <div className="flex border-b">
+            {[
+              { id: 'format', label: 'Format', icon: ArrowsPointingOutIcon },
+              { id: 'background', label: 'Fond', icon: PhotoIcon },
+              { id: 'elements', label: 'Éléments', icon: CursorArrowRaysIcon },
+              { id: 'settings', label: 'Infos', icon: Cog6ToothIcon }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActivePanel(tab.id)}
+                className={`flex-1 flex flex-col items-center py-3 text-xs font-medium transition-colors ${
+                  activePanel === tab.id ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <tab.icon className="h-4 w-4 mb-1" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Format Panel */}
+          {activePanel === 'format' && (
+            <div className="flex-1 overflow-y-auto p-4 space-y-5">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-1">Format de l'invitation</h3>
+                <p className="text-xs text-gray-500 mb-3">
+                  Définissez les dimensions et marges de votre invitation. L'image de fond s'adaptera à ce format.
+                </p>
+
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {FORMAT_PRESETS.map(preset => (
+                    <button
+                      key={preset.id}
+                      onClick={() => {
+                        setSelectedFormat(preset.id)
+                        if (preset.w && preset.h) {
+                          // Auto-reposition elements to fit the new canvas
+                          setElements(prev => scaleElementsToCanvas(prev, preset.w, preset.h, canvasWidth, canvasHeight))
+                          setCanvasWidth(preset.w)
+                          setCanvasHeight(preset.h)
+                        }
+                      }}
+                      className={`p-2.5 rounded-lg border-2 text-left transition-all ${
+                        selectedFormat === preset.id
+                          ? 'border-primary-500 bg-primary-50 text-primary-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      <p className="text-xs font-medium">{preset.label}</p>
+                      <p className="text-[10px] text-gray-400">{preset.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <hr />
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Dimensions (px)</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] text-gray-500 mb-1">Largeur</label>
+                    <input
+                      type="number"
+                      min={MIN_CANVAS_DIMENSION}
+                      max={MAX_CANVAS_DIMENSION}
+                      value={canvasWidth}
+                      onChange={(e) => {
+                        setCanvasWidth(Math.max(MIN_CANVAS_DIMENSION, Math.min(MAX_CANVAS_DIMENSION, parseInt(e.target.value) || MIN_CANVAS_DIMENSION)))
+                        setSelectedFormat('custom')
+                      }}
+                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 mb-1">Hauteur</label>
+                    <input
+                      type="number"
+                      min={MIN_CANVAS_DIMENSION}
+                      max={MAX_CANVAS_DIMENSION}
+                      value={canvasHeight}
+                      onChange={(e) => {
+                        setCanvasHeight(Math.max(MIN_CANVAS_DIMENSION, Math.min(MAX_CANVAS_DIMENSION, parseInt(e.target.value) || MIN_CANVAS_DIMENSION)))
+                        setSelectedFormat('custom')
+                      }}
+                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Ratio: {(canvasWidth/canvasHeight).toFixed(3)} {canvasWidth === canvasHeight ? '(Carré)' : canvasWidth > canvasHeight ? '(Paysage)' : '(Portrait)'}
+                </p>
+              </div>
+
+              <hr />
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Marges (px)</h3>
+                <p className="text-xs text-gray-500 mb-3">
+                  Zone de sécurité intérieure affichée sur le canevas.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] text-gray-500 mb-1">Haut</label>
+                    <input type="number" min={0} max={Math.floor(canvasHeight / 3)} value={margins.top}
+                      onChange={(e) => setMargins(m => ({ ...m, top: Math.max(0, parseInt(e.target.value) || 0) }))}
+                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 mb-1">Bas</label>
+                    <input type="number" min={0} max={Math.floor(canvasHeight / 3)} value={margins.bottom}
+                      onChange={(e) => setMargins(m => ({ ...m, bottom: Math.max(0, parseInt(e.target.value) || 0) }))}
+                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 mb-1">Gauche</label>
+                    <input type="number" min={0} max={Math.floor(canvasWidth / 3)} value={margins.left}
+                      onChange={(e) => setMargins(m => ({ ...m, left: Math.max(0, parseInt(e.target.value) || 0) }))}
+                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 mb-1">Droite</label>
+                    <input type="number" min={0} max={Math.floor(canvasWidth / 3)} value={margins.right}
+                      onChange={(e) => setMargins(m => ({ ...m, right: Math.max(0, parseInt(e.target.value) || 0) }))}
+                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500" />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                  {[
+                    { label: 'Aucune', t: 0, r: 0, b: 0, l: 0 },
+                    { label: '20px', t: 20, r: 20, b: 20, l: 20 },
+                    { label: '40px', t: 40, r: 40, b: 40, l: 40 },
+                    { label: '60px', t: 60, r: 60, b: 60, l: 60 },
+                  ].map(preset => (
+                    <button
+                      key={preset.label}
+                      onClick={() => setMargins({ top: preset.t, right: preset.r, bottom: preset.b, left: preset.l })}
+                      className={`px-2 py-1 text-[10px] rounded border transition-colors ${
+                        margins.top === preset.t && margins.right === preset.r && margins.bottom === preset.b && margins.left === preset.l
+                          ? 'bg-primary-100 border-primary-300 text-primary-700'
+                          : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <hr />
+
+              <div className="bg-blue-50 rounded-lg p-3">
+                <p className="text-xs font-medium text-blue-700 mb-1">📐 Résumé</p>
+                <div className="text-[11px] text-blue-600 space-y-0.5">
+                  <p>Dimensions : {canvasWidth} × {canvasHeight} px</p>
+                  <p>Zone utile : {canvasWidth - margins.left - margins.right} × {canvasHeight - margins.top - margins.bottom} px</p>
+                  <p>Marges : {margins.top} / {margins.right} / {margins.bottom} / {margins.left} px</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setActivePanel('background')}
+                className="w-full py-2.5 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors"
+              >
+                Suivant : Charger l'image de fond →
+              </button>
+            </div>
+          )}
+
+          {/* Background Panel */}
+          {activePanel === 'background' && (
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700">Image de fond</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  L'image s'adapte automatiquement au format défini ({canvasWidth}×{canvasHeight} px).
+                </p>
+              </div>
+
+              {/* Format reminder */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                <p className="text-[11px] text-amber-700">
+                  📐 Format : <span className="font-medium">{canvasWidth} × {canvasHeight} px</span>
+                  {margins.top + margins.right + margins.bottom + margins.left > 0 && (
+                    <span> · Marges : {margins.top}/{margins.right}/{margins.bottom}/{margins.left}</span>
+                  )}
+                </p>
+              </div>
+
+              {/* Current background preview */}
+              {backgroundUrl && (
+                <div className="relative rounded-lg overflow-hidden border shadow-sm bg-gray-100">
+                  <div style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}`, maxHeight: '280px', margin: '0 auto' }} className="relative bg-white">
+                    <img src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || ''}${backgroundUrl}`} alt="Fond" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <button
+                      onClick={() => setBackgroundUrl('')}
+                      className="p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 shadow"
+                    >
+                      <TrashIcon className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Upload button */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="w-full flex flex-col items-center gap-2 p-8 border-2 border-dashed border-gray-300 rounded-xl hover:border-primary-400 hover:bg-primary-50 transition-colors"
+              >
+                {uploading ? (
+                  <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <ArrowUpTrayIcon className="h-10 w-10 text-gray-400" />
+                )}
+                <span className="text-sm font-medium text-gray-600">
+                  {backgroundUrl ? 'Changer l\'image' : 'Charger une image de fond'}
+                </span>
+                <span className="text-xs text-gray-400">JPG, PNG, WebP (max 10 Mo)</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleBackgroundUpload}
+                className="hidden"
+              />
+
+              {/* Opacity */}
+              {backgroundUrl && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Opacité du fond ({backgroundOpacity}%)
+                  </label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    value={backgroundOpacity}
+                    onChange={(e) => setBackgroundOpacity(parseInt(e.target.value))}
+                    className="w-full accent-primary-600"
+                  />
+                </div>
+              )}
+
+              {backgroundUrl && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-xs text-green-700 font-medium">Image chargée</p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Passez maintenant à l'onglet "Éléments" pour positionner les textes sur l'image.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Elements Panel */}
+          {activePanel === 'elements' && (
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700">Éléments</h3>
+                <div className="flex items-center gap-2">
+                  <button onClick={addCustomText} className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
+                    <PlusIcon className="h-3.5 w-3.5" />
+                    Texte
+                  </button>
+                  <button onClick={addPhotoElement} className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
+                    <PhotoIcon className="h-3.5 w-3.5" />
+                    Photo
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-400 mb-3">
+                Cliquez sur un élément pour le sélectionner. Utilisez Ctrl+Clic pour la sélection multiple.
+              </p>
+
+              {/* Multi-select Toolbar */}
+              {selectedIds.length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-blue-700">{selectedIds.length} élément(s) sélectionné(s)</span>
+                    <button
+                      onClick={() => setSelectedIds([])}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Désélectionner
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    <button
+                      onClick={duplicateSelectedElements}
+                      className="flex items-center gap-1 px-2 py-1 text-xs bg-white border border-blue-200 rounded hover:bg-blue-50 text-blue-700 font-medium transition-colors"
+                      title="Dupliquer les éléments sélectionnés"
+                    >
+                      📋 Dupliquer
+                    </button>
+                    <button
+                      onClick={toggleLockSelected}
+                      className="flex items-center gap-1 px-2 py-1 text-xs bg-white border border-blue-200 rounded hover:bg-blue-50 text-blue-700 font-medium transition-colors"
+                      title="Verrouiller/Déverrouiller les éléments sélectionnés"
+                    >
+                      🔒 Verrouiller
+                    </button>
+                    <button
+                      onClick={toggleVisibilitySelected}
+                      className="flex items-center gap-1 px-2 py-1 text-xs bg-white border border-blue-200 rounded hover:bg-blue-50 text-blue-700 font-medium transition-colors"
+                      title="Afficher/Masquer les éléments sélectionnés"
+                    >
+                      👁️ Visibilité
+                    </button>
+                    <button
+                      onClick={deleteSelectedElements}
+                      className="flex items-center gap-1 px-2 py-1 text-xs bg-white border border-red-200 rounded hover:bg-red-50 text-red-700 font-medium transition-colors"
+                      title="Supprimer les éléments sélectionnés"
+                    >
+                      🗑️ Supprimer
+                    </button>
+                  </div>
+
+                  {selectionGroupIds.length >= 2 && (
+                    <div className="mt-2 pt-2 border-t border-blue-200">
+                      <p className="text-[10px] text-blue-600 font-medium mb-1">Alignement ({selectionGroupIds.length} éléments)</p>
+                      <div className="grid grid-cols-3 gap-1">
+                        <button onClick={() => alignSelected('left')} className="px-2 py-1 text-[11px] bg-white border border-blue-200 rounded hover:bg-blue-50 text-blue-700 font-medium" title="Aligner à gauche">⫷ Gauche</button>
+                        <button onClick={() => alignSelected('centerH')} className="px-2 py-1 text-[11px] bg-white border border-blue-200 rounded hover:bg-blue-50 text-blue-700 font-medium" title="Centrer horizontalement">↔ Centre</button>
+                        <button onClick={() => alignSelected('right')} className="px-2 py-1 text-[11px] bg-white border border-blue-200 rounded hover:bg-blue-50 text-blue-700 font-medium" title="Aligner à droite">⫸ Droite</button>
+                        <button onClick={() => alignSelected('top')} className="px-2 py-1 text-[11px] bg-white border border-blue-200 rounded hover:bg-blue-50 text-blue-700 font-medium" title="Aligner en haut">⤒ Haut</button>
+                        <button onClick={() => alignSelected('centerV')} className="px-2 py-1 text-[11px] bg-white border border-blue-200 rounded hover:bg-blue-50 text-blue-700 font-medium" title="Centrer verticalement">↕ Centre</button>
+                        <button onClick={() => alignSelected('bottom')} className="px-2 py-1 text-[11px] bg-white border border-blue-200 rounded hover:bg-blue-50 text-blue-700 font-medium" title="Aligner en bas">⤓ Bas</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {elements.map((el) => {
+                const isSelected = selectedIds.includes(el.id);
+                return (
+                  <div
+                    key={el.id}
+                    onClick={() => {
+                      if (selectedId !== el.id) {
+                        setSelectedId(el.id);
+                        setActivePanel('properties');
+                      }
+                    }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all text-sm ${
+                      isSelected
+                        ? 'bg-blue-100 border-2 border-blue-400 text-blue-900'
+                        : selectedId === el.id
+                        ? 'bg-primary-50 border border-primary-200 text-primary-700'
+                        : 'hover:bg-gray-50 text-gray-700'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setSelectedIds(prev =>
+                          isSelected
+                            ? prev.filter(id => id !== el.id)
+                            : [...prev, el.id]
+                        );
+                      }}
+                      className="rounded cursor-pointer"
+                    />
+                    <span className="flex-1 truncate text-xs">{el.label}</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleVisibility(el.id) }}
+                        className={`p-1 rounded ${el.visible ? 'text-gray-400 hover:text-gray-600' : 'text-red-400'}`}
+                      >
+                        {el.visible ? <EyeIcon className="h-3.5 w-3.5" /> : <EyeSlashIcon className="h-3.5 w-3.5" />}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleLock(el.id) }}
+                        className={`p-1 rounded ${el.locked ? 'text-orange-500' : 'text-gray-400 hover:text-gray-600'}`}
+                      >
+                        {el.locked ? <LockClosedIcon className="h-3.5 w-3.5" /> : <LockOpenIcon className="h-3.5 w-3.5" />}
+                      </button>
+                      {DELETABLE_TYPES.includes(el.type) && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteElement(el.id) }}
+                          className="p-1 rounded text-gray-400 hover:text-red-500"
+                        >
+                          <TrashIcon className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Settings Panel (Template Metadata) */}
+          {activePanel === 'settings' && (
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <h3 className="text-sm font-semibold text-gray-700">Informations du template</h3>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Nom du template <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="Ex: Élégance dorée"
+                  className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={templateDescription}
+                  onChange={(e) => setTemplateDescription(e.target.value)}
+                  placeholder="Description du template..."
+                  rows={3}
+                  className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+
+              <hr />
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">Aperçu du template</label>
+                {previewImage ? (
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <img
+                      src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || ''}${previewImage}`}
+                      alt="Aperçu"
+                      className="w-20 h-28 object-cover rounded border bg-white"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-600 mb-2">Aperçu chargé</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => previewInputRef.current?.click()}
+                          className="text-xs text-primary-600 hover:text-primary-700 font-medium px-2 py-1 rounded hover:bg-primary-50"
+                        >
+                          Changer
+                        </button>
+                        <button
+                          onClick={() => setPreviewImage('')}
+                          className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => previewInputRef.current?.click()}
+                    className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:text-primary-600 hover:border-primary-500 transition-colors"
+                  >
+                    + Ajouter un aperçu personnalisé
+                  </button>
+                )}
+                <input
+                  type="file"
+                  ref={previewInputRef}
+                  accept="image/*"
+                  onChange={handlePreviewUpload}
+                  className="hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Catégorie</label>
+                <select
+                  value={templateCategory}
+                  onChange={(e) => setTemplateCategory(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  {CATEGORIES.map(cat => (
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="isPremium"
+                  checked={isPremium}
+                  onChange={(e) => setIsPremium(e.target.checked)}
+                  className="w-4 h-4 text-amber-600 border-amber-300 rounded focus:ring-amber-500"
+                />
+                <label htmlFor="isPremium" className="flex items-center gap-2 cursor-pointer">
+                  <StarIcon className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-medium text-amber-700">Template Premium</span>
+                </label>
+              </div>
+
+              <hr />
+
+              <div>
+                <h4 className="text-xs font-semibold text-gray-600 uppercase mb-2">Variables disponibles</h4>
+                <div className="text-xs text-gray-500 space-y-1 bg-gray-50 rounded-lg p-3">
+                  {Object.entries(SAMPLE_DATA).map(([key, val]) => (
+                    <div key={key} className="flex justify-between">
+                      <code className="text-primary-600">{`{{${key}}}`}</code>
+                      <span className="truncate ml-2 text-gray-400">{val}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Properties Panel (selected element) */}
+          {activePanel === 'properties' && (
+            <div className="flex-1 overflow-y-auto">
+              {selectedElement ? (
+                <>
+                  <div className="px-4 py-3 border-b bg-gray-50">
+                    <h3 className="text-sm font-bold text-gray-900">{selectedElement.label}</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">Type: {selectedElement.type}</p>
+                  </div>
+                  <div className="p-4 space-y-5">
+                    {/* Content */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Contenu</label>
+                      {selectedElement.type === 'qrcode' ? (
+                        <p className="text-xs text-gray-400 italic">Le QR code est généré automatiquement</p>
+                      ) : selectedElement.type === 'photo' ? (
+                        <p className="text-xs text-gray-400 italic">L'image est fournie par le client, pas de contenu texte ici</p>
+                      ) : (
+                        <textarea
+                          value={selectedElement.content}
+                          onChange={(e) => updateElement(selectedId, { content: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500"
+                          rows={2}
+                        />
+                      )}
+                    </div>
+
+                    {/* Icon Upload (for programme label elements only) */}
+                    {['communeLabel', 'egliseLabel', 'receptionLabel'].includes(selectedElement.type) && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-2">Icône personnalisée</label>
+                        {selectedElement.iconUrl ? (
+                          <div className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg border">
+                            <img
+                              src={selectedElement.iconUrl.startsWith('data:') || selectedElement.iconUrl.startsWith('http') ? selectedElement.iconUrl : `${import.meta.env.VITE_API_URL?.replace('/api', '') || ''}${selectedElement.iconUrl}`}
+                              alt="Icône"
+                              className="w-10 h-10 object-contain rounded border bg-white p-0.5"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-600 truncate">Icône chargée</p>
+                              <div className="flex gap-2 mt-1">
+                                <button
+                                  onClick={() => iconInputRef.current?.click()}
+                                  className="text-[10px] text-primary-600 hover:text-primary-700 font-medium"
+                                >
+                                  Changer
+                                </button>
+                                <button
+                                  onClick={() => updateElement(selectedId, { iconUrl: '' })}
+                                  className="text-[10px] text-red-500 hover:text-red-600 font-medium"
+                                >
+                                  Supprimer
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => iconInputRef.current?.click()}
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-xs text-gray-500 hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                          >
+                            <ArrowUpTrayIcon className="w-4 h-4" />
+                            Importer une icône (PNG, SVG)
+                          </button>
+                        )}
+                        <input
+                          ref={iconInputRef}
+                          type="file"
+                          accept=".png,.svg,.jpg,.jpeg,.webp,image/png,image/svg+xml,image/jpeg,image/webp"
+                          onChange={handleIconUpload}
+                          className="hidden"
+                        />
+                        <p className="text-[10px] text-gray-400 mt-1">Formats : PNG, SVG, JPEG, WEBP (max 5 Mo)</p>
+                      </div>
+                    )}
+
+                    {/* Position */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">Position & Taille</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { label: 'X', key: 'x' },
+                          { label: 'Y', key: 'y' },
+                          { label: 'Largeur', key: 'width' },
+                          { label: 'Hauteur', key: 'height' }
+                        ].map(f => (
+                          <div key={f.key}>
+                            <label className="block text-[10px] text-gray-500">{f.label}</label>
+                            <input
+                              type="number"
+                              value={selectedElement[f.key]}
+                              onChange={(e) => updateElement(selectedId, { [f.key]: parseInt(e.target.value) || 0 })}
+                              className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {selectedElement.type === 'photo' && (
+                      <>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <p className="text-xs text-blue-700">
+                            📷 Emplacement réservé à une photo (ex: photo des mariés). Le client l'ajoutera lors de la création ou modification de son mariage.
+                          </p>
+                        </div>
+
+                        {/* Object fit */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-2">Cadrage de l'image</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {[{ v: 'cover', label: 'Remplir' }, { v: 'contain', label: 'Ajuster' }].map(opt => (
+                              <button
+                                key={opt.v}
+                                onClick={() => updateElement(selectedId, { objectFit: opt.v })}
+                                className={`px-3 py-2 text-xs border rounded-lg font-medium transition-colors ${
+                                  (selectedElement.objectFit || 'cover') === opt.v
+                                    ? 'bg-primary-100 border-primary-400 text-primary-700'
+                                    : 'border-gray-200 text-gray-600 hover:border-primary-300'
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Border width */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Épaisseur de la bordure ({selectedElement.borderWidth || 0}px)
+                          </label>
+                          <input
+                            type="range" min="0" max="30"
+                            value={selectedElement.borderWidth || 0}
+                            onChange={(e) => updateElement(selectedId, { borderWidth: parseInt(e.target.value) })}
+                            className="w-full accent-primary-600"
+                          />
+                        </div>
+
+                        {/* Border color */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Couleur de la bordure</label>
+                          <div className="flex items-center gap-2">
+                            <input type="color" value={selectedElement.borderColor || '#FFFFFF'} onChange={(e) => updateElement(selectedId, { borderColor: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
+                            <input type="text" value={selectedElement.borderColor || '#FFFFFF'} onChange={(e) => updateElement(selectedId, { borderColor: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border rounded font-mono" />
+                          </div>
+                          <div className="flex gap-1.5 mt-2">
+                            {['#FFFFFF', '#000000', '#D4AF37', '#8B7355', '#B76E79', '#2D5F3A', '#1E3A5F'].map(c => (
+                              <button
+                                key={c}
+                                onClick={() => updateElement(selectedId, { borderColor: c })}
+                                className={`w-6 h-6 rounded-full border-2 hover:scale-110 ${selectedElement.borderColor === c ? 'border-primary-500 scale-110' : 'border-gray-200'}`}
+                                style={{ backgroundColor: c }}
+                                aria-label={`Couleur ${c}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Border opacity */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Opacité de la bordure ({selectedElement.borderOpacity ?? 100}%)
+                          </label>
+                          <input
+                            type="range" min="0" max="100"
+                            value={selectedElement.borderOpacity ?? 100}
+                            onChange={(e) => updateElement(selectedId, { borderOpacity: parseInt(e.target.value) })}
+                            className="w-full accent-primary-600"
+                            disabled={!selectedElement.borderWidth}
+                          />
+                        </div>
+
+                        {/* Border radius */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Arrondi des coins ({selectedElement.borderRadius || 0}px)
+                          </label>
+                          <input
+                            type="range" min="0" max={Math.round(Math.min(selectedElement.width, selectedElement.height) / 2)}
+                            value={Math.min(selectedElement.borderRadius || 0, Math.round(Math.min(selectedElement.width, selectedElement.height) / 2))}
+                            onChange={(e) => updateElement(selectedId, { borderRadius: parseInt(e.target.value) })}
+                            className="w-full accent-primary-600"
+                          />
+                          <button
+                            onClick={() => updateElement(selectedId, { borderRadius: Math.round(Math.min(selectedElement.width, selectedElement.height) / 2) })}
+                            className="mt-2 text-xs text-primary-600 hover:text-primary-700 font-medium"
+                          >
+                            ⬤ Rendre circulaire
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {selectedElement.type !== 'qrcode' && selectedElement.type !== 'photo' && (
+                      <>
+                        {/* Font Family */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Police</label>
+                          <select
+                            value={selectedElement.fontFamily || 'Montserrat'}
+                            onChange={(e) => updateElement(selectedId, { fontFamily: e.target.value })}
+                            className="w-full px-2 py-1.5 text-sm border rounded-lg"
+                            style={{ fontFamily: selectedElement.fontFamily || 'Montserrat' }}
+                          >
+                            {FONT_FAMILIES.map(font => (
+                              <option key={font} value={font} style={{ fontFamily: font }}>{font}</option>
+                            ))}
+                          </select>
+                          {/* Font preview */}
+                          <div
+                            className="mt-1.5 px-2 py-1.5 bg-gray-50 rounded border text-sm text-center truncate"
+                            style={{ fontFamily: selectedElement.fontFamily || 'Montserrat', fontSize: '15px' }}
+                          >
+                            Aa — Élégance & Amour
+                          </div>
+                        </div>
+
+                        {/* Font Size */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Taille de police
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range" min="6" max="200"
+                              value={selectedElement.fontSize || 16}
+                              onChange={(e) => updateElement(selectedId, { fontSize: parseInt(e.target.value) })}
+                              className="flex-1 accent-primary-600"
+                            />
+                            <input
+                              type="number"
+                              min="6" max="200"
+                              value={selectedElement.fontSize || 16}
+                              onChange={(e) => {
+                                const v = Math.max(6, Math.min(200, parseInt(e.target.value) || 6))
+                                updateElement(selectedId, { fontSize: v })
+                              }}
+                              className="w-16 px-2 py-1 text-xs border rounded text-center focus:ring-1 focus:ring-primary-500"
+                            />
+                            <span className="text-xs text-gray-400 shrink-0">px</span>
+                          </div>
+                        </div>
+
+                        {/* Line Height */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Interligne
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range" min="0.8" max="3" step="0.1"
+                              value={selectedElement.lineHeight || 1.2}
+                              onChange={(e) => updateElement(selectedId, { lineHeight: parseFloat(e.target.value) })}
+                              className="flex-1 accent-primary-600"
+                            />
+                            <input
+                              type="number"
+                              min="0.8" max="3" step="0.1"
+                              value={selectedElement.lineHeight || 1.2}
+                              onChange={(e) => {
+                                const v = Math.max(0.8, Math.min(3, parseFloat(e.target.value) || 1.2))
+                                updateElement(selectedId, { lineHeight: v })
+                              }}
+                              className="w-16 px-2 py-1 text-xs border rounded text-center focus:ring-1 focus:ring-primary-500"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Style Buttons */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-2">Style</label>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => updateElement(selectedId, { fontWeight: selectedElement.fontWeight === 'bold' ? 'normal' : 'bold' })}
+                              className={`flex-1 px-3 py-2 text-sm border rounded-lg font-bold ${selectedElement.fontWeight === 'bold' ? 'bg-primary-100 border-primary-300 text-primary-700' : 'border-gray-200'}`}
+                            >B</button>
+                            <button
+                              onClick={() => updateElement(selectedId, { fontStyle: selectedElement.fontStyle === 'italic' ? 'normal' : 'italic' })}
+                              className={`flex-1 px-3 py-2 text-sm border rounded-lg italic ${selectedElement.fontStyle === 'italic' ? 'bg-primary-100 border-primary-300 text-primary-700' : 'border-gray-200'}`}
+                            >I</button>
+                            <button
+                              onClick={() => updateElement(selectedId, { textTransform: selectedElement.textTransform === 'uppercase' ? 'none' : 'uppercase' })}
+                              className={`flex-1 px-3 py-2 text-xs border rounded-lg ${selectedElement.textTransform === 'uppercase' ? 'bg-primary-100 border-primary-300 text-primary-700' : 'border-gray-200'}`}
+                            >AA</button>
+                          </div>
+                        </div>
+                        {/* Ombre du texte */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-2">Ombre du texte</label>
+                          <div className="flex gap-2 items-center">
+                            <select
+                              value={selectedElement.textShadow || 'none'}
+                              onChange={e => updateElement(selectedId, { textShadow: e.target.value })}
+                              className="px-2 py-1.5 text-xs border rounded"
+                            >
+                              <option value="none">Aucune</option>
+                              <option value="1px 1px 2px">Douce</option>
+                              <option value="2px 2px 4px">Moyenne</option>
+                              <option value="3px 3px 6px">Forte</option>
+                            </select>
+                            <input
+                              type="color"
+                              value={selectedElement.shadowColor || '#000000'}
+                              onChange={e => updateElement(selectedId, { shadowColor: e.target.value })}
+                              className="w-8 h-8 rounded border-0"
+                              disabled={selectedElement.textShadow === 'none'}
+                              title="Couleur de l'ombre"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Alignment (9-position grid) */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-2">Alignement du texte</label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              { h: 'left', v: 'top', icon: '↖' },
+                              { h: 'center', v: 'top', icon: '↑' },
+                              { h: 'right', v: 'top', icon: '↗' },
+                              { h: 'left', v: 'middle', icon: '←' },
+                              { h: 'center', v: 'middle', icon: '⊙' },
+                              { h: 'right', v: 'middle', icon: '→' },
+                              { h: 'left', v: 'bottom', icon: '↙' },
+                              { h: 'center', v: 'bottom', icon: '↓' },
+                              { h: 'right', v: 'bottom', icon: '↘' }
+                            ].map((align, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => updateElement(selectedId, { textAlign: align.h, verticalAlign: align.v })}
+                                className={`w-full px-2 py-3 text-lg border rounded-lg font-semibold transition-colors ${
+                                  selectedElement.textAlign === align.h && selectedElement.verticalAlign === align.v
+                                    ? 'bg-primary-100 border-primary-400 text-primary-700'
+                                    : 'border-gray-200 text-gray-600 hover:border-primary-300 hover:text-primary-600'
+                                }`}
+                                title={`${align.h} - ${align.v}`}
+                              >
+                                {align.icon}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Color */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Couleur</label>
+                          <div className="flex items-center gap-2">
+                            <input type="color" value={selectedElement.color} onChange={(e) => updateElement(selectedId, { color: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
+                            <input type="text" value={selectedElement.color} onChange={(e) => updateElement(selectedId, { color: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border rounded font-mono" />
+                          </div>
+                          <div className="flex gap-1.5 mt-2">
+                            {['#000000', '#333333', '#666666', '#FFFFFF', '#8B7355', '#D4AF37', '#B76E79', '#2D5F3A', '#1E3A5F'].map(c => (
+                              <button
+                                key={c}
+                                onClick={() => updateElement(selectedId, { color: c })}
+                                className={`w-6 h-6 rounded-full border-2 hover:scale-110 ${selectedElement.color === c ? 'border-primary-500 scale-110' : 'border-gray-200'}`}
+                                style={{ backgroundColor: c }}
+                                aria-label={`Couleur ${c}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Letter Spacing */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Espacement ({selectedElement.letterSpacing || 0}px)
+                          </label>
+                          <input type="range" min="-2" max="20" value={selectedElement.letterSpacing || 0} onChange={(e) => updateElement(selectedId, { letterSpacing: parseInt(e.target.value) })} className="w-full accent-primary-600" />
+                        </div>
+                      </>
+                    )}
+
+                    {/* Label rename */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Libellé</label>
+                      <input
+                        type="text" value={selectedElement.label}
+                        onChange={(e) => updateElement(selectedId, { label: e.target.value })}
+                        className="w-full px-2 py-1.5 text-sm border rounded-lg"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
+                  <CursorArrowRaysIcon className="h-12 w-12 text-gray-300 mb-3" />
+                  <h3 className="text-sm font-medium text-gray-700">Aucun élément sélectionné</h3>
+                  <p className="text-xs text-gray-500 mt-2">Cliquez sur un élément dans le canevas pour modifier ses propriétés.</p>
+                  <button onClick={() => setActivePanel('elements')} className="mt-4 text-xs text-primary-600 hover:text-primary-700 font-medium">
+                    Voir la liste des éléments
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Canvas Area */}
+        <div className="flex-1 overflow-auto bg-gray-200 p-6 flex items-start justify-center">
+          <div style={{ width: canvasWidth * zoom, height: canvasHeight * zoom, transformOrigin: 'top center' }}>
+            <div
+              ref={canvasRef}
+              data-canvas="true"
+              onMouseDown={handleCanvasMouseDown}
+              className="relative bg-white shadow-2xl overflow-hidden select-none"
+              style={{ width: canvasWidth, height: canvasHeight, transform: `scale(${zoom})`, transformOrigin: 'top left' }}
+            >
+              {/* Background Image — stretched to exact canvas dimensions */}
+              {backgroundUrl && (
+                <img
+                  src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || ''}${backgroundUrl}`}
+                  alt="Background"
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  style={{ objectFit: 'fill', opacity: backgroundOpacity / 100 }}
+                  data-canvas="true"
+                />
+              )}
+
+              {/* No background placeholder */}
+              {!backgroundUrl && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50" data-canvas="true">
+                  <PhotoIcon className="h-20 w-20 text-gray-300 mb-4" />
+                  <p className="text-gray-400 text-lg font-medium">Aucune image de fond</p>
+                  <p className="text-gray-300 text-sm mt-1">Utilisez le panneau "Fond" pour charger une image</p>
+                  <button
+                    onClick={() => { setActivePanel('background'); fileInputRef.current?.click() }}
+                    className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700"
+                  >
+                    Charger une image
+                  </button>
+                </div>
+              )}
+
+              {/* Margin guides */}
+              {(margins.top > 0 || margins.right > 0 || margins.bottom > 0 || margins.left > 0) && (
+                <div
+                  className="absolute pointer-events-none"
+                  style={{
+                    top: margins.top,
+                    left: margins.left,
+                    width: canvasWidth - margins.left - margins.right,
+                    height: canvasHeight - margins.top - margins.bottom,
+                    border: '2px dashed rgba(239, 68, 68, 0.6)',
+                    zIndex: 999,
+                    boxSizing: 'border-box',
+                  }}
+                />
+              )}
+
+              {/* Grid de positionnement */}
+              {showGrid && (
+                <svg
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  style={{ opacity: 0.15, zIndex: 10 }}
+                  width={canvasWidth}
+                  height={canvasHeight}
+                >
+                  {/* Lignes verticales */}
+                  {Array.from({ length: Math.floor(canvasWidth / 50) + 1 }).map((_, i) => (
+                    <line
+                      key={`v-${i}`}
+                      x1={i * 50}
+                      y1={0}
+                      x2={i * 50}
+                      y2={canvasHeight}
+                      stroke="#888"
+                      strokeWidth={i % 2 === 0 ? 0.7 : 0.3}
+                    />
+                  ))}
+                  {/* Lignes horizontales */}
+                  {Array.from({ length: Math.floor(canvasHeight / 50) + 1 }).map((_, i) => (
+                    <line
+                      key={`h-${i}`}
+                      x1={0}
+                      y1={i * 50}
+                      x2={canvasWidth}
+                      y2={i * 50}
+                      stroke="#888"
+                      strokeWidth={i % 2 === 0 ? 0.7 : 0.3}
+                    />
+                  ))}
+                </svg>
+              )}
+
+              {/* Elements */}
+              {backgroundUrl && elements && elements.filter(el => el.visible && el.id).map((el) => {
+                if (!el || !el.id) return null
+                const isSelected = selectedId === el.id
+                const isMultiSelected = selectedIds.includes(el.id)
+                return (
+                <div
+                  key={el.id}
+                  onMouseDown={(e) => handleElementMouseDown(e, el.id)}
+                  className={`absolute transition-shadow ${el.locked ? 'cursor-not-allowed' : 'cursor-move'} ${
+                    isSelected ? 'ring-2 ring-primary-500 ring-offset-1' : isMultiSelected ? 'ring-2 ring-blue-400 ring-offset-1' : 'hover:ring-1 hover:ring-primary-300'
+                  }`}
+                  style={{ left: el.x, top: el.y, width: el.width, height: el.height }}
+                >
+                  {renderElementContent(el)}
+
+                  {/* Resize Handles (only for single selected element) */}
+                  {isSelected && !el.locked && (
+                    <>
+                      {['nw', 'ne', 'sw', 'se'].map(dir => (
+                        <div
+                          key={dir}
+                          onMouseDown={(e) => handleResizeMouseDown(e, dir)}
+                          className="absolute w-3 h-3 bg-primary-500 border border-white rounded-sm"
+                          style={{
+                            cursor: `${dir}-resize`,
+                            ...(dir.includes('n') ? { top: -5 } : { bottom: -5 }),
+                            ...(dir.includes('w') ? { left: -5 } : { right: -5 })
+                          }}
+                        />
+                      ))}
+                      {['n', 'e', 's', 'w'].map(dir => (
+                        <button
+                          key={dir}
+                          onMouseDown={(e) => handleResizeMouseDown(e, dir)}
+                          className="absolute bg-primary-400 border border-white"
+                          aria-label={`Resize ${dir}`}
+                          style={{
+                            cursor: dir === 'n' || dir === 's' ? 'ns-resize' : 'ew-resize',
+                            ...(dir === 'n' ? { top: -3, left: '50%', transform: 'translateX(-50%)', width: 14, height: 5, borderRadius: 2 } : {}),
+                            ...(dir === 's' ? { bottom: -3, left: '50%', transform: 'translateX(-50%)', width: 14, height: 5, borderRadius: 2 } : {}),
+                            ...(dir === 'e' ? { right: -3, top: '50%', transform: 'translateY(-50%)', width: 5, height: 14, borderRadius: 2 } : {}),
+                            ...(dir === 'w' ? { left: -3, top: '50%', transform: 'translateY(-50%)', width: 5, height: 14, borderRadius: 2 } : {})
+                          }}
+                        />
+                      ))}
+                    </>
+                  )}
+                </div>
+              )
+              })}
+            </div>
+          </div>
+
+          {/* Keyboard Shortcuts Help */}
+          
+        </div>
+      </div>
+    </div>
+  )
+}
