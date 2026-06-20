@@ -1,0 +1,19 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode gzip
+
+	# Check-in mobile PWA, served under the same domain/port so users never
+	# need to type a different port - https://yourdomain/checkin/
+	handle_path /checkin/* {
+		reverse_proxy checkin:80
+	}
+
+	# Everything else: the main dashboard, which itself proxies /api,
+	# /uploads, /templates and /socket.io to the backend container.
+	handle {
+		reverse_proxy frontend:80
+	}
+}

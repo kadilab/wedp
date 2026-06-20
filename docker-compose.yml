@@ -52,8 +52,9 @@ services:
     build:
       context: ./frontend
     restart: unless-stopped
-    ports:
-      - "${HTTP_PORT:-80}:80"
+    # No published port: only reachable from other containers (via Caddy).
+    expose:
+      - "80"
     depends_on:
       - backend
     networks:
@@ -63,10 +64,30 @@ services:
     build:
       context: ./checkin-app
     restart: unless-stopped
-    ports:
-      - "${CHECKIN_HTTP_PORT:-8080}:80"
+    # No published port: only reachable from other containers (via Caddy).
+    expose:
+      - "80"
     depends_on:
       - backend
+    networks:
+      - wedding_net
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - checkin
     networks:
       - wedding_net
 
@@ -74,6 +95,8 @@ volumes:
   mysql_data:
   backend_uploads:
   backend_logs:
+  caddy_data:
+  caddy_config:
 
 networks:
   wedding_net:
