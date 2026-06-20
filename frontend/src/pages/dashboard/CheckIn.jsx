@@ -171,6 +171,13 @@ export default function CheckIn() {
       }
     }
 
+    // Make the container visible BEFORE starting the camera and wait a frame:
+    // html5-qrcode measures the element's size when attaching the video
+    // stream, and a display:none container (0x0) produces a stream that
+    // never renders (black box) even after toggling visibility afterwards.
+    setScannerActive(true)
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+
     try {
       if (scannerInstanceRef.current) {
         await scannerInstanceRef.current.stop().catch(() => {})
@@ -190,11 +197,10 @@ export default function CheckIn() {
         handleQrCodeSuccess,
         () => {} // ignore errors (no QR found in frame)
       )
-
-      setScannerActive(true)
     } catch (err) {
       console.error('Scanner start error:', err)
       toast.error('Impossible de démarrer la caméra. Vérifiez les permissions du navigateur.')
+      setScannerActive(false)
     }
   }, [selectedCamera, handleQrCodeSuccess])
 
@@ -213,6 +219,9 @@ export default function CheckIn() {
     setSelectedCamera(cameraId)
     if (scannerActive) {
       await stopScanner()
+      // Container must be visible again (non-zero size) before the new
+      // stream attaches, otherwise the video renders black - see startScanner.
+      setScannerActive(true)
       // Small delay to let the DOM reset
       setTimeout(() => {
         const scanner = new Html5Qrcode('qr-reader')
@@ -222,8 +231,10 @@ export default function CheckIn() {
           { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1 },
           handleQrCodeSuccess,
           () => {}
-        ).then(() => setScannerActive(true))
-         .catch(() => toast.error('Erreur lors du changement de caméra'))
+        ).catch(() => {
+          toast.error('Erreur lors du changement de caméra')
+          setScannerActive(false)
+        })
       }, 300)
     }
   }, [scannerActive, stopScanner, handleQrCodeSuccess])

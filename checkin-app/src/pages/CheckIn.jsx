@@ -216,6 +216,13 @@ export default function CheckIn() {
       }
     }
 
+    // Make the container visible BEFORE starting the camera and wait a frame:
+    // html5-qrcode measures the element's size when attaching the video
+    // stream, and a display:none container (0x0) produces a stream that
+    // never renders (black box) even after toggling visibility afterwards.
+    setScannerActive(true)
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+
     try {
       if (scannerInstanceRef.current) {
         await scannerInstanceRef.current.stop().catch(() => {})
@@ -229,9 +236,9 @@ export default function CheckIn() {
         handleQrCodeSuccess,
         () => {}
       )
-      setScannerActive(true)
     } catch {
       toast.error('Impossible de démarrer la caméra.')
+      setScannerActive(false)
     }
   }, [selectedCamera, handleQrCodeSuccess])
 
