@@ -1,5 +1,8 @@
 {
-	email {$ACME_EMAIL}
+	# Falls back to a placeholder if ACME_EMAIL isn't set, so a missing env
+	# var never breaks Caddyfile parsing - it's only used for Let's Encrypt
+	# expiry notices, not required for HTTPS to work.
+	email {$ACME_EMAIL:admin@example.com}
 }
 
 {$DOMAIN} {
