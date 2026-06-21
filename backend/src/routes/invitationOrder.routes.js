@@ -62,7 +62,7 @@ router.get('/mine', authenticate, async (req, res) => {
     const orders = await prisma.invitationOrder.findMany({
       where: { userId: req.user.id },
       include: {
-        wedding: { select: { id: true, brideName: true, groomName: true, slug: true } }
+        wedding: { select: { id: true, brideName: true, groomName: true, eventType: true, eventTitle: true, slug: true } }
       },
       orderBy: { createdAt: 'desc' }
     });

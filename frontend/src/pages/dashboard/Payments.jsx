@@ -11,8 +11,15 @@ import {
   ClockIcon,
   XCircleIcon,
   ShoppingCartIcon,
-  HeartIcon
+  HeartIcon,
+  CurrencyDollarIcon,
+  GiftIcon,
+  WalletIcon
 } from '@heroicons/react/24/outline'
+
+const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Dot', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
+const eventDisplayName = (w) =>
+  (!w.eventType || w.eventType === 'WEDDING') ? `${w.brideName} & ${w.groomName}` : (w.eventTitle || EVENT_TYPE_LABELS[w.eventType])
 
 function getStatusBadge(status) {
   switch (status) {
@@ -33,26 +40,49 @@ function WeddingQuotaRow({ wedding, onBuy }) {
     () => invitationOrderAPI.getQuota(wedding.id)
   )
   const quota = quotaData?.data?.quota
+  const pct = quota?.totalAllowed ? Math.min(100, Math.round((quota.used / quota.totalAllowed) * 100)) : 0
+  const isLow = quota && quota.remaining === 0
 
   return (
-    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
+    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl gap-4">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
           <HeartIcon className="h-5 w-5 text-primary-600" />
         </div>
-        <div>
-          <p className="font-medium text-gray-900">{wedding.brideName} & {wedding.groomName}</p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-gray-900 truncate">{eventDisplayName(wedding)}</p>
+            <span className="shrink-0 text-xs px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
+              {EVENT_TYPE_LABELS[wedding.eventType] || 'Mariage'}
+            </span>
+          </div>
           {quota && (
-            <p className="text-sm text-gray-500">
-              {quota.remaining} invitation{quota.remaining > 1 ? 's' : ''} restante{quota.remaining > 1 ? 's' : ''} sur {quota.totalAllowed}
-            </p>
+            <>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {quota.used} générée{quota.used > 1 ? 's' : ''} / {quota.totalAllowed} disponible{quota.totalAllowed > 1 ? 's' : ''}
+                {' '}({quota.freeQuota} gratuite{quota.freeQuota > 1 ? 's' : ''}{quota.purchased > 0 ? ` + ${quota.purchased} achetée${quota.purchased > 1 ? 's' : ''}` : ''})
+              </p>
+              <div className="w-full h-1.5 bg-gray-200 rounded-full mt-1.5 overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${isLow ? 'bg-amber-500' : 'bg-primary-500'}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </>
           )}
         </div>
       </div>
-      <button onClick={() => onBuy(wedding.id)} className="btn-secondary btn-sm">
-        <ShoppingCartIcon className="h-4 w-4 mr-1" />
-        Acheter
-      </button>
+      <div className="text-right shrink-0">
+        {quota && (
+          <p className={`text-sm font-semibold mb-1 ${isLow ? 'text-amber-600' : 'text-gray-900'}`}>
+            {quota.remaining} restante{quota.remaining > 1 ? 's' : ''}
+          </p>
+        )}
+        <button onClick={() => onBuy(wedding.id)} className="btn-secondary btn-sm">
+          <ShoppingCartIcon className="h-4 w-4 mr-1" />
+          Acheter
+        </button>
+      </div>
     </div>
   )
 }
@@ -66,20 +96,69 @@ export default function Payments() {
   const { data: ordersData, isLoading } = useQuery('my-invitation-orders', () => invitationOrderAPI.getMine())
   const orders = ordersData?.data?.orders || []
 
+  const { data: pricingData } = useQuery('invitation-pricing', () => invitationOrderAPI.getPricing())
+  const pricing = pricingData?.data || { unitPrice: 0, paymentMethods: [] }
+
+  const approvedOrders = orders.filter(o => o.status === 'APPROVED')
+  const pendingOrders = orders.filter(o => o.status === 'PENDING')
+  const totalSpent = approvedOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0)
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-serif font-bold text-gray-900">Paiements</h1>
         <p className="text-gray-600 mt-1">
-          Chaque mariage a droit à 1 invitation gratuite. Au-delà, achetez votre quota via Mobile Money.
+          Chaque événement a droit à 1 invitation gratuite. Au-delà, achetez votre quota via Mobile Money.
         </p>
+      </div>
+
+      {/* Summary stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center gap-3">
+          <div className="p-2.5 bg-primary-50 rounded-lg"><CurrencyDollarIcon className="h-5 w-5 text-primary-600" /></div>
+          <div>
+            <p className="text-xl font-bold text-gray-900">{totalSpent.toLocaleString()} $</p>
+            <p className="text-xs text-gray-500">Total dépensé</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center gap-3">
+          <div className="p-2.5 bg-amber-50 rounded-lg"><ClockIcon className="h-5 w-5 text-amber-600" /></div>
+          <div>
+            <p className="text-xl font-bold text-gray-900">{pendingOrders.length}</p>
+            <p className="text-xs text-gray-500">Commande{pendingOrders.length > 1 ? 's' : ''} en attente</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center gap-3">
+          <div className="p-2.5 bg-green-50 rounded-lg"><WalletIcon className="h-5 w-5 text-green-600" /></div>
+          <div>
+            <p className="text-xl font-bold text-gray-900">{pricing.unitPrice} $</p>
+            <p className="text-xs text-gray-500">Prix par invitation</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Pricing & payment methods info */}
+      <div className="bg-primary-50 border border-primary-100 rounded-xl p-5 flex items-start gap-3">
+        <GiftIcon className="h-5 w-5 text-primary-600 mt-0.5 shrink-0" />
+        <div className="text-sm text-primary-900">
+          <p>
+            <strong>1 invitation gratuite</strong> par événement, puis <strong>{pricing.unitPrice} $</strong> par invitation supplémentaire.
+          </p>
+          {pricing.paymentMethods?.length > 0 ? (
+            <p className="mt-1 text-primary-700">
+              Paiement accepté via {pricing.paymentMethods.map(m => m.provider).join(', ')} — cliquez sur "Acheter" pour les détails.
+            </p>
+          ) : (
+            <p className="mt-1 text-amber-700">Aucun moyen de paiement configuré pour le moment - contactez le support.</p>
+          )}
+        </div>
       </div>
 
       {/* Quota per wedding */}
       {weddings.length > 0 && (
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h2 className="text-lg font-serif font-bold text-gray-900 mb-4">
-            Mes mariages — quota d'invitations
+            Mes événements — quota d'invitations
           </h2>
           <div className="space-y-3">
             {weddings.map((wedding) => (
@@ -112,7 +191,7 @@ export default function Payments() {
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Mariage</th>
+                  <th>Événement</th>
                   <th>Quantité</th>
                   <th>Montant</th>
                   <th>Référence transaction</th>
@@ -126,7 +205,7 @@ export default function Payments() {
                     <td>
                       {order.wedding ? (
                         <Link to={`/weddings/${order.wedding.id}/invitations`} className="text-primary-600 hover:underline">
-                          {order.wedding.brideName} & {order.wedding.groomName}
+                          {eventDisplayName(order.wedding)}
                         </Link>
                       ) : '-'}
                     </td>
