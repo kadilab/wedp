@@ -52,16 +52,22 @@ export default function TemplatePreview({ template, className = '', weddingData 
         return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
       } catch { return String(dateStr) }
     }
+    const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Dot', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
+    const isWeddingEvent = !weddingData?.eventType || weddingData.eventType === 'WEDDING'
     return {
       bride_name: weddingData?.brideName || 'Marie',
       groom_name: weddingData?.groomName || 'Jean',
+      event_title: isWeddingEvent
+        ? `${weddingData?.brideName || 'Marie'} & ${weddingData?.groomName || 'Jean'}`
+        : (weddingData?.eventTitle || EVENT_TYPE_LABELS[weddingData?.eventType] || 'Événement'),
+      event_type: EVENT_TYPE_LABELS[weddingData?.eventType] || 'Mariage',
       guest_name: 'Prénom Nom',
       invitation_type: template?.config?.invitationType === 'couple' ? 'Couple' : 'Singleton',
       custom_message: weddingData?.customMessage || '',
       wedding_date: fmt(weddingData?.weddingDate) || '25-12-2026 00:00',
-      ceremony_time: weddingData?.communeTime || '',
-      venue_name: weddingData?.receptionVenue || weddingData?.communeVenue || 'Château des Roses',
-      venue_address: weddingData?.receptionAddress || weddingData?.communeAddress || '',
+      ceremony_time: weddingData?.ceremonyTime || weddingData?.communeTime || '',
+      venue_name: weddingData?.venueName || weddingData?.receptionVenue || weddingData?.communeVenue || 'Château des Roses',
+      venue_address: weddingData?.venueAddress || weddingData?.receptionAddress || weddingData?.communeAddress || '',
       table_number: '',
       rsvp_date: fmt(weddingData?.rsvpDeadline) || '',
       commune_date: fmt(weddingData?.communeDate) || '',

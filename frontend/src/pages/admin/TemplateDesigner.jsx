@@ -293,6 +293,127 @@ const DEFAULT_ELEMENTS = [
   }
 ]
 
+// Simplified element set for non-WEDDING event types (anniversaire, dot,
+// cérémonie, conférence, autre) - just titre/date/heure/lieu/message/QR,
+// no commune/église/réception programme and no bride&groom names.
+const SIMPLE_EVENT_ELEMENTS = [
+  {
+    id: 'title',
+    type: 'text',
+    label: 'Titre',
+    content: '{{event_type}}',
+    x: 100, y: 40, width: 600, height: 40,
+    fontSize: 14, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#8B7355', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 4, textTransform: 'uppercase', locked: false, textShadow: 'none', shadowColor: '#000000'
+  },
+  {
+    id: 'eventTitle',
+    type: 'text',
+    label: "Titre de l'événement",
+    content: '{{event_title}}',
+    x: 50, y: 100, width: 700, height: 80,
+    fontSize: 44, fontFamily: 'Great Vibes', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#2D2D2D', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'guestName',
+    type: 'guest',
+    label: "Nom de l'invité",
+    content: 'Cher(e) {{guest_name}}',
+    x: 150, y: 200, width: 500, height: 40,
+    fontSize: 20, fontFamily: 'Cormorant Garamond', fontWeight: 'normal', fontStyle: 'italic',
+    color: '#4A4A4A', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'message',
+    type: 'message',
+    label: 'Message personnalisé',
+    content: '{{custom_message}}',
+    x: 100, y: 260, width: 600, height: 60,
+    fontSize: 14, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'italic',
+    color: '#666666', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'date',
+    type: 'date',
+    label: 'Date',
+    content: '{{wedding_date}}',
+    x: 200, y: 340, width: 400, height: 40,
+    fontSize: 24, fontFamily: 'Playfair Display', fontWeight: 'bold', fontStyle: 'normal',
+    color: '#2D2D2D', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 1, textTransform: 'none', locked: false
+  },
+  {
+    id: 'time',
+    type: 'time',
+    label: 'Heure',
+    content: 'à {{ceremony_time}}',
+    x: 280, y: 390, width: 240, height: 30,
+    fontSize: 16, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#666666', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'venueLabel',
+    type: 'text',
+    label: 'Lieu — Titre',
+    content: '📍 Lieu',
+    x: 250, y: 460, width: 300, height: 30,
+    fontSize: 14, fontFamily: 'Montserrat', fontWeight: 'bold', fontStyle: 'normal',
+    color: '#2D2D2D', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'venueName',
+    type: 'text',
+    label: 'Lieu — Nom',
+    content: '{{venue_name}}',
+    x: 200, y: 496, width: 400, height: 28,
+    fontSize: 16, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'italic',
+    color: '#8B7355', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'venueAddress',
+    type: 'text',
+    label: 'Lieu — Adresse',
+    content: '{{venue_address}}',
+    x: 200, y: 530, width: 400, height: 24,
+    fontSize: 12, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#999999', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'qrCode',
+    type: 'qrcode',
+    label: 'QR Code',
+    content: '{{qr_code}}',
+    x: 300, y: 610, width: 200, height: 200,
+    fontSize: 12, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#333333', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'rsvpDate',
+    type: 'rsvp',
+    label: 'Date RSVP',
+    content: 'RSVP avant le {{rsvp_date}}',
+    x: 200, y: 880, width: 400, height: 30,
+    fontSize: 12, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+    color: '#999999', textAlign: 'center', verticalAlign: 'middle', visible: true,
+    letterSpacing: 0, textTransform: 'none', locked: false
+  }
+]
+
+// Pick the right starter layout for the event type - WEDDING gets the full
+// programme (commune/église/réception), everything else gets the simple set.
+const getDefaultElements = (eventType) =>
+  eventType && eventType !== 'WEDDING' ? SIMPLE_EVENT_ELEMENTS : DEFAULT_ELEMENTS
+
 // Helper: parse date to separate components (day name, day num, month, year)
 const parseDateComponents = (dateStr) => {
   if (!dateStr) return { day_name: '', day_num: '', month_name: '', year: '' }
@@ -334,6 +455,12 @@ const parseDateComponents = (dateStr) => {
 const SAMPLE_DATA = {
   bride_name: 'Marie',
   groom_name: 'Jean',
+  // Non-WEDDING event types (anniversaire, dot, cérémonie, conférence, autre)
+  // use these instead of bride/groom names + the commune/église/réception programme
+  event_title: 'Anniversaire de Sophie',
+  event_type: 'Anniversaire',
+  venue_name: 'Salle des Fêtes',
+  venue_address: '12 Rue des Fleurs, Dakar',
   guest_name: 'Sophie Dupont',
   custom_message: 'Nous serions honorés de votre présence pour célébrer notre union',
   wedding_date: '20 Juin 2026',
@@ -849,9 +976,21 @@ export default function TemplateDesigner({ clientMode = false }) {
   }
 
   const resetLayout = () => {
-    setElements(scaleElementsToCanvas(DEFAULT_ELEMENTS, canvasWidth, canvasHeight))
+    setElements(scaleElementsToCanvas(getDefaultElements(templateEventType), canvasWidth, canvasHeight))
     setSelectedId(null)
     setSelectedIds([])
+  }
+
+  // Switching event type on a brand-new (not-yet-saved) template swaps the
+  // starter layout to match - a Dot/Anniversaire invitation has no
+  // commune/église/réception programme and no bride&groom names, so the
+  // wedding skeleton would just leave those fields blank/incoherent.
+  // Existing templates keep their elements untouched when re-categorized.
+  const handleEventTypeChange = (newType) => {
+    setTemplateEventType(newType)
+    if (!isEditing) {
+      setElements(scaleElementsToCanvas(getDefaultElements(newType), canvasWidth, canvasHeight))
+    }
   }
 
   // ===================== BACKGROUND UPLOAD =====================
@@ -1756,7 +1895,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                 <label className="block text-xs font-medium text-gray-700 mb-1">Type d'événement</label>
                 <select
                   value={templateEventType}
-                  onChange={(e) => setTemplateEventType(e.target.value)}
+                  onChange={(e) => handleEventTypeChange(e.target.value)}
                   className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 >
                   {EVENT_TYPES.map(type => (

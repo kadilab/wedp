@@ -122,6 +122,27 @@ export default function WeddingCreate() {
   const { data: myTemplatesData } = useQuery('my-templates', () => templateAPI.getMyTemplates())
   const myTemplates = (myTemplatesData?.data?.templates || []).filter(t => (t.eventType || 'WEDDING') === eventType)
 
+  // Shared live-preview data so canvas tokens ({{event_title}}, {{venue_name}}...)
+  // reflect what the user has typed so far, for wedding and non-wedding types alike.
+  const previewWeddingData = {
+    eventType,
+    eventTitle: watch('eventTitle'),
+    brideName: watch('brideName'),
+    groomName: watch('groomName'),
+    weddingDate: watch('weddingDate'),
+    ceremonyTime: watch('ceremonyTime'),
+    venueName: watch('venueName'),
+    venueAddress: watch('venueAddress'),
+    customMessage: watch('customMessage'),
+    communeTime: watch('communeTime'),
+    egliseTime: watch('egliseTime'),
+    receptionStartTime: watch('receptionStartTime'),
+    communeVenue: watch('communeVenue'),
+    egliseVenue: watch('egliseVenue'),
+    receptionVenue: watch('receptionVenue'),
+    receptionDate: watch('receptionDate')
+  }
+
   // Step numbers shift depending on whether the full wedding programme
   // step is needed - everything downstream (design/QR/print) just slides up.
   const STEP_TYPE = 0
@@ -678,7 +699,7 @@ export default function WeddingCreate() {
                               }`}>
                                 <input type="radio" value={tmpl.id} className="hidden" {...register('templateId')} />
                                 <div className="aspect-[3/4] bg-gradient-wedding flex items-center justify-center relative">
-                                  <TemplatePreview template={tmpl} weddingData={{ brideName: watch('brideName'), groomName: watch('groomName'), weddingDate: watch('weddingDate'), communeTime: watch('communeTime'), egliseTime: watch('egliseTime'), receptionStartTime: watch('receptionStartTime'), communeVenue: watch('communeVenue'), egliseVenue: watch('egliseVenue'), receptionVenue: watch('receptionVenue') }} />
+                                  <TemplatePreview template={tmpl} weddingData={previewWeddingData} />
                                   {watch('templateId') === tmpl.id && (
                                     <div className="absolute inset-0 bg-primary-600/10 flex items-center justify-center">
                                       <div className="bg-primary-600 text-white rounded-full p-1.5">
@@ -742,18 +763,7 @@ export default function WeddingCreate() {
                                 <div className="aspect-[3/4] relative bg-gray-50">
                                   <TemplatePreview
                                     template={selectedTmpl}
-                                    weddingData={{
-                                      brideName: watch('brideName') || 'Mariée',
-                                      groomName: watch('groomName') || 'Marié',
-                                      weddingDate: watch('weddingDate'),
-                                      communeTime: watch('communeTime'),
-                                      communeVenue: watch('communeVenue'),
-                                      egliseTime: watch('egliseTime'),
-                                      egliseVenue: watch('egliseVenue'),
-                                      receptionStartTime: watch('receptionStartTime'),
-                                      receptionVenue: watch('receptionVenue'),
-                                      receptionDate: watch('receptionDate')
-                                    }}
+                                    weddingData={previewWeddingData}
                                   />
                                 </div>
                                 <div className="p-2 bg-primary-50 border-t border-primary-200">

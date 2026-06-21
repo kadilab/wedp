@@ -635,9 +635,15 @@ function generateDesignBasedHTML(options) {
   };
 
   // Build replacement data map
+  const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Dot', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' };
+  const isWeddingEvent = !wedding.eventType || wedding.eventType === 'WEDDING';
   const dataMap = {
     bride_name: wedding.brideName || '',
     groom_name: wedding.groomName || '',
+    event_title: isWeddingEvent
+      ? `${wedding.brideName || ''} & ${wedding.groomName || ''}`
+      : (wedding.eventTitle || EVENT_TYPE_LABELS[wedding.eventType] || 'Événement'),
+    event_type: EVENT_TYPE_LABELS[wedding.eventType] || 'Mariage',
     guest_name: guest ? `${guest.firstName} ${guest.lastName}` : '',
     custom_message: wedding.customMessage || '',
     wedding_date: formatDate(wedding.weddingDate),
