@@ -21,7 +21,6 @@ import {
   CogIcon,
   TagIcon,
   PrinterIcon,
-  ShieldCheckIcon,
   ArrowsRightLeftIcon,
   ChevronDownIcon
 } from '@heroicons/react/24/outline'
@@ -55,7 +54,7 @@ const adminNavSections = [
     label: 'Gestion',
     items: [
       { name: 'Utilisateurs', href: '/admin/users', icon: UsersIcon },
-      { name: 'Mariages', href: '/admin/weddings', icon: HeartIcon },
+      { name: 'Événements', href: '/admin/weddings', icon: HeartIcon },
       { name: 'Achats invitations', href: '/admin/invitation-orders', icon: TicketIcon, badgeKey: 'pendingInvitationOrders' },
       { name: 'Impressions', href: '/admin/print-orders', icon: PrinterIcon },
     ]
@@ -154,50 +153,6 @@ export default function DashboardLayout({ isAdmin = false }) {
             </button>
           </div>
 
-          {/* User info */}
-          <button
-            onClick={() => navigate('/profile')}
-            className="px-6 py-4 border-b bg-gradient-wedding text-left hover:brightness-95 transition-all"
-          >
-            <div className="flex items-center space-x-3">
-              {user?.avatar ? (
-                <img
-                  src={user.avatar}
-                  alt="Avatar"
-                  className="w-10 h-10 rounded-full object-cover ring-2 ring-primary-200"
-                />
-              ) : (
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') 
-                    ? 'bg-red-100' 
-                    : 'bg-primary-100'
-                }`}>
-                  {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') ? (
-                    <ShieldCheckIcon className="h-6 w-6 text-red-600" />
-                  ) : (
-                    <span className="text-primary-600 font-semibold">
-                      {user?.firstName?.[0]}{user?.lastName?.[0]}
-                    </span>
-                  )}
-                </div>
-              )}
-              <div>
-                <p className="font-medium text-gray-900">
-                  {user?.firstName} {user?.lastName}
-                </p>
-                <p className="text-sm text-gray-500">{user?.email}</p>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
-                  <ShieldCheckIcon className="h-3 w-3 mr-1" />
-                  {user?.role === 'SUPER_ADMIN' ? 'Super Admin' : 'Admin'}
-                </span>
-              )}
-            </div>
-          </button>
-
           {/* Navigation */}
           <nav className="flex-1 px-3 py-2 overflow-y-auto">
             {navSections.map((section) => (
@@ -231,9 +186,9 @@ export default function DashboardLayout({ isAdmin = false }) {
             ))}
           </nav>
 
-          {/* Admin/Client Switch + Logout */}
-          <div className="p-4 border-t space-y-1">
-            {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+          {/* Admin/Client Switch */}
+          {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+            <div className="p-4 border-t">
               <NavLink
                 to={isAdmin ? '/weddings' : '/admin'}
                 className="sidebar-link w-full text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 font-medium"
@@ -241,15 +196,8 @@ export default function DashboardLayout({ isAdmin = false }) {
                 <ArrowsRightLeftIcon className="h-5 w-5 mr-3" />
                 {isAdmin ? 'Espace Client' : 'Espace Admin'}
               </NavLink>
-            )}
-            <button
-              onClick={handleLogout}
-              className="sidebar-link w-full text-red-600 hover:bg-red-50 hover:text-red-700"
-            >
-              <ArrowRightOnRectangleIcon className="h-5 w-5 mr-3" />
-              Déconnexion
-            </button>
-          </div>
+            </div>
+          )}
         </div>
       </aside>
 

@@ -562,6 +562,7 @@ router.get('/weddings', authenticate, isAdmin, paginationValidation, async (req,
         OR: [
           { brideName: { contains: search } },
           { groomName: { contains: search } },
+          { eventTitle: { contains: search } },
           { slug: { contains: search } }
         ]
       })

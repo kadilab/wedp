@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
-import { printOrderAPI, weddingAPI } from '../../services/api'
+import { printOrderAPI, weddingAPI, invitationAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -13,8 +14,13 @@ import {
   TruckIcon,
   CubeIcon,
   ExclamationCircleIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  ArrowDownTrayIcon
 } from '@heroicons/react/24/outline'
+
+const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Dot', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
+const eventDisplayName = (w) =>
+  (!w.eventType || w.eventType === 'WEDDING') ? `${w.brideName} & ${w.groomName}` : (w.eventTitle || EVENT_TYPE_LABELS[w.eventType])
 
 const STATUS_MAP = {
   PENDING: { label: 'En attente de confirmation', color: 'yellow', icon: ClockIcon, step: 1 },
@@ -35,10 +41,45 @@ const STEPS = [
 
 export default function PrintOrders() {
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [downloadWeddingId, setDownloadWeddingId] = useState('')
+  const [downloading, setDownloading] = useState(false)
   const queryClient = useQueryClient()
 
   const { data: ordersData, isLoading } = useQuery('printOrders', () => printOrderAPI.getAll())
   const orders = ordersData?.data?.orders || []
+
+  const { data: weddingsData } = useQuery('weddings', () => weddingAPI.getAll())
+  const weddings = weddingsData?.data?.weddings || []
+
+  // Free self-print PDF - no print order/payment needed, anyone can grab
+  // their already-generated invitation PDFs and print them at home.
+  const handleDownloadPdf = async () => {
+    const weddingId = downloadWeddingId || weddings[0]?.id
+    if (!weddingId) {
+      toast.error('Sélectionnez un événement')
+      return
+    }
+    setDownloading(true)
+    try {
+      const response = await invitationAPI.downloadAll(weddingId, 'pdf')
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `invitations_pdf_${weddingId}.zip`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      toast.success('Téléchargement lancé')
+    } catch (err) {
+      toast.error(
+        err.response?.data?.error ||
+        'Aucun PDF disponible - générez d\'abord vos invitations depuis la page "Invitations" de cet événement'
+      )
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   const cancelMutation = useMutation(
     (id) => printOrderAPI.cancel(id),
@@ -83,6 +124,47 @@ export default function PrintOrders() {
         <p className="text-gray-600 mt-1">Suivez vos commandes d'impression d'invitations</p>
       </div>
 
+      {/* Free self-print download - no order/payment required */}
+      {weddings.length > 0 && (
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border border-primary-100">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-primary-50 rounded-xl">
+              <ArrowDownTrayIcon className="h-6 w-6 text-primary-600" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold text-gray-900">Télécharger le PDF d'impression</h2>
+              <p className="text-sm text-gray-500 mt-1 mb-4">
+                Téléchargez gratuitement le PDF de vos invitations pour les imprimer vous-même, sans passer de commande.
+                Pour une impression professionnelle livrée chez vous, commandez le service ci-dessous.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <select
+                  value={downloadWeddingId || weddings[0]?.id || ''}
+                  onChange={(e) => setDownloadWeddingId(e.target.value)}
+                  className="input flex-1"
+                >
+                  {weddings.map((w) => (
+                    <option key={w.id} value={w.id}>{eventDisplayName(w)}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={downloading}
+                  className="btn-primary whitespace-nowrap flex items-center justify-center"
+                >
+                  <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
+                  {downloading ? 'Téléchargement...' : 'Télécharger le PDF'}
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                Besoin de générer les PDF d'abord ? Allez sur la page{' '}
+                <Link to={`/weddings/${downloadWeddingId || weddings[0]?.id}/invitations`} className="link">Invitations</Link> de l'événement.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {orders.length === 0 ? (
         <div className="bg-white rounded-xl shadow-lg p-12 text-center">
           <PrinterIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
@@ -108,7 +190,7 @@ export default function PrintOrders() {
                       </div>
                       <div>
                         <h3 className="font-semibold text-gray-900">
-                          {order.wedding?.brideName} & {order.wedding?.groomName}
+                          {order.wedding ? eventDisplayName(order.wedding) : '-'}
                         </h3>
                         <p className="text-sm text-gray-500">
                           Commande #{order.id.slice(0, 8)} • {format(new Date(order.createdAt), 'd MMM yyyy', { locale: fr })}
@@ -233,8 +315,8 @@ export default function PrintOrders() {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Mariage</span>
-                <span className="font-medium">{selectedOrder.wedding?.brideName} & {selectedOrder.wedding?.groomName}</span>
+                <span className="text-sm text-gray-500">Événement</span>
+                <span className="font-medium">{selectedOrder.wedding ? eventDisplayName(selectedOrder.wedding) : '-'}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-500">Quantité</span>

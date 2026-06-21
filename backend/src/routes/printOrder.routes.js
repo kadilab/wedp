@@ -169,7 +169,7 @@ router.get('/', authenticate, async (req, res) => {
       where,
       include: {
         wedding: {
-          select: { id: true, brideName: true, groomName: true, slug: true }
+          select: { id: true, brideName: true, groomName: true, eventType: true, eventTitle: true, slug: true }
         }
       },
       orderBy: { createdAt: 'desc' }
@@ -193,7 +193,7 @@ router.get('/:id', authenticate, async (req, res) => {
       where: { id: req.params.id },
       include: {
         wedding: {
-          select: { id: true, brideName: true, groomName: true, slug: true, templateId: true }
+          select: { id: true, brideName: true, groomName: true, eventType: true, eventTitle: true, slug: true, templateId: true }
         }
       }
     });
