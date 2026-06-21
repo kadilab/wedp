@@ -752,11 +752,14 @@ function generateDesignBasedHTML(options) {
         const borderColor = hexToRgba(el.borderColor || '#FFFFFF', el.borderOpacity ?? 100);
         const objectFit = el.objectFit || (isDecorative ? 'contain' : 'cover');
         const clipPath = getClipPath(el.shape);
+        // No gray placeholder fill once a real image is set - many decorative
+        // uploads (PNG logos, ornaments) rely on transparency.
+        const placeholderBg = photoSrc ? 'transparent' : '#f3f4f6';
 
         if (clipPath) {
           const pad = el.borderWidth || 0;
           return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};box-sizing:border-box;clip-path:${clipPath};background:${pad ? borderColor : 'transparent'};padding:${pad}px;">
-            <div style="width:100%;height:100%;clip-path:${clipPath};background:#f3f4f6;overflow:hidden;">
+            <div style="width:100%;height:100%;clip-path:${clipPath};background:${placeholderBg};overflow:hidden;">
               ${photoSrc ? `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:${objectFit};display:block;" />` : ''}
             </div>
           </div>`;
@@ -764,7 +767,7 @@ function generateDesignBasedHTML(options) {
 
         const borderStyle = el.borderWidth ? `border:${el.borderWidth}px solid ${borderColor};` : '';
         const radiusStyle = el.borderRadius ? `border-radius:${el.borderRadius}px;overflow:hidden;` : '';
-        return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};box-sizing:border-box;${borderStyle}${radiusStyle}background:#f3f4f6;">
+        return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};box-sizing:border-box;${borderStyle}${radiusStyle}background:${placeholderBg};">
           ${photoSrc ? `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:${objectFit};display:block;" />` : ''}
         </div>`;
       }

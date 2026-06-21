@@ -191,6 +191,9 @@ export default function TemplatePreview({ template, className = '', weddingData 
                   const imgSrc = isDecorative
                     ? (el.iconUrl ? (el.iconUrl.startsWith('data:') || el.iconUrl.startsWith('http') ? el.iconUrl : `${apiBase}${el.iconUrl}`) : null)
                     : weddingData?.couplePhoto
+                  // No gray placeholder fill once a real image is set - many
+                  // decorative uploads (PNG logos, ornaments) rely on transparency.
+                  const placeholderBg = imgSrc ? 'transparent' : '#f3f4f6'
                   const outerStyle = clipPath
                     ? { clipPath, background: el.borderWidth ? photoBorderColor : 'transparent', padding: el.borderWidth || 0 }
                     : { border: el.borderWidth ? `${el.borderWidth}px solid ${photoBorderColor}` : 'none', borderRadius: el.borderRadius || 0 }
@@ -204,14 +207,14 @@ export default function TemplatePreview({ template, className = '', weddingData 
                         zIndex: zIdx,
                         boxSizing: 'border-box',
                         overflow: 'hidden',
-                        background: clipPath && el.borderWidth ? undefined : '#f3f4f6',
+                        background: clipPath && el.borderWidth ? undefined : placeholderBg,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         ...outerStyle
                       }}
                     >
-                      <div style={{ width: '100%', height: '100%', overflow: 'hidden', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', clipPath: clipPath || undefined }}>
+                      <div style={{ width: '100%', height: '100%', overflow: 'hidden', background: placeholderBg, display: 'flex', alignItems: 'center', justifyContent: 'center', clipPath: clipPath || undefined }}>
                         {imgSrc ? (
                           <img src={imgSrc} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: el.objectFit || (isDecorative ? 'contain' : 'cover') }} />
                         ) : (

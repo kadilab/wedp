@@ -394,9 +394,20 @@ export default function InvitationView() {
                 )
               }
 
-              // Photo element (ex: photo des mariés)
-              if (el.type === 'photo') {
+              // Photo element (ex: photo des mariés, fournie par le client) or a
+              // fixed decorative "image" uploaded by the admin - both support
+              // shapes (rectangle/cercle/hexagone/losange/octogone/étoile).
+              if (el.type === 'photo' || el.type === 'image') {
+                const isDecorative = el.type === 'image'
                 const photoBorderColor = hexToRgba(el.borderColor || '#FFFFFF', (el.borderOpacity ?? 100) / 100)
+                const clipPath = getClipPath(el.shape)
+                const imgSrc = isDecorative ? (el.iconUrl || null) : (wedding?.couplePhoto || null)
+                // No gray placeholder fill once a real image is set - many
+                // decorative uploads (PNG logos, ornaments) rely on transparency.
+                const placeholderBg = imgSrc ? 'transparent' : '#f3f4f6'
+                const outerStyle = clipPath
+                  ? { clipPath, background: el.borderWidth ? photoBorderColor : 'transparent', padding: el.borderWidth || 0 }
+                  : { border: el.borderWidth ? `${el.borderWidth}px solid ${photoBorderColor}` : 'none', borderRadius: el.borderRadius || 0 }
                 return (
                   <div
                     key={el.id || idx}
@@ -406,19 +417,20 @@ export default function InvitationView() {
                       width: el.width, height: el.height,
                       zIndex: elZIndex,
                       boxSizing: 'border-box',
-                      border: el.borderWidth ? `${el.borderWidth}px solid ${photoBorderColor}` : 'none',
-                      borderRadius: el.borderRadius || 0,
-                      background: '#f3f4f6'
+                      background: clipPath && el.borderWidth ? undefined : placeholderBg,
+                      ...outerStyle
                     }}
                   >
-                    {wedding?.couplePhoto && (
-                      <img
-                        src={wedding.couplePhoto}
-                        alt="Photo des mariés"
-                        className="w-full h-full"
-                        style={{ objectFit: el.objectFit || 'cover' }}
-                      />
-                    )}
+                    <div className="w-full h-full overflow-hidden" style={{ background: placeholderBg, clipPath: clipPath || undefined }}>
+                      {imgSrc && (
+                        <img
+                          src={imgSrc}
+                          alt={isDecorative ? '' : 'Photo des mariés'}
+                          className="w-full h-full"
+                          style={{ objectFit: el.objectFit || (isDecorative ? 'contain' : 'cover') }}
+                        />
+                      )}
+                    </div>
                   </div>
                 )
               }

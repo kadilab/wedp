@@ -1303,9 +1303,12 @@ export default function TemplateDesigner({ clientMode = false }) {
         ? { clipPath, background: el.borderWidth ? borderColor : 'transparent', padding: el.borderWidth || 0, boxSizing: 'border-box' }
         : { border: `${el.borderWidth || 0}px solid ${borderColor}`, borderRadius: `${el.borderRadius || 0}px`, boxSizing: 'border-box' }
 
+      // No gray placeholder fill once a real image is set - many decorative
+      // uploads (PNG logos, ornaments) rely on transparency.
+      const placeholderBg = imgSrc ? '' : 'bg-gray-100'
       return (
-        <div className="w-full h-full overflow-hidden bg-gray-100 flex items-center justify-center" style={outerStyle}>
-          <div className="w-full h-full overflow-hidden bg-gray-100 flex items-center justify-center" style={clipPath ? { clipPath } : undefined}>
+        <div className={`w-full h-full overflow-hidden ${placeholderBg} flex items-center justify-center`} style={outerStyle}>
+          <div className={`w-full h-full overflow-hidden ${placeholderBg} flex items-center justify-center`} style={clipPath ? { clipPath } : undefined}>
             {imgSrc ? (
               <img src={imgSrc} alt="" className="w-full h-full" style={{ objectFit: el.objectFit || 'contain' }} />
             ) : (
