@@ -31,7 +31,7 @@ const clientNavSections = [
     label: 'Général',
     items: [
       { name: 'Tableau de bord', href: '/dashboard', icon: HomeIcon },
-      { name: 'Mes mariages', href: '/weddings', icon: HeartIcon },
+      { name: 'Mes événements', href: '/weddings', icon: HeartIcon },
     ]
   },
   {

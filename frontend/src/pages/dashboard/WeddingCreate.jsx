@@ -18,7 +18,12 @@ import {
   ExclamationTriangleIcon,
   EyeIcon,
   UserIcon,
-  PhotoIcon
+  PhotoIcon,
+  CakeIcon,
+  GiftIcon,
+  UserGroupIcon,
+  MapPinIcon,
+  CheckIcon
 } from '@heroicons/react/24/outline'
 
 const ChurchIcon = ({ className }) => (
@@ -26,6 +31,17 @@ const ChurchIcon = ({ className }) => (
     <path d="M18 12.22V9l-5-2.5V5h1V3h-1V1h-2v2h-1v2h1v1.5L6 9v3.22l-2 1V22h8v-3c0-1.1.9-2 2-2s2 .9 2 2v3h8v-8.78l-2-1zM12 13.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" />
   </svg>
 )
+
+// Event types - WEDDING gets the full programme (mairie/église/réception),
+// everything else is a simple date/heure/lieu/titre event.
+const EVENT_TYPES_META = [
+  { id: 'WEDDING', label: 'Mariage', icon: HeartIcon, desc: 'Cérémonie civile, religieuse, réception...' },
+  { id: 'BIRTHDAY', label: 'Anniversaire', icon: CakeIcon, desc: 'Date, heure et lieu' },
+  { id: 'DOT', label: 'Dot', icon: GiftIcon, desc: 'Cérémonie traditionnelle' },
+  { id: 'CEREMONY', label: 'Cérémonie', icon: ChurchIcon, desc: 'Baptême, communion...' },
+  { id: 'CONFERENCE', label: 'Conférence', icon: UserGroupIcon, desc: 'Séminaire, conférence...' },
+  { id: 'OTHER', label: 'Autre événement', icon: CalendarDaysIcon, desc: 'Tout autre type d\'événement' }
+]
 
 const QR_STYLES = [
   { id: 'classic', name: 'Classique', desc: 'QR standard', pattern: 'square', color: '#000000' },
@@ -52,41 +68,6 @@ const PRINT_SIZES = [
   { id: 'custom', name: 'Personnalisé', desc: 'Sur mesure' }
 ]
 
-
-
-// Map field names to step numbers for error navigation
-const FIELD_TO_STEP = {
-  brideName: 1,
-  groomName: 1,
-  weddingDate: 1,
-  customMessage: 1,
-  rsvpDeadline: 1,
-  additionalInfo: 1,
-  communeDate: 2,
-  communeTime: 2,
-  communeVenue: 2,
-  communeAddress: 2,
-  egliseDate: 2,
-  egliseTime: 2,
-  egliseVenue: 2,
-  egliseAddress: 2,
-  receptionDate: 2,
-  receptionStartTime: 2,
-  receptionVenue: 2,
-  receptionAddress: 2,
-  templateId: 3,
-  qrCodeStyle: 4,
-  qrCodeColor: 4,
-  qrCodeBgColor: 4,
-  qrCodeSize: 4,
-  qrCodeTransparentBg: 4,
-  printQuantity: 5,
-  printPaperType: 5,
-  printFinish: 5,
-  printSize: 5,
-  printNotes: 5
-}
-
 const TEMPLATE_CATEGORIES = {
   ELEGANT: 'Élégant',
   MODERN: 'Moderne',
@@ -96,7 +77,7 @@ const TEMPLATE_CATEGORIES = {
 }
 
 export default function WeddingCreate() {
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState(0)
   const [serverErrors, setServerErrors] = useState([])
   const navigate = useNavigate()
   const location = useLocation()
@@ -116,6 +97,7 @@ export default function WeddingCreate() {
     formState: { errors }
   } = useForm({
     defaultValues: {
+      eventType: 'WEDDING',
       templateId: preselectedTemplateId || '',
       qrCodeStyle: 'classic',
       qrCodeColor: '#000000',
@@ -129,6 +111,54 @@ export default function WeddingCreate() {
       printQuantity: 50
     }
   })
+
+  const eventType = watch('eventType')
+  const isWedding = eventType === 'WEDDING'
+  const selectedEventMeta = EVENT_TYPES_META.find(t => t.id === eventType) || EVENT_TYPES_META[0]
+
+  // Step numbers shift depending on whether the full wedding programme
+  // step is needed - everything downstream (design/QR/print) just slides up.
+  const STEP_TYPE = 0
+  const STEP_INFO = 1
+  const STEP_PROGRAMME = 2
+  const STEP_DESIGN = isWedding ? 3 : 2
+  const STEP_QR = isWedding ? 4 : 3
+  const STEP_PRINT = isWedding ? 5 : 4
+  const totalSteps = STEP_PRINT
+
+  const STEPS = [
+    { num: STEP_TYPE, label: 'Type' },
+    ...(isWedding ? [
+      { num: STEP_INFO, label: 'Mariés' },
+      { num: STEP_PROGRAMME, label: 'Programme' },
+      { num: STEP_DESIGN, label: 'Design' },
+      { num: STEP_QR, label: 'QR Code' },
+      { num: STEP_PRINT, label: 'Impression' }
+    ] : [
+      { num: STEP_INFO, label: 'Infos' },
+      { num: STEP_DESIGN, label: 'Design' },
+      { num: STEP_QR, label: 'QR Code' },
+      { num: STEP_PRINT, label: 'Impression' }
+    ])
+  ]
+
+  const FIELD_TO_STEP = isWedding ? {
+    brideName: STEP_INFO, groomName: STEP_INFO, weddingDate: STEP_INFO, customMessage: STEP_INFO,
+    rsvpDeadline: STEP_INFO, additionalInfo: STEP_INFO,
+    communeDate: STEP_PROGRAMME, communeTime: STEP_PROGRAMME, communeVenue: STEP_PROGRAMME, communeAddress: STEP_PROGRAMME,
+    egliseDate: STEP_PROGRAMME, egliseTime: STEP_PROGRAMME, egliseVenue: STEP_PROGRAMME, egliseAddress: STEP_PROGRAMME,
+    receptionDate: STEP_PROGRAMME, receptionStartTime: STEP_PROGRAMME, receptionVenue: STEP_PROGRAMME, receptionAddress: STEP_PROGRAMME,
+    templateId: STEP_DESIGN,
+    qrCodeStyle: STEP_QR, qrCodeColor: STEP_QR, qrCodeBgColor: STEP_QR, qrCodeSize: STEP_QR, qrCodeTransparentBg: STEP_QR,
+    printQuantity: STEP_PRINT, printPaperType: STEP_PRINT, printFinish: STEP_PRINT, printSize: STEP_PRINT, printNotes: STEP_PRINT
+  } : {
+    eventTitle: STEP_INFO, weddingDate: STEP_INFO, ceremonyTime: STEP_INFO,
+    venueName: STEP_INFO, venueAddress: STEP_INFO, venueCity: STEP_INFO,
+    customMessage: STEP_INFO, rsvpDeadline: STEP_INFO, additionalInfo: STEP_INFO,
+    templateId: STEP_DESIGN,
+    qrCodeStyle: STEP_QR, qrCodeColor: STEP_QR, qrCodeBgColor: STEP_QR, qrCodeSize: STEP_QR, qrCodeTransparentBg: STEP_QR,
+    printQuantity: STEP_PRINT, printPaperType: STEP_PRINT, printFinish: STEP_PRINT, printSize: STEP_PRINT, printNotes: STEP_PRINT
+  }
 
   const [couplePhotoFile, setCouplePhotoFile] = useState(null)
   const [couplePhotoPreview, setCouplePhotoPreview] = useState('')
@@ -154,10 +184,10 @@ export default function WeddingCreate() {
           try {
             await weddingAPI.uploadCouplePhoto(newWeddingId, couplePhotoFile)
           } catch (e) {
-            toast.error("Mariage créé, mais l'envoi de la photo a échoué. Vous pourrez la rajouter depuis la page du mariage.")
+            toast.error("Événement créé, mais l'envoi de la photo a échoué. Vous pourrez la rajouter depuis la page de l'événement.")
           }
         }
-        toast.success('Mariage créé avec succès !')
+        toast.success('Événement créé avec succès !')
         navigate(`/weddings/${newWeddingId}`)
       },
       onError: (error) => {
@@ -188,25 +218,11 @@ export default function WeddingCreate() {
   const cleanValue = (val) => (val === '' || val === undefined) ? null : val
 
   const onSubmit = (data) => {
-    const formattedData = {
-      brideName: data.brideName,
-      groomName: data.groomName,
+    const base = {
+      eventType: data.eventType || 'WEDDING',
       weddingDate: new Date(data.weddingDate).toISOString(),
       templateId: cleanValue(data.templateId),
       customMessage: cleanValue(data.customMessage),
-      // Programme
-      communeDate: data.communeDate ? new Date(data.communeDate).toISOString() : null,
-      communeTime: cleanValue(data.communeTime),
-      communeVenue: cleanValue(data.communeVenue),
-      communeAddress: cleanValue(data.communeAddress),
-      egliseDate: data.egliseDate ? new Date(data.egliseDate).toISOString() : null,
-      egliseTime: cleanValue(data.egliseTime),
-      egliseVenue: cleanValue(data.egliseVenue),
-      egliseAddress: cleanValue(data.egliseAddress),
-      receptionDate: data.receptionDate ? new Date(data.receptionDate).toISOString() : null,
-      receptionStartTime: cleanValue(data.receptionStartTime),
-      receptionVenue: cleanValue(data.receptionVenue),
-      receptionAddress: cleanValue(data.receptionAddress),
       // QR Code
       qrCodeStyle: data.qrCodeStyle || 'classic',
       qrCodeColor: data.qrCodeColor || '#000000',
@@ -223,24 +239,41 @@ export default function WeddingCreate() {
       rsvpDeadline: data.rsvpDeadline ? new Date(data.rsvpDeadline).toISOString() : null,
       additionalInfo: cleanValue(data.additionalInfo)
     }
+
+    const formattedData = isWedding ? {
+      ...base,
+      brideName: data.brideName,
+      groomName: data.groomName,
+      // Programme
+      communeDate: data.communeDate ? new Date(data.communeDate).toISOString() : null,
+      communeTime: cleanValue(data.communeTime),
+      communeVenue: cleanValue(data.communeVenue),
+      communeAddress: cleanValue(data.communeAddress),
+      egliseDate: data.egliseDate ? new Date(data.egliseDate).toISOString() : null,
+      egliseTime: cleanValue(data.egliseTime),
+      egliseVenue: cleanValue(data.egliseVenue),
+      egliseAddress: cleanValue(data.egliseAddress),
+      receptionDate: data.receptionDate ? new Date(data.receptionDate).toISOString() : null,
+      receptionStartTime: cleanValue(data.receptionStartTime),
+      receptionVenue: cleanValue(data.receptionVenue),
+      receptionAddress: cleanValue(data.receptionAddress)
+    } : {
+      ...base,
+      eventTitle: data.eventTitle,
+      ceremonyTime: cleanValue(data.ceremonyTime),
+      venueName: cleanValue(data.venueName),
+      venueAddress: cleanValue(data.venueAddress),
+      venueCity: cleanValue(data.venueCity)
+    }
+
     createMutation.mutate(formattedData)
   }
 
-  const selectedTemplateId = watch('templateId')
   const wantsPrint = watch('wantsPrintService')
-  const totalSteps = 5
-
-  const STEPS = [
-    { num: 1, label: 'Mariés' },
-    { num: 2, label: 'Programme' },
-    { num: 3, label: 'Design' },
-    { num: 4, label: 'QR Code' },
-    { num: 5, label: 'Impression' }
-  ]
 
   // Helper to check if a field has a server error
   const getServerError = (fieldName) => serverErrors.find(e => e.field === fieldName)
-  
+
   // Check if a step has server errors
   const stepHasErrors = (stepNum) => serverErrors.some(e => FIELD_TO_STEP[e.field] === stepNum)
 
@@ -251,7 +284,7 @@ export default function WeddingCreate() {
         <button onClick={() => navigate('/weddings')} className="flex items-center text-gray-600 hover:text-gray-900 mb-4">
           <ArrowLeftIcon className="h-5 w-5 mr-1" /> Retour
         </button>
-        <h1 className="text-3xl font-serif font-bold text-gray-900">Créer un nouveau mariage</h1>
+        <h1 className="text-3xl font-serif font-bold text-gray-900">Créer un nouvel événement</h1>
         <p className="text-gray-600 mt-1">Remplissez les informations de votre événement</p>
       </div>
 
@@ -261,8 +294,8 @@ export default function WeddingCreate() {
           <div key={s.num} className="flex items-center">
             <div className="flex flex-col items-center relative">
               <div className={`w-9 h-9 rounded-full flex items-center justify-center font-medium text-sm transition-colors ${
-                stepHasErrors(s.num) 
-                  ? 'bg-red-500 text-white ring-2 ring-red-200' 
+                stepHasErrors(s.num)
+                  ? 'bg-red-500 text-white ring-2 ring-red-200'
                   : step >= s.num ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-500'
               }`}>
                 {stepHasErrors(s.num) ? '!' : s.num}
@@ -293,7 +326,7 @@ export default function WeddingCreate() {
                     <span>
                       <strong className="capitalize">{err.field}</strong>: {err.message}
                     </span>
-                    {FIELD_TO_STEP[err.field] && FIELD_TO_STEP[err.field] !== step && (
+                    {FIELD_TO_STEP[err.field] !== undefined && FIELD_TO_STEP[err.field] !== step && (
                       <button
                         type="button"
                         onClick={() => setStep(FIELD_TO_STEP[err.field])}
@@ -319,9 +352,51 @@ export default function WeddingCreate() {
 
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="bg-white rounded-xl shadow-lg p-8">
-          
-          {/* ===================== STEP 1: Mariés ===================== */}
-          {step === 1 && (
+
+          {/* ===================== STEP 0: Type d'événement ===================== */}
+          {step === STEP_TYPE && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-serif font-bold text-gray-900 mb-2 flex items-center">
+                <SparklesIcon className="h-6 w-6 mr-2 text-primary-500" />
+                Quel type d'événement organisez-vous ?
+              </h2>
+              <p className="text-gray-600">
+                Le mariage propose un programme complet (mairie, église, réception). Les autres types restent simples : date, heure, lieu et message.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {EVENT_TYPES_META.map((type) => {
+                  const Icon = type.icon
+                  const isSelected = eventType === type.id
+                  return (
+                    <label
+                      key={type.id}
+                      className={`cursor-pointer p-5 rounded-xl border-2 transition-all hover:shadow-md ${
+                        isSelected ? 'border-primary-500 bg-primary-50 shadow-md ring-1 ring-primary-200' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input type="radio" value={type.id} className="hidden" {...register('eventType')} />
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${
+                        isSelected ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        <Icon className="h-6 w-6" />
+                      </div>
+                      <p className="font-semibold text-gray-900">{type.label}</p>
+                      <p className="text-xs text-gray-500 mt-1">{type.desc}</p>
+                      {isSelected && (
+                        <div className="mt-2 inline-flex items-center gap-1 text-xs text-primary-600 font-medium">
+                          <CheckIcon className="h-3.5 w-3.5" /> Sélectionné
+                        </div>
+                      )}
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ===================== STEP INFO (Mariage): Mariés ===================== */}
+          {step === STEP_INFO && isWedding && (
             <div className="space-y-6">
               <h2 className="text-xl font-serif font-bold text-gray-900 mb-6 flex items-center">
                 <HeartIcon className="h-6 w-6 mr-2 text-primary-500" />
@@ -405,8 +480,90 @@ export default function WeddingCreate() {
             </div>
           )}
 
-          {/* ===================== STEP 2: Programme ===================== */}
-          {step === 2 && (
+          {/* ===================== STEP INFO (simple): titre/date/heure/lieu ===================== */}
+          {step === STEP_INFO && !isWedding && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-serif font-bold text-gray-900 mb-2 flex items-center">
+                <selectedEventMeta.icon className="h-6 w-6 mr-2 text-primary-500" />
+                Informations de l'événement
+              </h2>
+              <p className="text-gray-600 mb-2">{selectedEventMeta.label} — date, heure, lieu et message suffisent.</p>
+
+              <div>
+                <label className="label">Titre / Nom de l'événement *</label>
+                <input
+                  type="text"
+                  className={`input ${errors.eventTitle || getServerError('eventTitle') ? 'input-error' : ''}`}
+                  placeholder={
+                    eventType === 'BIRTHDAY' ? 'Anniversaire de Fatou' :
+                    eventType === 'DOT' ? 'Dot de Awa & Moussa' :
+                    eventType === 'CONFERENCE' ? 'Conférence Tech 2026' :
+                    'Cérémonie de Jean'
+                  }
+                  {...register('eventTitle', { required: 'Ce champ est requis' })}
+                />
+                {(errors.eventTitle || getServerError('eventTitle')) && (
+                  <p className="mt-1 text-sm text-red-600">{errors.eventTitle?.message || getServerError('eventTitle')?.message}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="label">Date *</label>
+                  <input type="date" className={`input ${errors.weddingDate || getServerError('weddingDate') ? 'input-error' : ''}`} {...register('weddingDate', { required: 'Ce champ est requis' })} />
+                  {(errors.weddingDate || getServerError('weddingDate')) && (
+                    <p className="mt-1 text-sm text-red-600">{errors.weddingDate?.message || getServerError('weddingDate')?.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="label">Heure</label>
+                  <input type="time" className="input" {...register('ceremonyTime')} />
+                </div>
+              </div>
+
+              <div className="border-t pt-6 space-y-4">
+                <h3 className="font-medium text-gray-900 flex items-center">
+                  <MapPinIcon className="h-5 w-5 mr-2 text-primary-500" />
+                  Lieu
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="label text-sm">Nom du lieu</label>
+                    <input type="text" className="input" placeholder="Salle des fêtes, Hôtel..." {...register('venueName')} />
+                  </div>
+                  <div>
+                    <label className="label text-sm">Ville</label>
+                    <input type="text" className="input" placeholder="Dakar" {...register('venueCity')} />
+                  </div>
+                </div>
+                <div>
+                  <label className="label text-sm">Adresse</label>
+                  <input type="text" className="input" placeholder="Adresse complète" {...register('venueAddress')} />
+                </div>
+              </div>
+
+              <div className="border-t pt-6">
+                <label className="label">Message personnalisé</label>
+                <textarea className="input" rows={3} placeholder="Nous avons le plaisir de vous inviter..." {...register('customMessage')} />
+              </div>
+
+              <div className="border-t pt-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Date limite RSVP</label>
+                    <input type="date" className="input" {...register('rsvpDeadline')} />
+                  </div>
+                </div>
+                <div>
+                  <label className="label">Informations supplémentaires</label>
+                  <textarea className="input" rows={2} placeholder="Parking disponible, dress code..." {...register('additionalInfo')} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===================== STEP PROGRAMME (Mariage uniquement) ===================== */}
+          {step === STEP_PROGRAMME && isWedding && (
             <div className="space-y-8">
               <div>
                 <h2 className="text-xl font-serif font-bold text-gray-900 mb-2 flex items-center">
@@ -481,8 +638,8 @@ export default function WeddingCreate() {
             </div>
           )}
 
-          {/* ===================== STEP 3: Design ===================== */}
-          {step === 3 && (
+          {/* ===================== STEP DESIGN ===================== */}
+          {step === STEP_DESIGN && (
             <div className="space-y-6">
               <h2 className="text-xl font-serif font-bold text-gray-900 mb-6 flex items-center">
                 <SwatchIcon className="h-6 w-6 mr-2 text-primary-500" />
@@ -509,12 +666,12 @@ export default function WeddingCreate() {
                           <div className="grid grid-cols-2 gap-3">
                             {myTemplates.map((tmpl) => (
                               <label key={tmpl.id} className={`cursor-pointer rounded-xl border-2 overflow-hidden transition-all ${
-                                selectedTemplateId === tmpl.id ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-primary-100 hover:border-primary-300 hover:shadow-sm'
+                                watch('templateId') === tmpl.id ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-primary-100 hover:border-primary-300 hover:shadow-sm'
                               }`}>
                                 <input type="radio" value={tmpl.id} className="hidden" {...register('templateId')} />
                                 <div className="aspect-[3/4] bg-gradient-wedding flex items-center justify-center relative">
                                   <TemplatePreview template={tmpl} weddingData={{ brideName: watch('brideName'), groomName: watch('groomName'), weddingDate: watch('weddingDate'), communeTime: watch('communeTime'), egliseTime: watch('egliseTime'), receptionStartTime: watch('receptionStartTime'), communeVenue: watch('communeVenue'), egliseVenue: watch('egliseVenue'), receptionVenue: watch('receptionVenue') }} />
-                                  {selectedTemplateId === tmpl.id && (
+                                  {watch('templateId') === tmpl.id && (
                                     <div className="absolute inset-0 bg-primary-600/10 flex items-center justify-center">
                                       <div className="bg-primary-600 text-white rounded-full p-1.5">
                                         <EyeIcon className="h-4 w-4" />
@@ -538,12 +695,12 @@ export default function WeddingCreate() {
                       <div className="grid grid-cols-2 gap-3">
                         {templates.map((tmpl) => (
                           <label key={tmpl.id} className={`cursor-pointer rounded-xl border-2 overflow-hidden transition-all ${
-                            selectedTemplateId === tmpl.id ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                            watch('templateId') === tmpl.id ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
                           }`}>
                             <input type="radio" value={tmpl.id} className="hidden" {...register('templateId')} />
                             <div className="aspect-[3/4] bg-gradient-wedding flex items-center justify-center relative">
                               <TemplatePreview template={tmpl} weddingData={{ brideName: watch('brideName'), groomName: watch('groomName'), weddingDate: watch('weddingDate'), communeTime: watch('communeTime'), egliseTime: watch('egliseTime'), receptionStartTime: watch('receptionStartTime'), communeVenue: watch('communeVenue'), egliseVenue: watch('egliseVenue'), receptionVenue: watch('receptionVenue') }} />
-                              {selectedTemplateId === tmpl.id && (
+                              {watch('templateId') === tmpl.id && (
                                 <div className="absolute inset-0 bg-primary-600/10 flex items-center justify-center">
                                   <div className="bg-primary-600 text-white rounded-full p-1.5">
                                     <EyeIcon className="h-4 w-4" />
@@ -569,9 +726,9 @@ export default function WeddingCreate() {
                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">
                           <EyeIcon className="h-3.5 w-3.5" /> Aperçu en direct
                         </p>
-                        {selectedTemplateId ? (
+                        {watch('templateId') ? (
                           (() => {
-                            const selectedTmpl = [...myTemplates, ...templates].find(t => t.id === selectedTemplateId)
+                            const selectedTmpl = [...myTemplates, ...templates].find(t => t.id === watch('templateId'))
                             return selectedTmpl ? (
                               <div className="rounded-xl border-2 border-primary-200 overflow-hidden shadow-lg">
                                 <div className="aspect-[3/4] relative bg-gray-50">
@@ -594,7 +751,7 @@ export default function WeddingCreate() {
                                 <div className="p-2 bg-primary-50 border-t border-primary-200">
                                   <p className="text-xs font-semibold text-primary-700 truncate">{selectedTmpl.name}</p>
                                   <p className="text-[10px] text-primary-500 mt-0.5">
-                                    {(watch('brideName') || 'Mariée')} & {(watch('groomName') || 'Marié')}
+                                    {isWedding ? `${(watch('brideName') || 'Mariée')} & ${(watch('groomName') || 'Marié')}` : (watch('eventTitle') || selectedEventMeta.label)}
                                   </p>
                                 </div>
                               </div>
@@ -614,8 +771,8 @@ export default function WeddingCreate() {
             </div>
           )}
 
-          {/* ===================== STEP 4: QR Code ===================== */}
-          {step === 4 && (
+          {/* ===================== STEP QR CODE ===================== */}
+          {step === STEP_QR && (
             <div className="space-y-6">
               <h2 className="text-xl font-serif font-bold text-gray-900 mb-6 flex items-center">
                 <QrCodeIcon className="h-6 w-6 mr-2 text-primary-500" />
@@ -788,8 +945,8 @@ export default function WeddingCreate() {
             </div>
           )}
 
-          {/* ===================== STEP 5: Print Service ===================== */}
-          {step === 5 && (
+          {/* ===================== STEP PRINT ===================== */}
+          {step === STEP_PRINT && (
             <div className="space-y-6">
               <h2 className="text-xl font-serif font-bold text-gray-900 mb-2 flex items-center">
                 <PrinterIcon className="h-6 w-6 mr-2 text-primary-500" />
@@ -881,7 +1038,7 @@ export default function WeddingCreate() {
 
           {/* Navigation */}
           <div className="flex items-center justify-between mt-8 pt-6 border-t">
-            {step > 1 ? (
+            {step > STEP_TYPE ? (
               <button type="button" onClick={() => setStep(step - 1)} className="btn-secondary">Précédent</button>
             ) : <div />}
 
@@ -897,7 +1054,7 @@ export default function WeddingCreate() {
                     </svg>
                     Création...
                   </span>
-                ) : 'Créer le mariage'}
+                ) : 'Créer l\'événement'}
               </button>
             )}
           </div>

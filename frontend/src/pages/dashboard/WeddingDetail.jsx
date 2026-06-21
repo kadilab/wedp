@@ -55,7 +55,7 @@ export default function WeddingDetail() {
     {
       onSuccess: () => {
         queryClient.invalidateQueries('weddings')
-        toast.success('Mariage supprimé avec succès')
+        toast.success('Événement supprimé avec succès')
         navigate('/weddings')
       },
       onError: (err) => toast.error(err.response?.data?.message || 'Erreur lors de la suppression')
@@ -74,7 +74,7 @@ export default function WeddingDetail() {
   if (error) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-600">Erreur lors du chargement du mariage</p>
+        <p className="text-red-600">Erreur lors du chargement de l'événement</p>
         <button onClick={() => navigate('/weddings')} className="btn-primary mt-4">
           Retour à la liste
         </button>
@@ -84,6 +84,10 @@ export default function WeddingDetail() {
 
   const wedding = data?.data?.wedding
   const stats = statsData?.data?.stats || {}
+  const isWeddingEvent = wedding && (!wedding.eventType || wedding.eventType === 'WEDDING')
+  const eventDisplayName = wedding
+    ? (isWeddingEvent ? `${wedding.brideName} & ${wedding.groomName}` : (wedding.eventTitle || 'Événement'))
+    : ''
 
   const quickActions = [
     {
@@ -129,7 +133,7 @@ export default function WeddingDetail() {
           </button>
           <div>
             <h1 className="text-3xl font-serif font-bold text-gray-900">
-              {wedding.brideName} & {wedding.groomName}
+              {eventDisplayName}
             </h1>
             <div className="flex items-center gap-4 mt-1 text-gray-500">
               <span className="flex items-center">
@@ -179,7 +183,7 @@ export default function WeddingDetail() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
         <div className="absolute bottom-6 left-6 text-white">
           <h2 className="text-2xl font-serif font-bold">
-            {wedding.brideName} & {wedding.groomName}
+            {eventDisplayName}
           </h2>
           <p className="flex items-center mt-2">
             <MapPinIcon className="h-5 w-5 mr-1" />
@@ -430,10 +434,10 @@ export default function WeddingDetail() {
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
             <div className="text-center">
               <ExclamationTriangleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Supprimer le mariage</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Supprimer l'événement</h3>
               <p className="text-gray-600 mb-6">
-                Êtes-vous sûr de vouloir supprimer le mariage de{' '}
-                <strong>{wedding.brideName} & {wedding.groomName}</strong> ?
+                Êtes-vous sûr de vouloir supprimer l'événement{' '}
+                <strong>{eventDisplayName}</strong> ?
                 Cette action est irréversible et supprimera tous les invités, invitations et données associées.
               </p>
               <div className="flex space-x-4">
@@ -509,7 +513,7 @@ function TableManager({ weddingId }) {
           <TableCellsIcon className="h-6 w-6 text-primary-600" />
           <div>
             <h3 className="text-lg font-serif font-bold text-gray-900">
-              Tables du mariage
+              Tables de l'événement
             </h3>
             <p className="text-sm text-gray-500">
               {tables.length} table{tables.length !== 1 ? 's' : ''} enregistrée{tables.length !== 1 ? 's' : ''}

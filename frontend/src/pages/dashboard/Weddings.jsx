@@ -17,6 +17,12 @@ import {
   TicketIcon
 } from '@heroicons/react/24/outline'
 
+const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Dot', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
+const eventDisplayName = (wedding) =>
+  (!wedding.eventType || wedding.eventType === 'WEDDING')
+    ? `${wedding.brideName} & ${wedding.groomName}`
+    : (wedding.eventTitle || EVENT_TYPE_LABELS[wedding.eventType])
+
 export default function Weddings() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -31,7 +37,7 @@ export default function Weddings() {
     (id) => weddingAPI.delete(id),
     {
       onSuccess: () => {
-        toast.success('Mariage supprimé avec succès')
+        toast.success('Événement supprimé avec succès')
         queryClient.invalidateQueries('weddings')
       },
       onError: (error) => {
@@ -69,7 +75,7 @@ export default function Weddings() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-gray-900">
-            Mes mariages
+            Mes événements
           </h1>
           <p className="text-gray-600 mt-1">
             Gérez vos événements et invitations
@@ -77,7 +83,7 @@ export default function Weddings() {
         </div>
         <Link to="/weddings/new" className="btn-primary">
           <PlusIcon className="h-5 w-5 mr-2" />
-          Nouveau mariage
+          Nouvel événement
         </Link>
       </div>
 
@@ -116,7 +122,7 @@ export default function Weddings() {
         <div className="bg-white rounded-xl shadow-lg p-12 text-center">
           <HeartIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <h2 className="text-xl font-medium text-gray-900 mb-2">
-            Aucun mariage trouvé
+            Aucun événement trouvé
           </h2>
           <p className="text-gray-500 mb-6">
             {search || statusFilter
@@ -125,7 +131,7 @@ export default function Weddings() {
           </p>
           <Link to="/weddings/new" className="btn-primary">
             <PlusIcon className="h-5 w-5 mr-2" />
-            Créer un mariage
+            Créer un événement
           </Link>
         </div>
       ) : (
@@ -137,7 +143,7 @@ export default function Weddings() {
                 {wedding.coverPhoto ? (
                   <img
                     src={wedding.coverPhoto}
-                    alt={`${wedding.brideName} & ${wedding.groomName}`}
+                    alt={eventDisplayName(wedding)}
                     className="w-full h-full object-cover"
                     loading="lazy"
                   />
@@ -146,6 +152,9 @@ export default function Weddings() {
                     <HeartIcon className="h-16 w-16 text-primary-200" />
                   </div>
                 )}
+                <div className="absolute top-3 left-3">
+                  <span className="badge-gold">{EVENT_TYPE_LABELS[wedding.eventType] || 'Mariage'}</span>
+                </div>
                 <div className="absolute top-3 right-3">
                   {getStatusBadge(wedding.status)}
                 </div>
@@ -154,7 +163,7 @@ export default function Weddings() {
               {/* Content */}
               <div className="p-5">
                 <h3 className="text-lg font-serif font-bold text-gray-900 mb-1">
-                  {wedding.brideName} & {wedding.groomName}
+                  {eventDisplayName(wedding)}
                 </h3>
                 <p className="text-sm text-gray-500 mb-4">
                   {format(new Date(wedding.weddingDate), 'd MMMM yyyy', { locale: fr })}
@@ -193,7 +202,7 @@ export default function Weddings() {
                     <PencilIcon className="h-4 w-4" />
                   </Link>
                   <button
-                    onClick={() => handleDelete(wedding.id, `${wedding.brideName} & ${wedding.groomName}`)}
+                    onClick={() => handleDelete(wedding.id, eventDisplayName(wedding))}
                     className="btn-ghost btn-sm text-red-600 hover:bg-red-50"
                     disabled={deleteMutation.isLoading}
                   >

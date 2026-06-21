@@ -33,6 +33,15 @@ enum WeddingStatus {
   CANCELLED
 }
 
+enum EventType {
+  WEDDING     // Mariage - programme complet (commune, église, réception)
+  BIRTHDAY    // Anniversaire
+  DOT         // Dot / cérémonie de fiançailles
+  CEREMONY    // Cérémonie (baptême, etc.)
+  CONFERENCE  // Conférence / séminaire
+  OTHER       // Autre
+}
+
 enum PaymentStatus {
   PENDING
   APPROVED
@@ -170,9 +179,15 @@ model Wedding {
   planId            String?       @map("plan_id")
   templateId        String?       @map("template_id")
   
-  // Wedding Details
-  brideName         String        @map("bride_name")
-  groomName         String        @map("groom_name")
+  // Event type - drives which fields are shown/required in the UI
+  // (WEDDING gets the full programme; everything else is a simple
+  // date/heure/lieu/titre event)
+  eventType         EventType     @default(WEDDING) @map("event_type")
+  eventTitle        String?       @map("event_title") // used when eventType != WEDDING
+
+  // Wedding Details (eventType = WEDDING)
+  brideName         String?       @map("bride_name")
+  groomName         String?       @map("groom_name")
   weddingDate       DateTime      @map("wedding_date")
   ceremonyTime      String?       @map("ceremony_time")
   receptionTime     String?       @map("reception_time")

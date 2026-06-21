@@ -17,6 +17,14 @@ const PRINT_PRICING = {
   size: { A6: 2.00, A5: 3.00, custom: 4.50 }
 };
 
+// Display name used in notifications/logs - couple names for weddings,
+// the generic event title for everything else.
+function eventDisplayName(wedding) {
+  if (wedding.eventTitle) return wedding.eventTitle;
+  if (wedding.brideName && wedding.groomName) return `${wedding.brideName} & ${wedding.groomName}`;
+  return 'Événement';
+}
+
 function calculatePrintPrice(quantity, paperType, finish, size) {
   const basePrice = PRINT_PRICING.size[size] || PRINT_PRICING.size.A5;
   const paperExtra = PRINT_PRICING.paperType[paperType] || 0;
@@ -38,6 +46,8 @@ function calculatePrintPrice(quantity, paperType, finish, size) {
 router.post('/', authenticate, createWeddingValidation, async (req, res) => {
   try {
     const {
+      eventType,
+      eventTitle,
       brideName,
       groomName,
       weddingDate,
@@ -92,15 +102,20 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
       socialLinks
     } = req.body;
 
-    // Generate unique slug
-    const slug = generateWeddingSlug(brideName, groomName);
+    // Generate unique slug - wedding events use bride & groom names,
+    // everything else uses the generic event title
+    const slug = (eventType && eventType !== 'WEDDING')
+      ? generateWeddingSlug(eventTitle, eventType.toLowerCase())
+      : generateWeddingSlug(brideName, groomName);
 
     // Create wedding
     const wedding = await prisma.wedding.create({
       data: {
         userId: req.user.id,
-        brideName,
-        groomName,
+        eventType: eventType || 'WEDDING',
+        eventTitle: eventTitle || null,
+        brideName: brideName || null,
+        groomName: groomName || null,
         weddingDate: new Date(weddingDate),
         ceremonyTime,
         receptionTime,
@@ -171,7 +186,7 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
         action: 'CREATE',
         entity: 'wedding',
         entityId: wedding.id,
-        details: { brideName, groomName }
+        details: { eventType: wedding.eventType, brideName, groomName, eventTitle }
       }
     });
 
@@ -208,7 +223,7 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
           userId: admin.id,
           type: 'NEW_PRINT_ORDER',
           title: 'Nouvelle commande d\'impression',
-          message: `${req.user.firstName} ${req.user.lastName} a demandé l'impression de ${printQuantity} invitations pour "${brideName} & ${groomName}".`,
+          message: `${req.user.firstName} ${req.user.lastName} a demandé l'impression de ${printQuantity} invitations pour "${eventDisplayName(wedding)}".`,
           data: { orderId: printOrder.id, weddingId: wedding.id }
         }))
       });
@@ -242,7 +257,8 @@ router.get('/', authenticate, paginationValidation, async (req, res) => {
       ...(search && {
         OR: [
           { brideName: { contains: search } },
-          { groomName: { contains: search } }
+          { groomName: { contains: search } },
+          { eventTitle: { contains: search } }
         ]
       })
     };
@@ -356,6 +372,8 @@ router.get('/:id', authenticate, isOwner(), async (req, res) => {
 router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req, res) => {
   try {
     const {
+      eventType,
+      eventTitle,
       brideName,
       groomName,
       weddingDate,
@@ -417,12 +435,14 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
     // Get current wedding state before update
     const currentWedding = await prisma.wedding.findUnique({
       where: { id: req.params.id },
-      select: { wantsPrintService: true, brideName: true, groomName: true }
+      select: { wantsPrintService: true, brideName: true, groomName: true, eventTitle: true }
     });
 
     const wedding = await prisma.wedding.update({
       where: { id: req.params.id },
       data: {
+        ...(eventType && { eventType }),
+        ...(eventTitle !== undefined && { eventTitle }),
         ...(brideName && { brideName }),
         ...(groomName && { groomName }),
         ...(weddingDate && { weddingDate: new Date(weddingDate) }),
@@ -524,15 +544,18 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
           select: { id: true }
         });
 
-        const weddingNames = brideName || currentWedding.brideName;
-        const groomNames = groomName || currentWedding.groomName;
+        const displayName = eventDisplayName({
+          eventTitle: eventTitle ?? currentWedding.eventTitle,
+          brideName: brideName || currentWedding.brideName,
+          groomName: groomName || currentWedding.groomName
+        });
 
         await prisma.notification.createMany({
           data: admins.map(admin => ({
             userId: admin.id,
             type: 'NEW_PRINT_ORDER',
             title: 'Nouvelle commande d\'impression',
-            message: `${req.user.firstName} ${req.user.lastName} a demandé l'impression de ${printQuantity} invitations pour "${weddingNames} & ${groomNames}".`,
+            message: `${req.user.firstName} ${req.user.lastName} a demandé l'impression de ${printQuantity} invitations pour "${displayName}".`,
             data: { orderId: printOrder.id, weddingId: wedding.id }
           }))
         });

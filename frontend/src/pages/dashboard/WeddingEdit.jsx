@@ -65,15 +65,23 @@ export default function WeddingEdit() {
   const templates = templatesData?.data?.templates || []
   const myTemplates = myTemplatesData?.data?.templates || []
   const wedding = weddingData?.data?.wedding
+  // Event type is fixed at creation - this page only adapts which fields it shows.
+  const isWedding = !wedding?.eventType || wedding.eventType === 'WEDDING'
+  const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Dot', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
 
   const {
     register, handleSubmit, watch, setValue,
     formState: { errors, isDirty }
   } = useForm({
     values: wedding ? {
-      brideName: wedding.brideName,
-      groomName: wedding.groomName,
+      brideName: wedding.brideName || '',
+      groomName: wedding.groomName || '',
+      eventTitle: wedding.eventTitle || '',
       weddingDate: wedding.weddingDate?.split('T')[0],
+      ceremonyTime: wedding.ceremonyTime || '',
+      venueName: wedding.venueName || '',
+      venueAddress: wedding.venueAddress || '',
+      venueCity: wedding.venueCity || '',
       customMessage: wedding.customMessage || '',
       templateId: wedding.templateId || '',
       status: wedding.status,
@@ -116,7 +124,7 @@ export default function WeddingEdit() {
     (data) => weddingAPI.update(id, data),
     {
       onSuccess: () => {
-        toast.success('Mariage mis à jour avec succès')
+        toast.success('Événement mis à jour avec succès')
         queryClient.invalidateQueries(['wedding', id])
       },
       onError: (error) => {
@@ -128,7 +136,7 @@ export default function WeddingEdit() {
   const deleteMutation = useMutation(
     () => weddingAPI.delete(id),
     {
-      onSuccess: () => { toast.success('Mariage supprimé'); navigate('/weddings') },
+      onSuccess: () => { toast.success('Événement supprimé'); navigate('/weddings') },
       onError: (error) => { toast.error(error.response?.data?.error || 'Erreur') }
     }
   )
@@ -150,25 +158,33 @@ export default function WeddingEdit() {
 
   const onSubmit = (data) => {
     const submitData = {
-      brideName: data.brideName,
-      groomName: data.groomName,
       weddingDate: new Date(data.weddingDate).toISOString(),
       customMessage: cleanValue(data.customMessage),
       templateId: cleanValue(data.templateId),
       status: data.status,
-      // Programme
-      communeDate: data.communeDate ? new Date(data.communeDate).toISOString() : null,
-      communeTime: cleanValue(data.communeTime),
-      communeVenue: cleanValue(data.communeVenue),
-      communeAddress: cleanValue(data.communeAddress),
-      egliseDate: data.egliseDate ? new Date(data.egliseDate).toISOString() : null,
-      egliseTime: cleanValue(data.egliseTime),
-      egliseVenue: cleanValue(data.egliseVenue),
-      egliseAddress: cleanValue(data.egliseAddress),
-      receptionDate: data.receptionDate ? new Date(data.receptionDate).toISOString() : null,
-      receptionStartTime: cleanValue(data.receptionStartTime),
-      receptionVenue: cleanValue(data.receptionVenue),
-      receptionAddress: cleanValue(data.receptionAddress),
+      ...(isWedding ? {
+        brideName: data.brideName,
+        groomName: data.groomName,
+        // Programme
+        communeDate: data.communeDate ? new Date(data.communeDate).toISOString() : null,
+        communeTime: cleanValue(data.communeTime),
+        communeVenue: cleanValue(data.communeVenue),
+        communeAddress: cleanValue(data.communeAddress),
+        egliseDate: data.egliseDate ? new Date(data.egliseDate).toISOString() : null,
+        egliseTime: cleanValue(data.egliseTime),
+        egliseVenue: cleanValue(data.egliseVenue),
+        egliseAddress: cleanValue(data.egliseAddress),
+        receptionDate: data.receptionDate ? new Date(data.receptionDate).toISOString() : null,
+        receptionStartTime: cleanValue(data.receptionStartTime),
+        receptionVenue: cleanValue(data.receptionVenue),
+        receptionAddress: cleanValue(data.receptionAddress)
+      } : {
+        eventTitle: data.eventTitle,
+        ceremonyTime: cleanValue(data.ceremonyTime),
+        venueName: cleanValue(data.venueName),
+        venueAddress: cleanValue(data.venueAddress),
+        venueCity: cleanValue(data.venueCity)
+      }),
       // QR Code
       qrCodeStyle: data.qrCodeStyle || 'classic',
       qrCodeColor: data.qrCodeColor || '#000000',
@@ -189,7 +205,7 @@ export default function WeddingEdit() {
   }
 
   const handleDelete = () => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce mariage ? Cette action est irréversible.')) {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer cet événement ? Cette action est irréversible.')) {
       deleteMutation.mutate()
     }
   }
@@ -208,12 +224,16 @@ export default function WeddingEdit() {
         <button onClick={() => navigate(`/weddings/${id}`)} className="flex items-center text-gray-600 hover:text-gray-900 mb-4">
           <ArrowLeftIcon className="h-5 w-5 mr-1" /> Retour
         </button>
-        <h1 className="text-3xl font-serif font-bold text-gray-900">Modifier le mariage</h1>
-        <p className="text-gray-600 mt-2">{wedding?.brideName} & {wedding?.groomName}</p>
+        <h1 className="text-3xl font-serif font-bold text-gray-900">Modifier l'événement</h1>
+        <p className="text-gray-600 mt-2 flex items-center gap-2">
+          {isWedding ? `${wedding?.brideName} & ${wedding?.groomName}` : wedding?.eventTitle}
+          <span className="badge-gold">{EVENT_TYPE_LABELS[wedding?.eventType] || 'Mariage'}</span>
+        </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* ==================== Section 1: Mariés ==================== */}
+        {/* ==================== Section 1: Mariés (Mariage uniquement) ==================== */}
+        {isWedding && (
         <div className="bg-white rounded-xl shadow-lg p-8 space-y-6">
           <h2 className="text-xl font-serif font-bold text-gray-900 flex items-center gap-2">
             <HeartIcon className="h-6 w-6 text-primary-500" />
@@ -277,8 +297,68 @@ export default function WeddingEdit() {
             </div>
           </div>
         </div>
+        )}
 
-        {/* ==================== Section 2: Programme ==================== */}
+        {/* ==================== Section 1bis: Infos simples (hors Mariage) ==================== */}
+        {!isWedding && (
+        <div className="bg-white rounded-xl shadow-lg p-8 space-y-6">
+          <h2 className="text-xl font-serif font-bold text-gray-900 flex items-center gap-2">
+            <CalendarDaysIcon className="h-6 w-6 text-primary-500" />
+            Informations de l'événement
+          </h2>
+          <div>
+            <label className="label">Titre / Nom de l'événement *</label>
+            <input type="text" className={`input ${errors.eventTitle ? 'input-error' : ''}`} {...register('eventTitle', { required: 'Requis' })} />
+            {errors.eventTitle && <p className="text-red-500 text-sm mt-1">{errors.eventTitle.message}</p>}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="label">Date *</label>
+              <input type="date" className={`input ${errors.weddingDate ? 'input-error' : ''}`} {...register('weddingDate', { required: 'Requis' })} />
+            </div>
+            <div>
+              <label className="label">Heure</label>
+              <input type="time" className="input" {...register('ceremonyTime')} />
+            </div>
+          </div>
+          <div className="border-t pt-6 space-y-4">
+            <h3 className="font-medium text-gray-900">Lieu</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="label text-sm">Nom du lieu</label>
+                <input type="text" className="input" {...register('venueName')} />
+              </div>
+              <div>
+                <label className="label text-sm">Ville</label>
+                <input type="text" className="input" {...register('venueCity')} />
+              </div>
+            </div>
+            <div>
+              <label className="label text-sm">Adresse</label>
+              <input type="text" className="input" {...register('venueAddress')} />
+            </div>
+          </div>
+          <div className="border-t pt-6">
+            <label className="label">Message personnalisé</label>
+            <textarea className="input" rows={3} placeholder="Un message spécial..." {...register('customMessage')} />
+          </div>
+          <div className="border-t pt-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="label">Date limite RSVP</label>
+                <input type="date" className="input" {...register('rsvpDeadline')} />
+              </div>
+            </div>
+            <div>
+              <label className="label">Informations supplémentaires</label>
+              <textarea className="input" rows={2} placeholder="Parking, dress code..." {...register('additionalInfo')} />
+            </div>
+          </div>
+        </div>
+        )}
+
+        {/* ==================== Section 2: Programme (Mariage uniquement) ==================== */}
+        {isWedding && (
         <div className="bg-white rounded-xl shadow-lg p-8 space-y-8">
           <h2 className="text-xl font-serif font-bold text-gray-900 flex items-center gap-2">
             <CalendarDaysIcon className="h-6 w-6 text-primary-500" />
@@ -333,6 +413,7 @@ export default function WeddingEdit() {
             </div>
           </div>
         </div>
+        )}
 
         {/* ==================== Section 3: Design ==================== */}
         <div className="bg-white rounded-xl shadow-lg p-8 space-y-6">

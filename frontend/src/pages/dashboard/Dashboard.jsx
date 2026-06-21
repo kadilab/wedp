@@ -31,7 +31,7 @@ export default function Dashboard() {
 
   const statCards = [
     {
-      name: 'Mariages',
+      name: 'Événements',
       value: stats?.weddings || 0,
       limit: stats?.limits?.weddingsMax,
       icon: HeartIcon,
@@ -83,7 +83,7 @@ export default function Dashboard() {
         </div>
         <Link to="/weddings/new" className="btn-primary mt-4 sm:mt-0">
           <PlusIcon className="h-5 w-5 mr-2" />
-          Nouveau mariage
+          Nouvel événement
         </Link>
       </div>
 
@@ -117,7 +117,7 @@ export default function Dashboard() {
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="p-6 border-b flex items-center justify-between">
           <h2 className="text-xl font-serif font-bold text-gray-900">
-            Mariages récents
+            Événements récents
           </h2>
           <Link to="/weddings" className="link flex items-center text-sm">
             Voir tout <ArrowRightIcon className="h-4 w-4 ml-1" />
@@ -132,14 +132,14 @@ export default function Dashboard() {
           <div className="p-12 text-center">
             <HeartIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Aucun mariage pour le moment
+              Aucun événement pour le moment
             </h3>
             <p className="text-gray-500 mb-4">
               Créez votre premier événement pour commencer
             </p>
             <Link to="/weddings/new" className="btn-primary">
               <PlusIcon className="h-5 w-5 mr-2" />
-              Créer un mariage
+              Créer un événement
             </Link>
           </div>
         ) : (
@@ -156,7 +156,9 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <h3 className="font-medium text-gray-900">
-                      {wedding.brideName} & {wedding.groomName}
+                      {(!wedding.eventType || wedding.eventType === 'WEDDING')
+                        ? `${wedding.brideName} & ${wedding.groomName}`
+                        : (wedding.eventTitle || 'Événement')}
                     </h3>
                     <p className="text-sm text-gray-500">
                       {format(new Date(wedding.weddingDate), 'd MMMM yyyy', { locale: fr })}
@@ -193,7 +195,7 @@ export default function Dashboard() {
             <PlusIcon className="h-6 w-6 text-primary-600" />
           </div>
           <div>
-            <h3 className="font-medium text-gray-900">Créer un mariage</h3>
+            <h3 className="font-medium text-gray-900">Créer un événement</h3>
             <p className="text-sm text-gray-500">Nouveau projet d'invitation</p>
           </div>
         </Link>

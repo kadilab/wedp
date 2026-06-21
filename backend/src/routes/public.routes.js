@@ -60,6 +60,8 @@ router.get('/:weddingSlug/:invitationCode', async (req, res) => {
     // Prepare data for template
     const invitationData = {
       wedding: {
+        eventType: wedding.eventType,
+        eventTitle: wedding.eventTitle,
         brideName: wedding.brideName,
         groomName: wedding.groomName,
         weddingDate: wedding.weddingDate,
@@ -249,6 +251,8 @@ router.get('/:weddingSlug', async (req, res) => {
     const wedding = await prisma.wedding.findUnique({
       where: { slug: weddingSlug },
       select: {
+        eventType: true,
+        eventTitle: true,
         brideName: true,
         groomName: true,
         weddingDate: true,
@@ -268,6 +272,8 @@ router.get('/:weddingSlug', async (req, res) => {
 
     res.json({
       wedding: {
+        eventType: wedding.eventType,
+        eventTitle: wedding.eventTitle,
         brideName: wedding.brideName,
         groomName: wedding.groomName,
         weddingDate: wedding.weddingDate,

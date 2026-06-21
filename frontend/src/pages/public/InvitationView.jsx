@@ -57,6 +57,24 @@ export default function InvitationView() {
   const template = invitationResponse?.template  // Template is at top level of invitation response
   const invitationInfo = invitationResponse?.invitation  // QR code, uniqueCode, etc.
 
+  // Wedding gets the bride & groom name treatment; everything else uses
+  // a single generic event title.
+  const isWedding = !wedding?.eventType || wedding.eventType === 'WEDDING'
+  const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Dot', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
+  const EVENT_INTRO_LABELS = {
+    WEDDING: 'Invitation au mariage de',
+    BIRTHDAY: 'Invitation à l\'anniversaire de',
+    DOT: 'Invitation à la dot de',
+    CEREMONY: 'Invitation à la cérémonie de',
+    CONFERENCE: 'Vous êtes invité(e) à',
+    OTHER: 'Vous êtes invité(e) à'
+  }
+  const eventTypeLabel = EVENT_TYPE_LABELS[wedding?.eventType] || 'Mariage'
+  const eventIntroLabel = EVENT_INTRO_LABELS[wedding?.eventType] || EVENT_INTRO_LABELS.WEDDING
+  const eventDisplayTitle = isWedding
+    ? `${wedding?.brideName || ''} & ${wedding?.groomName || ''}`
+    : (wedding?.eventTitle || eventTypeLabel)
+
   // Extract template colors with fallbacks
   const getTemplateColors = () => {
     const config = template?.config || {}
@@ -190,10 +208,16 @@ export default function InvitationView() {
             </div>
           )}
           <div className="px-8 py-10 text-center">
-            <p className="text-sm font-medium uppercase tracking-widest text-rose-500 mb-3">Mariage</p>
-            <h1 className="text-4xl font-serif font-bold text-gray-900">{wedding.brideName}</h1>
-            <p className="text-2xl font-serif text-rose-400 my-1">&</p>
-            <h1 className="text-4xl font-serif font-bold text-gray-900">{wedding.groomName}</h1>
+            <p className="text-sm font-medium uppercase tracking-widest text-rose-500 mb-3">{eventTypeLabel}</p>
+            {isWedding ? (
+              <>
+                <h1 className="text-4xl font-serif font-bold text-gray-900">{wedding.brideName}</h1>
+                <p className="text-2xl font-serif text-rose-400 my-1">&</p>
+                <h1 className="text-4xl font-serif font-bold text-gray-900">{wedding.groomName}</h1>
+              </>
+            ) : (
+              <h1 className="text-4xl font-serif font-bold text-gray-900">{wedding.eventTitle}</h1>
+            )}
             {wedding.weddingDate && (
               <div className="mt-6 flex items-center justify-center gap-2 text-gray-600">
                 <CalendarIcon className="h-5 w-5 text-rose-500" />
@@ -268,6 +292,8 @@ export default function InvitationView() {
     return {
       bride_name: wedding?.brideName || '',
       groom_name: wedding?.groomName || '',
+      event_title: eventDisplayTitle,
+      event_type: eventTypeLabel,
       guest_name: guest ? `${guest.firstName} ${guest.lastName}` : '',
       invitation_type: guest ? (guest.plusOnes > 0 ? 'Couple' : 'Singleton') : '',
       custom_message: wedding?.customMessage || '',
@@ -564,11 +590,17 @@ export default function InvitationView() {
             {/* Names */}
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.6, delay: 0.2 }}>
               <p className="text-lg font-medium uppercase tracking-widest mb-4" style={{ color: primaryColor }}>
-                Invitation au mariage de
+                {eventIntroLabel}
               </p>
-              <h1 className="text-5xl lg:text-6xl font-bold" style={{ fontFamily: headingFont, color: textColor }}>{wedding?.brideName}</h1>
-              <p className="text-3xl my-1" style={{ fontFamily: headingFont, color: secondaryColor }}>&</p>
-              <h1 className="text-5xl lg:text-6xl font-bold" style={{ fontFamily: headingFont, color: textColor }}>{wedding?.groomName}</h1>
+              {isWedding ? (
+                <>
+                  <h1 className="text-5xl lg:text-6xl font-bold" style={{ fontFamily: headingFont, color: textColor }}>{wedding?.brideName}</h1>
+                  <p className="text-3xl my-1" style={{ fontFamily: headingFont, color: secondaryColor }}>&</p>
+                  <h1 className="text-5xl lg:text-6xl font-bold" style={{ fontFamily: headingFont, color: textColor }}>{wedding?.groomName}</h1>
+                </>
+              ) : (
+                <h1 className="text-5xl lg:text-6xl font-bold" style={{ fontFamily: headingFont, color: textColor }}>{eventDisplayTitle}</h1>
+              )}
             </motion.div>
 
             {/* Divider */}
@@ -584,7 +616,9 @@ export default function InvitationView() {
               <p className="text-3xl font-bold" style={{ fontFamily: headingFont, color: primaryColor }}>
                 {guest?.firstName} {guest?.lastName}
               </p>
-              <p className="text-xl text-gray-600 mt-2">Vous êtes cordialement invité(e) à célébrer notre union</p>
+              <p className="text-xl text-gray-600 mt-2">
+                {isWedding ? 'Vous êtes cordialement invité(e) à célébrer notre union' : `Vous êtes cordialement invité(e) à : ${eventDisplayTitle}`}
+              </p>
             </motion.div>
 
             {/* Custom Message */}
