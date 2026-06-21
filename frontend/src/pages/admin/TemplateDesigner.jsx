@@ -5,6 +5,7 @@ import { adminAPI, templateAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import { processImage } from '../../utils/imageProcessor'
 import { EVENT_TYPES, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
+import { PHOTO_SHAPES, getClipPath } from '../../utils/imageShapes'
 import {
   ArrowLeftIcon,
   EyeIcon,
@@ -847,7 +848,7 @@ export default function TemplateDesigner({ clientMode = false }) {
     const newElement = {
       id, type: 'photo', label: 'Photo des mariés', content: '{{couple_photo}}',
       x: Math.round((canvasWidth - w) / 2), y: Math.round(canvasHeight * 0.3), width: w, height: h,
-      visible: true, locked: false,
+      visible: true, locked: false, shape: 'rect',
       objectFit: 'cover', borderWidth: 4, borderColor: '#FFFFFF', borderOpacity: 100, borderRadius: 12
     }
     setElements(prev => [...prev, newElement])
@@ -855,7 +856,24 @@ export default function TemplateDesigner({ clientMode = false }) {
     setActivePanel('properties')
   }
 
-  const DELETABLE_TYPES = ['custom', 'photo']
+  // Ajoute une image décorative fixe (logo, ornement...) uploadée par l'admin -
+  // contrairement à "photo" qui est un emplacement rempli par le client.
+  const addImageElement = () => {
+    const id = `image_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const w = Math.min(200, Math.round(canvasWidth * 0.25))
+    const h = w
+    const newElement = {
+      id, type: 'image', label: 'Image décorative', content: '', iconUrl: '',
+      x: Math.round((canvasWidth - w) / 2), y: Math.round(canvasHeight * 0.1), width: w, height: h,
+      visible: true, locked: false, shape: 'rect',
+      objectFit: 'contain', borderWidth: 0, borderColor: '#FFFFFF', borderOpacity: 100, borderRadius: 0
+    }
+    setElements(prev => [...prev, newElement])
+    setSelectedId(id)
+    setActivePanel('properties')
+  }
+
+  const DELETABLE_TYPES = ['custom', 'photo', 'image']
 
   const deleteElement = (id) => {
     const el = elements.find(e => e.id === id)
@@ -1126,13 +1144,14 @@ export default function TemplateDesigner({ clientMode = false }) {
         textShadow: el.textShadow ?? 'none',
         shadowColor: el.shadowColor ?? '#000000',
         zIndex: el.zIndex ?? 0,
-        iconUrl: el.iconUrl || '',  // Preserve icon URLs for programme labels
-        // Photo element styling (border/opacity/radius/cadrage)
+        iconUrl: el.iconUrl || '',  // Preserve icon URLs for programme labels and decorative images
+        // Photo/image element styling (border/opacity/radius/cadrage/forme)
         objectFit: el.objectFit || 'cover',
         borderWidth: el.borderWidth ?? 0,
         borderColor: el.borderColor || '#FFFFFF',
         borderOpacity: el.borderOpacity ?? 100,
-        borderRadius: el.borderRadius ?? 0
+        borderRadius: el.borderRadius ?? 0,
+        shape: el.shape || 'rect'
       }))
 
       // Debug: verify clean elements
@@ -1270,20 +1289,31 @@ export default function TemplateDesigner({ clientMode = false }) {
       )
     }
 
-    // Image placeholder (ex: photo des mariés) — le client remplit cet emplacement lors de la création de son mariage
-    if (el.type === 'photo') {
+    // Image placeholder (ex: photo des mariés, rempli par le client) or a
+    // fixed decorative image uploaded by the admin - both support shapes
+    // (rectangle/cercle/hexagone/losange/octogone/étoile) via clip-path.
+    if (el.type === 'photo' || el.type === 'image') {
+      const clipPath = getClipPath(el.shape)
+      const borderColor = hexToRgba(el.borderColor || '#FFFFFF', el.borderOpacity ?? 100)
+      const apiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || ''
+      const imgSrc = el.type === 'image' && el.iconUrl
+        ? (el.iconUrl.startsWith('data:') || el.iconUrl.startsWith('http') ? el.iconUrl : `${apiBase}${el.iconUrl}`)
+        : null
+      const outerStyle = clipPath
+        ? { clipPath, background: el.borderWidth ? borderColor : 'transparent', padding: el.borderWidth || 0, boxSizing: 'border-box' }
+        : { border: `${el.borderWidth || 0}px solid ${borderColor}`, borderRadius: `${el.borderRadius || 0}px`, boxSizing: 'border-box' }
+
       return (
-        <div
-          className="w-full h-full overflow-hidden bg-gray-100 flex items-center justify-center"
-          style={{
-            border: `${el.borderWidth || 0}px solid ${hexToRgba(el.borderColor || '#FFFFFF', el.borderOpacity ?? 100)}`,
-            borderRadius: `${el.borderRadius || 0}px`,
-            boxSizing: 'border-box'
-          }}
-        >
-          <div className="text-center text-gray-400">
-            <PhotoIcon className="h-8 w-8 mx-auto mb-1" />
-            <span className="text-[10px]">Photo des mariés</span>
+        <div className="w-full h-full overflow-hidden bg-gray-100 flex items-center justify-center" style={outerStyle}>
+          <div className="w-full h-full overflow-hidden bg-gray-100 flex items-center justify-center" style={clipPath ? { clipPath } : undefined}>
+            {imgSrc ? (
+              <img src={imgSrc} alt="" className="w-full h-full" style={{ objectFit: el.objectFit || 'contain' }} />
+            ) : (
+              <div className="text-center text-gray-400">
+                <PhotoIcon className="h-8 w-8 mx-auto mb-1" />
+                <span className="text-[10px]">{el.type === 'image' ? 'Cliquez pour ajouter une image' : 'Photo des mariés'}</span>
+              </div>
+            )}
           </div>
         </div>
       )
@@ -1692,6 +1722,10 @@ export default function TemplateDesigner({ clientMode = false }) {
                     <PhotoIcon className="h-3.5 w-3.5" />
                     Photo
                   </button>
+                  <button onClick={addImageElement} className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
+                    <PhotoIcon className="h-3.5 w-3.5" />
+                    Image
+                  </button>
                 </div>
               </div>
 
@@ -1968,6 +2002,8 @@ export default function TemplateDesigner({ clientMode = false }) {
                         <p className="text-xs text-gray-400 italic">Le QR code est généré automatiquement</p>
                       ) : selectedElement.type === 'photo' ? (
                         <p className="text-xs text-gray-400 italic">L'image est fournie par le client, pas de contenu texte ici</p>
+                      ) : selectedElement.type === 'image' ? (
+                        <p className="text-xs text-gray-400 italic">Image fixe décorative, pas de contenu texte ici</p>
                       ) : (
                         <textarea
                           value={selectedElement.content}
@@ -1977,6 +2013,49 @@ export default function TemplateDesigner({ clientMode = false }) {
                         />
                       )}
                     </div>
+
+                    {/* Image Upload (decorative "image" elements) */}
+                    {selectedElement.type === 'image' && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-2">Image</label>
+                        {selectedElement.iconUrl ? (
+                          <div className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg border">
+                            <img
+                              src={selectedElement.iconUrl.startsWith('data:') || selectedElement.iconUrl.startsWith('http') ? selectedElement.iconUrl : `${import.meta.env.VITE_API_URL?.replace('/api', '') || ''}${selectedElement.iconUrl}`}
+                              alt="Image"
+                              className="w-10 h-10 object-contain rounded border bg-white p-0.5"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-600 truncate">Image chargée</p>
+                              <div className="flex gap-2 mt-1">
+                                <button onClick={() => iconInputRef.current?.click()} className="text-[10px] text-primary-600 hover:text-primary-700 font-medium">
+                                  Changer
+                                </button>
+                                <button onClick={() => updateElement(selectedId, { iconUrl: '' })} className="text-[10px] text-red-500 hover:text-red-600 font-medium">
+                                  Supprimer
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => iconInputRef.current?.click()}
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-xs text-gray-500 hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                          >
+                            <ArrowUpTrayIcon className="w-4 h-4" />
+                            Importer une image (PNG, SVG, JPEG, WEBP)
+                          </button>
+                        )}
+                        <input
+                          ref={iconInputRef}
+                          type="file"
+                          accept=".png,.svg,.jpg,.jpeg,.webp,image/png,image/svg+xml,image/jpeg,image/webp"
+                          onChange={handleIconUpload}
+                          className="hidden"
+                        />
+                        <p className="text-[10px] text-gray-400 mt-1">Logo, ornement, sticker... max 5 Mo</p>
+                      </div>
+                    )}
 
                     {/* Icon Upload (for programme label elements only) */}
                     {['communeLabel', 'egliseLabel', 'receptionLabel'].includes(selectedElement.type) && (
@@ -2050,12 +2129,34 @@ export default function TemplateDesigner({ clientMode = false }) {
                       </div>
                     </div>
 
-                    {selectedElement.type === 'photo' && (
+                    {(selectedElement.type === 'photo' || selectedElement.type === 'image') && (
                       <>
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                           <p className="text-xs text-blue-700">
-                            📷 Emplacement réservé à une photo (ex: photo des mariés). Le client l'ajoutera lors de la création ou modification de son mariage.
+                            {selectedElement.type === 'photo'
+                              ? "📷 Emplacement réservé à une photo (ex: photo des mariés). Le client l'ajoutera lors de la création ou modification de son mariage."
+                              : '🖼️ Image fixe décorative (logo, ornement...) - identique pour toutes les invitations.'}
                           </p>
+                        </div>
+
+                        {/* Shape */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-2">Forme</label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {PHOTO_SHAPES.map(shape => (
+                              <button
+                                key={shape.id}
+                                onClick={() => updateElement(selectedId, { shape: shape.id })}
+                                className={`px-2 py-2 text-xs border rounded-lg font-medium transition-colors ${
+                                  (selectedElement.shape || 'rect') === shape.id
+                                    ? 'bg-primary-100 border-primary-400 text-primary-700'
+                                    : 'border-gray-200 text-gray-600 hover:border-primary-300'
+                                }`}
+                              >
+                                {shape.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
 
                         {/* Object fit */}
@@ -2125,28 +2226,31 @@ export default function TemplateDesigner({ clientMode = false }) {
                           />
                         </div>
 
-                        {/* Border radius */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Arrondi des coins ({selectedElement.borderRadius || 0}px)
-                          </label>
-                          <input
-                            type="range" min="0" max={Math.round(Math.min(selectedElement.width, selectedElement.height) / 2)}
-                            value={Math.min(selectedElement.borderRadius || 0, Math.round(Math.min(selectedElement.width, selectedElement.height) / 2))}
-                            onChange={(e) => updateElement(selectedId, { borderRadius: parseInt(e.target.value) })}
-                            className="w-full accent-primary-600"
-                          />
-                          <button
-                            onClick={() => updateElement(selectedId, { borderRadius: Math.round(Math.min(selectedElement.width, selectedElement.height) / 2) })}
-                            className="mt-2 text-xs text-primary-600 hover:text-primary-700 font-medium"
-                          >
-                            ⬤ Rendre circulaire
-                          </button>
-                        </div>
+                        {/* Border radius - only meaningful for the rectangle shape;
+                            other shapes are already clipped via CSS clip-path */}
+                        {(selectedElement.shape || 'rect') === 'rect' && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Arrondi des coins ({selectedElement.borderRadius || 0}px)
+                            </label>
+                            <input
+                              type="range" min="0" max={Math.round(Math.min(selectedElement.width, selectedElement.height) / 2)}
+                              value={Math.min(selectedElement.borderRadius || 0, Math.round(Math.min(selectedElement.width, selectedElement.height) / 2))}
+                              onChange={(e) => updateElement(selectedId, { borderRadius: parseInt(e.target.value) })}
+                              className="w-full accent-primary-600"
+                            />
+                            <button
+                              onClick={() => updateElement(selectedId, { borderRadius: Math.round(Math.min(selectedElement.width, selectedElement.height) / 2) })}
+                              className="mt-2 text-xs text-primary-600 hover:text-primary-700 font-medium"
+                            >
+                              ⬤ Rendre circulaire
+                            </button>
+                          </div>
+                        )}
                       </>
                     )}
 
-                    {selectedElement.type !== 'qrcode' && selectedElement.type !== 'photo' && (
+                    {selectedElement.type !== 'qrcode' && selectedElement.type !== 'photo' && selectedElement.type !== 'image' && (
                       <>
                         {/* Font Family */}
                         <div>

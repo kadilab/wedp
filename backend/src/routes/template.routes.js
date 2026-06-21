@@ -287,7 +287,8 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       borderWidth: el.borderWidth ?? 0,
       borderColor: el.borderColor || '#FFFFFF',
       borderOpacity: el.borderOpacity ?? 100,
-      borderRadius: el.borderRadius ?? 0
+      borderRadius: el.borderRadius ?? 0,
+      shape: el.shape || 'rect'
     }));
 
     const config = {
@@ -445,7 +446,8 @@ router.put('/:id/design', authenticate, async (req, res) => {
       borderWidth: el.borderWidth ?? 0,
       borderColor: el.borderColor || '#FFFFFF',
       borderOpacity: el.borderOpacity ?? 100,
-      borderRadius: el.borderRadius ?? 0
+      borderRadius: el.borderRadius ?? 0,
+      shape: el.shape || 'rect'
     }));
 
     const updatedConfig = {

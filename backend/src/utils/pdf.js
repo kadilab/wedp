@@ -13,6 +13,20 @@ function hexToRgba(hex, alphaPercent = 100) {
   return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(100, alphaPercent)) / 100})`;
 }
 
+// Shape options for "photo"/"image" design elements - mirrors
+// frontend/src/utils/imageShapes.js. 'rect' (default/null) keeps the
+// existing border-radius behavior; every other shape clips via clip-path.
+function getClipPath(shape) {
+  switch (shape) {
+    case 'circle': return 'circle(50% at 50% 50%)';
+    case 'hexagon': return 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
+    case 'diamond': return 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)';
+    case 'octagon': return 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)';
+    case 'star': return 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
+    default: return null;
+  }
+}
+
 // Resolve a local upload path (or URL/data-uri) to a base64 data URI for embedding in Puppeteer-rendered PDFs
 function resolveImageToDataUri(imgPath) {
   if (!imgPath) return '';
@@ -729,14 +743,29 @@ function generateDesignBasedHTML(options) {
         </div>`;
       }
 
-      // Photo element (ex: photo des mariés) — pulls from wedding.couplePhoto, with border/opacity/radius styling
-      if (el.type === 'photo') {
-        const photoSrc = resolveImageToDataUri(wedding.couplePhoto);
+      // Photo element (ex: photo des mariés, fournie par le client) or a fixed
+      // decorative "image" uploaded by the admin - both support shapes
+      // (rectangle/cercle/hexagone/losange/octogone/étoile) via clip-path.
+      if (el.type === 'photo' || el.type === 'image') {
+        const isDecorative = el.type === 'image';
+        const photoSrc = isDecorative ? resolveImageToDataUri(el.iconUrl) : resolveImageToDataUri(wedding.couplePhoto);
         const borderColor = hexToRgba(el.borderColor || '#FFFFFF', el.borderOpacity ?? 100);
+        const objectFit = el.objectFit || (isDecorative ? 'contain' : 'cover');
+        const clipPath = getClipPath(el.shape);
+
+        if (clipPath) {
+          const pad = el.borderWidth || 0;
+          return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};box-sizing:border-box;clip-path:${clipPath};background:${pad ? borderColor : 'transparent'};padding:${pad}px;">
+            <div style="width:100%;height:100%;clip-path:${clipPath};background:#f3f4f6;overflow:hidden;">
+              ${photoSrc ? `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:${objectFit};display:block;" />` : ''}
+            </div>
+          </div>`;
+        }
+
         const borderStyle = el.borderWidth ? `border:${el.borderWidth}px solid ${borderColor};` : '';
         const radiusStyle = el.borderRadius ? `border-radius:${el.borderRadius}px;overflow:hidden;` : '';
         return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};box-sizing:border-box;${borderStyle}${radiusStyle}background:#f3f4f6;">
-          ${photoSrc ? `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:${el.objectFit || 'cover'};display:block;" />` : ''}
+          ${photoSrc ? `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:${objectFit};display:block;" />` : ''}
         </div>`;
       }
 

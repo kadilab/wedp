@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { HeartIcon, CalendarIcon, PhotoIcon } from '@heroicons/react/24/outline'
+import { getClipPath } from '../../utils/imageShapes'
 
 const hexToRgba = (hex, alpha = 1) => {
   const h = (hex || '#FFFFFF').replace('#', '')
@@ -179,9 +180,20 @@ export default function TemplatePreview({ template, className = '', weddingData 
                   )
                 }
 
-                // Photo element (ex: photo des mariés)
-                if (el.type === 'photo') {
+                // Photo element (ex: photo des mariés, fournie par le client) or a
+                // fixed decorative "image" uploaded by the admin - both support
+                // shapes (rectangle/cercle/hexagone/losange/octogone/étoile).
+                if (el.type === 'photo' || el.type === 'image') {
+                  const isDecorative = el.type === 'image'
                   const photoBorderColor = hexToRgba(el.borderColor || '#FFFFFF', (el.borderOpacity ?? 100) / 100)
+                  const clipPath = getClipPath(el.shape)
+                  const apiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || ''
+                  const imgSrc = isDecorative
+                    ? (el.iconUrl ? (el.iconUrl.startsWith('data:') || el.iconUrl.startsWith('http') ? el.iconUrl : `${apiBase}${el.iconUrl}`) : null)
+                    : weddingData?.couplePhoto
+                  const outerStyle = clipPath
+                    ? { clipPath, background: el.borderWidth ? photoBorderColor : 'transparent', padding: el.borderWidth || 0 }
+                    : { border: el.borderWidth ? `${el.borderWidth}px solid ${photoBorderColor}` : 'none', borderRadius: el.borderRadius || 0 }
                   return (
                     <div
                       key={el.id || idx}
@@ -191,20 +203,21 @@ export default function TemplatePreview({ template, className = '', weddingData 
                         width: el.width, height: el.height,
                         zIndex: zIdx,
                         boxSizing: 'border-box',
-                        border: el.borderWidth ? `${el.borderWidth}px solid ${photoBorderColor}` : 'none',
-                        borderRadius: el.borderRadius || 0,
                         overflow: 'hidden',
-                        background: '#f3f4f6',
+                        background: clipPath && el.borderWidth ? undefined : '#f3f4f6',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
+                        ...outerStyle
                       }}
                     >
-                      {weddingData?.couplePhoto ? (
-                        <img src={weddingData.couplePhoto} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: el.objectFit || 'cover' }} />
-                      ) : (
-                        <PhotoIcon className="w-1/3 h-1/3 text-gray-300" />
-                      )}
+                      <div style={{ width: '100%', height: '100%', overflow: 'hidden', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', clipPath: clipPath || undefined }}>
+                        {imgSrc ? (
+                          <img src={imgSrc} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: el.objectFit || (isDecorative ? 'contain' : 'cover') }} />
+                        ) : (
+                          <PhotoIcon className="w-1/3 h-1/3 text-gray-300" />
+                        )}
+                      </div>
                     </div>
                   )
                 }
