@@ -59,15 +59,21 @@ export default function WeddingEdit() {
   const queryClient = useQueryClient()
 
   const { data: weddingData, isLoading } = useQuery(['wedding', id], () => weddingAPI.getOne(id))
-  const { data: templatesData } = useQuery('templates', () => templateAPI.getAll())
-  const { data: myTemplatesData } = useQuery('my-templates', () => templateAPI.getMyTemplates())
-  
-  const templates = templatesData?.data?.templates || []
-  const myTemplates = myTemplatesData?.data?.templates || []
   const wedding = weddingData?.data?.wedding
   // Event type is fixed at creation - this page only adapts which fields it shows.
   const isWedding = !wedding?.eventType || wedding.eventType === 'WEDDING'
   const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Dot', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
+
+  // Only show templates designed for this event's type
+  const { data: templatesData } = useQuery(
+    ['templates', wedding?.eventType],
+    () => templateAPI.getAll({ eventType: wedding?.eventType || 'WEDDING' }),
+    { enabled: !!wedding }
+  )
+  const { data: myTemplatesData } = useQuery('my-templates', () => templateAPI.getMyTemplates())
+
+  const templates = templatesData?.data?.templates || []
+  const myTemplates = (myTemplatesData?.data?.templates || []).filter(t => (t.eventType || 'WEDDING') === (wedding?.eventType || 'WEDDING'))
 
   const {
     register, handleSubmit, watch, setValue,
@@ -425,10 +431,12 @@ export default function WeddingEdit() {
           {/* Template Selection + Live Preview */}
           <div>
             <h3 className="font-medium text-gray-900 mb-3">Choisir un template</h3>
-            {templates.length === 0 ? (
+            {templates.length === 0 && myTemplates.length === 0 ? (
               <div className="text-center py-6 bg-gray-50 rounded-xl">
                 <HeartIcon className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm">Aucun template disponible</p>
+                <p className="text-gray-500 text-sm">
+                  Aucun template disponible pour le type « {EVENT_TYPE_LABELS[wedding?.eventType] || 'Mariage'} » pour le moment
+                </p>
               </div>
             ) : (
               <div className="flex gap-6">

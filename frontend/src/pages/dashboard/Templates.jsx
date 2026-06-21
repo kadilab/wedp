@@ -18,9 +18,11 @@ import {
   UserIcon
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid'
+import { EVENT_TYPES, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
 
 export default function Templates() {
   const navigate = useNavigate()
+  const [selectedEventType, setSelectedEventType] = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [previewTemplate, setPreviewTemplate] = useState(null)
   const [previewDevice, setPreviewDevice] = useState('desktop')
@@ -41,8 +43,12 @@ export default function Templates() {
 
   const handlePersonalize = (template) => {
     setCustomizeTemplate(template)
-    setSelectedWeddingId(weddings[0]?.id || '')
+    const matchingWeddings = weddings.filter(w => (w.eventType || 'WEDDING') === (template.eventType || 'WEDDING'))
+    setSelectedWeddingId(matchingWeddings[0]?.id || '')
   }
+
+  const eventDisplayName = (w) =>
+    (!w.eventType || w.eventType === 'WEDDING') ? `${w.brideName} & ${w.groomName}` : (w.eventTitle || EVENT_TYPE_LABELS[w.eventType])
 
   const handleStartCustomize = async () => {
     if (!selectedWeddingId) {
@@ -76,9 +82,18 @@ export default function Templates() {
     { value: 'TRADITIONAL', label: 'Traditionnel' }
   ]
 
-  const filteredTemplates = selectedCategory === 'all' 
-    ? templates 
-    : templates.filter(t => t.category === selectedCategory)
+  const eventTypeFilters = [
+    { value: 'all', label: 'Tous' },
+    ...EVENT_TYPES.map(type => ({ value: type, label: EVENT_TYPE_LABELS[type] }))
+  ]
+
+  const eventFilteredTemplates = selectedEventType === 'all'
+    ? templates
+    : templates.filter(t => (t.eventType || 'WEDDING') === selectedEventType)
+
+  const filteredTemplates = selectedCategory === 'all'
+    ? eventFilteredTemplates
+    : eventFilteredTemplates.filter(t => t.category === selectedCategory)
 
   const handleSelectTemplate = (template) => {
     // Navigate to wedding creation with the selected template
@@ -101,7 +116,27 @@ export default function Templates() {
         </div>
       </div>
 
-      {/* Category Filters */}
+      {/* Event Type Filters */}
+      <div className="flex flex-wrap gap-2">
+        {eventTypeFilters.map((type) => (
+          <button
+            key={type.value}
+            onClick={() => setSelectedEventType(type.value)}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              selectedEventType === type.value
+                ? 'bg-gold-500 text-white shadow-lg shadow-gold-200'
+                : 'bg-white text-gray-600 border border-gray-200 hover:border-gold-300 hover:text-gold-600'
+            }`}
+          >
+            {type.label}
+            {type.value !== 'all' && (
+              <span className="ml-1.5 opacity-70">
+                ({templates.filter(t => (t.eventType || 'WEDDING') === type.value).length})
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
 
       {/* Mes Templates */}
       {myTemplates.length > 0 && (
@@ -166,7 +201,7 @@ export default function Templates() {
             {cat.label}
             {cat.value !== 'all' && (
               <span className="ml-1.5 opacity-70">
-                ({templates.filter(t => t.category === cat.value).length})
+                ({eventFilteredTemplates.filter(t => t.category === cat.value).length})
               </span>
             )}
           </button>
@@ -250,12 +285,17 @@ export default function Templates() {
                   )}
                 </div>
                 <p className="text-sm text-gray-500 mt-1 line-clamp-2">
-                  {template.description || 'Design élégant pour vos invitations de mariage'}
+                  {template.description || 'Design élégant pour vos invitations'}
                 </p>
                 <div className="mt-3 flex items-center justify-between">
-                  <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">
-                    {categories.find(c => c.value === template.category)?.label || template.category}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs px-2 py-1 bg-gold-100 text-gold-700 rounded">
+                      {EVENT_TYPE_LABELS[template.eventType] || 'Mariage'}
+                    </span>
+                    <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">
+                      {categories.find(c => c.value === template.category)?.label || template.category}
+                    </span>
+                  </div>
                   {template.isPremium ? (
                     <span className="text-xs text-gold-600 flex items-center">
                       <StarSolidIcon className="h-3.5 w-3.5 mr-1" />
@@ -448,27 +488,31 @@ export default function Templates() {
               </button>
             </div>
             <p className="text-sm text-gray-500 mb-4">
-              Sélectionnez le mariage pour lequel vous souhaitez personnaliser <strong>{customizeTemplate.name}</strong>.
+              Sélectionnez l'événement ({EVENT_TYPE_LABELS[customizeTemplate.eventType] || 'Mariage'}) pour lequel vous souhaitez personnaliser <strong>{customizeTemplate.name}</strong>.
             </p>
-            {weddings.length === 0 ? (
-              <div className="text-center py-4">
-                <p className="text-sm text-gray-500 mb-3">Vous n'avez pas encore de mariage.</p>
-                <button
-                  onClick={() => { setCustomizeTemplate(null); navigate('/weddings/new') }}
-                  className="btn-primary"
-                >
-                  Créer un mariage
-                </button>
-              </div>
-            ) : (
+            {(() => {
+              const matchingWeddings = weddings.filter(w => (w.eventType || 'WEDDING') === (customizeTemplate.eventType || 'WEDDING'))
+              return matchingWeddings.length === 0 ? (
+                <div className="text-center py-4">
+                  <p className="text-sm text-gray-500 mb-3">
+                    Vous n'avez pas encore d'événement de type « {EVENT_TYPE_LABELS[customizeTemplate.eventType] || 'Mariage'} ».
+                  </p>
+                  <button
+                    onClick={() => { setCustomizeTemplate(null); navigate('/weddings/new') }}
+                    className="btn-primary"
+                  >
+                    Créer un événement
+                  </button>
+                </div>
+              ) : (
               <>
                 <select
                   value={selectedWeddingId}
                   onChange={e => setSelectedWeddingId(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-primary-400"
                 >
-                  {weddings.map(w => (
-                    <option key={w.id} value={w.id}>{w.brideName} & {w.groomName}</option>
+                  {matchingWeddings.map(w => (
+                    <option key={w.id} value={w.id}>{eventDisplayName(w)}</option>
                   ))}
                 </select>
                 <div className="flex gap-3">
@@ -486,7 +530,8 @@ export default function Templates() {
                   </button>
                 </div>
               </>
-            )}
+              )
+            })()}
           </div>
         </div>
       )}

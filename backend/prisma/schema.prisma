@@ -155,6 +155,9 @@ model Template {
   cssContent        String?     @db.LongText @map("css_content")
   config            Json?       // Visual editor configuration: designElements positions, fonts, colors, etc.
   category          String      @default("MODERN")
+  // Which event type this template is designed for (drives gallery filtering
+  // during event creation, so a Mariage event isn't offered a Conférence layout)
+  eventType         EventType   @default(WEDDING) @map("event_type")
   isPremium         Boolean     @default(false) @map("is_premium")
   isActive          Boolean     @default(true) @map("is_active")
   allowBackgroundChange Boolean @default(true) @map("allow_background_change")
@@ -302,6 +305,7 @@ model Guest {
   email             String?
   phone             String?
   tableNumber       String?     @map("table_number")
+  category          String?     // Group label (e.g. "Famille mariée", "Collègues") - wording adapts to the event's eventType in the UI
   plusOnes          Int         @default(0) @map("plus_ones")
   dietaryRestrictions String?   @db.Text @map("dietary_restrictions")
   notes             String?     @db.Text

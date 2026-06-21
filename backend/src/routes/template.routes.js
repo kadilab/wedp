@@ -20,7 +20,7 @@ const CANVAS_HEIGHT_DEFAULT = 1120;
 router.get('/', paginationValidation, async (req, res) => {
   try {
     const { skip, take, page, limit } = paginate(req.query.page, req.query.limit);
-    const { category, premium, all } = req.query;
+    const { category, eventType, premium, all } = req.query;
 
     // If 'all' is set, show all templates including inactive (for admin)
     // Never show user-custom (forked) templates in the global list
@@ -28,6 +28,7 @@ router.get('/', paginationValidation, async (req, res) => {
       ...(all !== 'true' && { isActive: true }),
       isCustom: false,
       ...(category && { category }),
+      ...(eventType && { eventType }),
       ...(premium !== undefined && { isPremium: premium === 'true' })
     };
 
@@ -47,6 +48,7 @@ router.get('/', paginationValidation, async (req, res) => {
           backgroundUrl: true,
           backgroundOpacity: true,
           category: true,
+          eventType: true,
           isPremium: true,
           allowBackgroundChange: true,
           colorScheme: true,
@@ -91,6 +93,7 @@ router.get('/mine', authenticate, async (req, res) => {
         backgroundUrl: true,
         backgroundOpacity: true,
         category: true,
+        eventType: true,
         config: true,
         canvasWidth: true,
         canvasHeight: true,
@@ -233,8 +236,8 @@ router.post('/upload-preview', authenticate, isAdmin, uploadSingle('previewImage
  */
 router.post('/', authenticate, isAdmin, async (req, res) => {
   try {
-    const { 
-      name, description, category, isPremium, 
+    const {
+      name, description, category, eventType, isPremium,
       backgroundUrl, backgroundOpacity,
       designElements, canvasWidth, canvasHeight,
       allowBackgroundChange, previewImage,
@@ -303,6 +306,7 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
         slug,
         description: description || null,
         category: category || 'MODERN',
+        eventType: eventType || 'WEDDING',
         isPremium: isPremium || false,
         backgroundUrl: backgroundUrl || null,
         backgroundOpacity: backgroundOpacity || 100,
@@ -364,6 +368,7 @@ router.post('/:id/fork', authenticate, async (req, res) => {
         cssContent: source.cssContent,
         config: source.config,
         category: source.category,
+        eventType: source.eventType,
         isPremium: false,
         isActive: true,
         allowBackgroundChange: source.allowBackgroundChange,
@@ -508,9 +513,9 @@ router.put('/:id/design', authenticate, async (req, res) => {
  */
 router.put('/:id', authenticate, isAdmin, async (req, res) => {
   try {
-    const { 
-      name, description, htmlContent, cssContent, category, 
-      isPremium, colorScheme, isActive, config, previewImage, 
+    const {
+      name, description, htmlContent, cssContent, category, eventType,
+      isPremium, colorScheme, isActive, config, previewImage,
       allowBackgroundChange, backgroundUrl, backgroundOpacity,
       canvasWidth, canvasHeight
     } = req.body;
@@ -528,6 +533,7 @@ router.put('/:id', authenticate, isAdmin, async (req, res) => {
         ...(canvasWidth !== undefined && { canvasWidth }),
         ...(canvasHeight !== undefined && { canvasHeight }),
         ...(category && { category }),
+        ...(eventType && { eventType }),
         ...(isPremium !== undefined && { isPremium }),
         ...(colorScheme && { colorScheme }),
         ...(config !== undefined && { config }),

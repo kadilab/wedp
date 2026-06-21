@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { adminAPI, templateAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import { processImage } from '../../utils/imageProcessor'
+import { EVENT_TYPES, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
 import {
   ArrowLeftIcon,
   EyeIcon,
@@ -416,6 +417,7 @@ export default function TemplateDesigner({ clientMode = false }) {
   const [templateName, setTemplateName] = useState('')
   const [templateDescription, setTemplateDescription] = useState('')
   const [templateCategory, setTemplateCategory] = useState('MODERN')
+  const [templateEventType, setTemplateEventType] = useState('WEDDING')
   const [isPremium, setIsPremium] = useState(false)
   const [previewImage, setPreviewImage] = useState('')
 
@@ -475,6 +477,7 @@ export default function TemplateDesigner({ clientMode = false }) {
       setTemplateName(t.name || '')
       setTemplateDescription(t.description || '')
       setTemplateCategory(t.category || 'MODERN')
+      setTemplateEventType(t.eventType || 'WEDDING')
       setIsPremium(t.isPremium || false)
       setPreviewImage(t.previewImage || '')
       setBackgroundUrl(t.previewImage || t.backgroundUrl || t.config?.backgroundImage || '')
@@ -1008,6 +1011,7 @@ export default function TemplateDesigner({ clientMode = false }) {
         name: templateName.trim(),
         description: templateDescription,
         category: templateCategory,
+        eventType: templateEventType,
         isPremium,
         backgroundUrl,
         backgroundOpacity,
@@ -1749,7 +1753,21 @@ export default function TemplateDesigner({ clientMode = false }) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Catégorie</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Type d'événement</label>
+                <select
+                  value={templateEventType}
+                  onChange={(e) => setTemplateEventType(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  {EVENT_TYPES.map(type => (
+                    <option key={type} value={type}>{EVENT_TYPE_LABELS[type]}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">Détermine pour quel type d'événement ce template apparaît</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Catégorie (style)</label>
                 <select
                   value={templateCategory}
                   onChange={(e) => setTemplateCategory(e.target.value)}

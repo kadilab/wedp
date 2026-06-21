@@ -83,12 +83,6 @@ export default function WeddingCreate() {
   const location = useLocation()
   const preselectedTemplateId = location.state?.templateId
 
-  const { data: templatesData } = useQuery('templates', () => templateAPI.getAll())
-  const templates = templatesData?.data?.templates || []
-
-  const { data: myTemplatesData } = useQuery('my-templates', () => templateAPI.getMyTemplates())
-  const myTemplates = myTemplatesData?.data?.templates || []
-
   const {
     register,
     handleSubmit,
@@ -115,6 +109,18 @@ export default function WeddingCreate() {
   const eventType = watch('eventType')
   const isWedding = eventType === 'WEDDING'
   const selectedEventMeta = EVENT_TYPES_META.find(t => t.id === eventType) || EVENT_TYPES_META[0]
+
+  // Only show templates designed for the selected event type - a Mariage
+  // event shouldn't be offered a Conférence layout and vice-versa.
+  const { data: templatesData } = useQuery(
+    ['templates', eventType],
+    () => templateAPI.getAll({ eventType }),
+    { enabled: !!eventType }
+  )
+  const templates = templatesData?.data?.templates || []
+
+  const { data: myTemplatesData } = useQuery('my-templates', () => templateAPI.getMyTemplates())
+  const myTemplates = (myTemplatesData?.data?.templates || []).filter(t => (t.eventType || 'WEDDING') === eventType)
 
   // Step numbers shift depending on whether the full wedding programme
   // step is needed - everything downstream (design/QR/print) just slides up.
@@ -649,10 +655,12 @@ export default function WeddingCreate() {
               {/* Template Selection + Live Preview */}
               <div>
                 <h3 className="font-medium text-gray-900 mb-3">Choisir un template</h3>
-                {templates.length === 0 ? (
+                {templates.length === 0 && myTemplates.length === 0 ? (
                   <div className="text-center py-6 bg-gray-50 rounded-xl">
                     <HeartIcon className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                    <p className="text-gray-500 text-sm">Aucun template disponible</p>
+                    <p className="text-gray-500 text-sm">
+                      Aucun template disponible pour le type « {selectedEventMeta.label} » pour le moment
+                    </p>
                   </div>
                 ) : (
                   <div className="flex gap-6">

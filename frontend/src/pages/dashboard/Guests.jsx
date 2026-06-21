@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { guestAPI, weddingAPI, invitationOrderAPI } from '../../services/api'
 import BuyQuotaModal from '../../components/invitations/BuyQuotaModal'
+import { getGuestCategoryOptions } from '../../utils/eventTypes'
 import toast from 'react-hot-toast'
 import {
   PlusIcon,
@@ -87,7 +88,11 @@ export default function Guests() {
           <div>
             <h1 className="text-3xl font-serif font-bold text-gray-900">Invités</h1>
             {wedding && (
-              <p className="text-gray-600">{wedding.brideName} & {wedding.groomName}</p>
+              <p className="text-gray-600">
+                {(!wedding.eventType || wedding.eventType === 'WEDDING')
+                  ? `${wedding.brideName} & ${wedding.groomName}`
+                  : (wedding.eventTitle || 'Événement')}
+              </p>
             )}
           </div>
         </div>
@@ -257,6 +262,7 @@ export default function Guests() {
         <GuestModal
           guest={editingGuest}
           weddingId={weddingId}
+          eventType={wedding?.eventType}
           onClose={() => {
             setShowAddModal(false)
             setEditingGuest(null)
@@ -273,8 +279,9 @@ export default function Guests() {
   )
 }
 
-function GuestModal({ guest, weddingId, onClose }) {
+function GuestModal({ guest, weddingId, eventType, onClose }) {
   const queryClient = useQueryClient()
+  const categoryOptions = getGuestCategoryOptions(eventType)
   const [formData, setFormData] = useState({
     firstName: guest?.firstName || '',
     lastName: guest?.lastName || '',
@@ -373,12 +380,9 @@ function GuestModal({ guest, weddingId, onClose }) {
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               >
                 <option value="">Sélectionner</option>
-                <option value="Famille mariée">Famille mariée</option>
-                <option value="Famille marié">Famille marié</option>
-                <option value="Amis mariée">Amis mariée</option>
-                <option value="Amis marié">Amis marié</option>
-                <option value="Collègues">Collègues</option>
-                <option value="VIP">VIP</option>
+                {categoryOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
               </select>
             </div>
             <div>

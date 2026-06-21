@@ -20,7 +20,7 @@ const prisma = new PrismaClient();
 router.post('/:weddingId', authenticate, createGuestValidation, async (req, res) => {
   try {
     const { weddingId } = req.params;
-    const { firstName, lastName, email, phone, tableNumber, plusOnes, dietaryRestrictions, notes } = req.body;
+    const { firstName, lastName, email, phone, tableNumber, category, plusOnes, dietaryRestrictions, notes } = req.body;
 
     // Verify wedding ownership
     const wedding = await prisma.wedding.findFirst({
@@ -52,6 +52,7 @@ router.post('/:weddingId', authenticate, createGuestValidation, async (req, res)
         email,
         phone,
         tableNumber,
+        category: category || null,
         plusOnes: plusOnes || 0,
         dietaryRestrictions,
         notes
@@ -355,6 +356,7 @@ router.post('/:weddingId/bulk', authenticate, async (req, res) => {
             email: guestData.email || null,
             phone: guestData.phone || null,
             tableNumber: guestData.tableNumber || null,
+            category: guestData.category || null,
             plusOnes: guestData.plusOnes || 0,
             dietaryRestrictions: guestData.dietaryRestrictions || null,
             notes: guestData.notes || null
@@ -396,7 +398,7 @@ router.post('/:weddingId/bulk', authenticate, async (req, res) => {
 router.put('/:weddingId/:guestId', authenticate, async (req, res) => {
   try {
     const { weddingId, guestId } = req.params;
-    const { firstName, lastName, email, phone, tableNumber, plusOnes, dietaryRestrictions, notes, rsvpStatus } = req.body;
+    const { firstName, lastName, email, phone, tableNumber, category, plusOnes, dietaryRestrictions, notes, rsvpStatus } = req.body;
 
     // Verify wedding ownership
     const wedding = await prisma.wedding.findFirst({
@@ -418,6 +420,7 @@ router.put('/:weddingId/:guestId', authenticate, async (req, res) => {
         ...(email !== undefined && { email }),
         ...(phone !== undefined && { phone }),
         ...(tableNumber !== undefined && { tableNumber }),
+        ...(category !== undefined && { category }),
         ...(plusOnes !== undefined && { plusOnes }),
         ...(dietaryRestrictions !== undefined && { dietaryRestrictions }),
         ...(notes !== undefined && { notes }),
@@ -505,6 +508,7 @@ router.get('/:weddingId/export', authenticate, async (req, res) => {
       'Email': g.email || '',
       'TÃ©lÃ©phone': g.phone || '',
       'Table': g.tableNumber || '',
+      'CatÃ©gorie': g.category || '',
       'Accompagnants': g.plusOnes,
       'Statut RSVP': g.rsvpStatus,
       'RÃ©gime alimentaire': g.dietaryRestrictions || '',

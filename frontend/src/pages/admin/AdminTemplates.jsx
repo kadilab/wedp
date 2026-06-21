@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { adminAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import TemplatePreview from '../../components/templates/TemplatePreview'
+import { EVENT_TYPES, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
 import {
   PencilIcon,
   TrashIcon,
@@ -24,6 +25,7 @@ export default function AdminTemplates() {
   const [formData, setFormData] = useState({
     name: '',
     category: 'MODERN',
+    eventType: 'WEDDING',
     description: '',
     isPremium: false,
     isActive: true
@@ -61,6 +63,7 @@ export default function AdminTemplates() {
     (template) => adminAPI.createTemplate({
       name: `${template.name} (copie)`,
       category: template.category,
+      eventType: template.eventType,
       description: template.description,
       isPremium: template.isPremium,
       backgroundUrl: template.backgroundUrl,
@@ -83,6 +86,7 @@ export default function AdminTemplates() {
     setFormData({
       name: template.name,
       category: template.category,
+      eventType: template.eventType || 'WEDDING',
       description: template.description || '',
       isPremium: template.isPremium,
       isActive: template.isActive !== false
@@ -103,10 +107,23 @@ export default function AdminTemplates() {
     { value: 'MINIMALIST', label: 'Minimaliste', color: 'bg-gray-100 text-gray-700' }
   ]
 
-  const groupedTemplates = categories.reduce((acc, cat) => {
-    acc[cat.value] = templates.filter(t => t.category === cat.value)
-    return acc
-  }, {})
+  const eventTypeColors = {
+    WEDDING: 'bg-rose-100 text-rose-700',
+    BIRTHDAY: 'bg-orange-100 text-orange-700',
+    DOT: 'bg-emerald-100 text-emerald-700',
+    CEREMONY: 'bg-indigo-100 text-indigo-700',
+    CONFERENCE: 'bg-sky-100 text-sky-700',
+    OTHER: 'bg-gray-100 text-gray-700'
+  }
+
+  // Group by event type so it's clear which templates are offered for which
+  // kind of invitation (mariage / anniversaire / dot / cérémonie / conférence / autre)
+  const eventTypeSections = EVENT_TYPES.map(type => ({
+    value: type,
+    label: EVENT_TYPE_LABELS[type],
+    color: eventTypeColors[type],
+    templates: templates.filter(t => (t.eventType || 'WEDDING') === type)
+  }))
 
   return (
     <div className="space-y-6">
@@ -164,20 +181,19 @@ export default function AdminTemplates() {
         </div>
       ) : (
         <div className="space-y-10">
-          {categories.map(category => {
-            const categoryTemplates = groupedTemplates[category.value] || []
-            if (categoryTemplates.length === 0) return null
+          {eventTypeSections.map(section => {
+            if (section.templates.length === 0) return null
 
             return (
-              <div key={category.value}>
+              <div key={section.value}>
                 <div className="flex items-center gap-3 mb-5">
-                  <h2 className="text-xl font-serif font-bold text-gray-900">{category.label}</h2>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${category.color}`}>
-                    {categoryTemplates.length}
+                  <h2 className="text-xl font-serif font-bold text-gray-900">{section.label}</h2>
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${section.color}`}>
+                    {section.templates.length}
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {categoryTemplates.map((template) => (
+                  {section.templates.map((template) => (
                     <div
                       key={template.id}
                       className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-lg hover:border-primary-200 transition-all duration-300"
@@ -240,7 +256,12 @@ export default function AdminTemplates() {
 
                       {/* Info */}
                       <div className="p-4">
-                        <h3 className="font-semibold text-gray-900 truncate">{template.name}</h3>
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="font-semibold text-gray-900 truncate">{template.name}</h3>
+                          <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-medium ${categories.find(c => c.value === template.category)?.color || 'bg-gray-100 text-gray-700'}`}>
+                            {categories.find(c => c.value === template.category)?.label || template.category}
+                          </span>
+                        </div>
                         {template.description && (
                           <p className="text-sm text-gray-500 mt-1 line-clamp-2">{template.description}</p>
                         )}
@@ -278,7 +299,13 @@ export default function AdminTemplates() {
                 <input type="text" className="input" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Catégorie</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Type d'événement</label>
+                <select className="input" value={formData.eventType} onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}>
+                  {EVENT_TYPES.map(type => <option key={type} value={type}>{EVENT_TYPE_LABELS[type]}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Catégorie (style)</label>
                 <select className="input" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })}>
                   {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
