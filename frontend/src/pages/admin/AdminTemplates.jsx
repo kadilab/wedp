@@ -182,22 +182,14 @@ export default function AdminTemplates() {
                       key={template.id}
                       className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-lg hover:border-primary-200 transition-all duration-300"
                     >
-                      {/* Preview Image */}
+                      {/* Preview - same live-rendered canvas as the client-facing template gallery,
+                          instead of a flat snapshot image that can drift out of sync with the design */}
                       <div className="relative aspect-[3/4] bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
-                        {(template.previewImage || template.backgroundUrl) ? (
-                          <img
-                            src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || ''}${template.previewImage || template.backgroundUrl}`}
-                            alt={template.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <TemplatePreview 
-                            template={template} 
-                            className="group-hover:scale-105 transition-transform duration-500"
-                          />
-                        )}
-                        
+                        <TemplatePreview
+                          template={template}
+                          className="group-hover:scale-105 transition-transform duration-500"
+                        />
+
                         {/* Badges */}
                         {template.isPremium && (
                           <div className="absolute top-3 right-3 bg-gradient-to-r from-gold-400 to-gold-500 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-lg">
