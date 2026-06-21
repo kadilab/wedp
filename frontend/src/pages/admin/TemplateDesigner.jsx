@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { adminAPI, templateAPI } from '../../services/api'
 import toast from 'react-hot-toast'
+import { processImage } from '../../utils/imageProcessor'
 import {
   ArrowLeftIcon,
   EyeIcon,
@@ -855,28 +856,29 @@ export default function TemplateDesigner({ clientMode = false }) {
   const handleBackgroundUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) return toast.error('Seules les images sont acceptées')
-    if (file.size > 10 * 1024 * 1024) return toast.error('Image trop volumineuse (max 10 Mo)')
+    e.target.value = ''
 
     setUploading(true)
     try {
+      // Resize + re-encode (WebP when supported) in the browser first -
+      // keeps the editor responsive and never stuffs a multi-MB base64
+      // string into the template's saved JSON config.
+      const result = await processImage(file, 'background', { maxSizeMB: 10 })
+
       const formData = new FormData()
-      formData.append('templateBackground', file)
-      const res = await templateAPI.uploadBackground(formData)
-      const path = res.data.backgroundUrl
-      setBackgroundUrl(path)
+      formData.append('templateBackground', result.upload, result.filename)
+      // Editing an existing template (incl. a client customizing their own
+      // invitation) uses the per-template route, which only requires being
+      // logged in. The ID-less route is admin-only (brand new template,
+      // before it has a row to attach the image to).
+      const res = templateId
+        ? await templateAPI.uploadBackgroundForTemplate(templateId, formData)
+        : await templateAPI.uploadBackground(formData)
+      setBackgroundUrl(res.data.backgroundUrl || res.data.backgroundImage)
       toast.success('Image de fond chargée !')
-      // Auto-switch to elements panel
       setActivePanel('elements')
     } catch (err) {
-      // Fallback: local preview
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        setBackgroundUrl(ev.target.result)
-        setActivePanel('elements')
-      }
-      reader.readAsDataURL(file)
-      toast.success('Image chargée (aperçu local)')
+      toast.error(err.message || err.response?.data?.error || "Erreur lors de l'upload de l'image de fond")
     } finally {
       setUploading(false)
     }
@@ -887,50 +889,51 @@ export default function TemplateDesigner({ clientMode = false }) {
   const handleIconUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    const validTypes = ['image/png', 'image/svg+xml', 'image/jpeg', 'image/webp']
-    if (!validTypes.includes(file.type)) return toast.error('Seuls les fichiers PNG, SVG, JPEG ou WEBP sont acceptés')
-    if (file.size > 5 * 1024 * 1024) return toast.error('Image trop volumineuse (max 5 Mo)')
+    if (iconInputRef.current) iconInputRef.current.value = ''
+
+    // SVGs are vector and already tiny - upload as-is, skip the canvas pipeline.
+    if (file.type === 'image/svg+xml') {
+      if (file.size > 5 * 1024 * 1024) return toast.error('Icône trop volumineuse (max 5 Mo)')
+      try {
+        const formData = new FormData()
+        formData.append('icon', file)
+        const res = await templateAPI.uploadIcon(formData)
+        updateElement(selectedId, { iconUrl: res.data.iconUrl })
+        toast.success('Icône chargée !')
+      } catch (err) {
+        toast.error(err.response?.data?.error || "Erreur lors de l'upload de l'icône")
+      }
+      return
+    }
 
     try {
+      const result = await processImage(file, 'logo', { maxSizeMB: 5 })
       const formData = new FormData()
-      formData.append('icon', file)
+      formData.append('icon', result.upload, result.filename)
       const res = await templateAPI.uploadIcon(formData)
-      const iconPath = res.data.iconUrl
-      updateElement(selectedId, { iconUrl: iconPath })
+      updateElement(selectedId, { iconUrl: res.data.iconUrl })
       toast.success('Icône chargée !')
     } catch (err) {
-      // Fallback: local preview via data URL
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        updateElement(selectedId, { iconUrl: ev.target.result })
-      }
-      reader.readAsDataURL(file)
-      toast.success('Icône chargée (aperçu local)')
+      toast.error(err.message || err.response?.data?.error || "Erreur lors de l'upload de l'icône")
     }
-    // Reset input
-    if (iconInputRef.current) iconInputRef.current.value = ''
   }
 
   const handlePreviewUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    const validTypes = ['image/png', 'image/jpeg', 'image/webp']
-    if (!validTypes.includes(file.type)) return toast.error('Seuls les fichiers PNG, JPEG ou WEBP sont acceptés')
-    if (file.size > 5 * 1024 * 1024) return toast.error('Image trop volumineuse (max 5 Mo)')
+    if (previewInputRef.current) previewInputRef.current.value = ''
 
     try {
+      const result = await processImage(file, 'background', { maxSizeMB: 5 })
       const formData = new FormData()
-      formData.append('previewImage', file)
+      formData.append('previewImage', result.upload, result.filename)
       const res = await templateAPI.uploadPreviewImage(formData)
-      const previewUrl = res.data.previewUrl
-      setPreviewImage(previewUrl)
+      setPreviewImage(res.data.previewUrl)
       toast.success('Aperçu chargé !')
     } catch (err) {
       console.error('Preview upload error:', err)
-      toast.error('Erreur lors du chargement de l\'aperçu')
+      toast.error(err.message || err.response?.data?.error || 'Erreur lors du chargement de l\'aperçu')
     }
-    // Reset input
-    if (previewInputRef.current) previewInputRef.current.value = ''
   }
 
   // ===================== SAVE =====================

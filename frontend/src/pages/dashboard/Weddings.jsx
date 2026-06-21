@@ -139,6 +139,7 @@ export default function Weddings() {
                     src={wedding.coverPhoto}
                     alt={`${wedding.brideName} & ${wedding.groomName}`}
                     className="w-full h-full object-cover"
+                    loading="lazy"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from 'react-query'
 import { userAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
+import { processImage, formatBytes } from '../../utils/imageProcessor'
 import {
   UserCircleIcon,
   KeyIcon,
@@ -36,10 +37,7 @@ export default function Profile() {
   const uploadAvatarMutation = useMutation(
     (file) => userAPI.uploadAvatar(file),
     {
-      onSuccess: (res) => {
-        updateUser(res.data.user)
-        toast.success('Photo de profil mise à jour')
-      },
+      onSuccess: (res) => updateUser(res.data.user),
       onError: (err) => toast.error(err.response?.data?.error || 'Erreur lors de l\'upload')
     }
   )
@@ -55,17 +53,29 @@ export default function Profile() {
     }
   )
 
-  const handleAvatarChange = (e) => {
+  const [avatarCompressing, setAvatarCompressing] = useState(false)
+
+  const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) {
-      return toast.error('La photo ne doit pas dépasser 5 Mo')
-    }
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      return toast.error('Format accepté : JPG, PNG ou WebP')
-    }
-    uploadAvatarMutation.mutate(file)
     e.target.value = ''
+
+    setAvatarCompressing(true)
+    try {
+      // Resize + re-encode in the browser (WebP when supported) before
+      // sending anything - cuts a typical phone photo by 80-95%.
+      const result = await processImage(file, 'avatar', { maxSizeMB: 5 })
+      setAvatarCompressing(false)
+      await uploadAvatarMutation.mutateAsync(result.upload)
+      toast.success(
+        result.savedPercent > 0
+          ? `Photo mise à jour (${formatBytes(result.originalSize)} → ${formatBytes(result.uploadSize)}, -${result.savedPercent}%)`
+          : 'Photo de profil mise à jour'
+      )
+    } catch (err) {
+      setAvatarCompressing(false)
+      if (!err.response) toast.error(err.message || 'Erreur lors du traitement de l\'image')
+    }
   }
 
   const updateProfileMutation = useMutation(
@@ -152,11 +162,11 @@ export default function Profile() {
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadAvatarMutation.isLoading}
+                  disabled={avatarCompressing || uploadAvatarMutation.isLoading}
                   className="absolute bottom-0 right-0 bg-primary-600 text-white p-2 rounded-full hover:bg-primary-700 disabled:opacity-50"
                   title="Changer la photo"
                 >
-                  {uploadAvatarMutation.isLoading ? (
+                  {(avatarCompressing || uploadAvatarMutation.isLoading) ? (
                     <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />

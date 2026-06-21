@@ -114,6 +114,7 @@ export default function TemplatePreview({ template, className = '', weddingData 
               <img
                 src={designBgImage}
                 alt=""
+                loading="lazy"
                 style={{
                   position: 'absolute',
                   inset: 0,
@@ -194,7 +195,7 @@ export default function TemplatePreview({ template, className = '', weddingData 
                       }}
                     >
                       {weddingData?.couplePhoto ? (
-                        <img src={weddingData.couplePhoto} alt="" style={{ width: '100%', height: '100%', objectFit: el.objectFit || 'cover' }} />
+                        <img src={weddingData.couplePhoto} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: el.objectFit || 'cover' }} />
                       ) : (
                         <PhotoIcon className="w-1/3 h-1/3 text-gray-300" />
                       )}

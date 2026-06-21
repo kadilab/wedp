@@ -58,11 +58,14 @@ export const authAPI = {
 export const userAPI = {
   getProfile: () => api.get('/users/profile'),
   updateProfile: (data) => api.put('/users/profile', data),
-  uploadAvatar: (file) => {
+  uploadAvatar: (file, onProgress) => {
     const formData = new FormData()
     formData.append('avatar', file)
     return api.post('/users/avatar', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: onProgress
+        ? (e) => onProgress(Math.round((e.loaded * 100) / (e.total || e.loaded)))
+        : undefined
     })
   },
   deleteAvatar: () => api.delete('/users/avatar'),
@@ -105,11 +108,14 @@ export const weddingAPI = {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
   },
-  uploadCouplePhoto: (id, file) => {
+  uploadCouplePhoto: (id, file, onProgress) => {
     const formData = new FormData()
     formData.append('couplePhoto', file)
     return api.post(`/weddings/${id}/couple-photo`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: onProgress
+        ? (e) => onProgress(Math.round((e.loaded * 100) / (e.total || e.loaded)))
+        : undefined
     })
   },
   uploadQrLogo: (id, file) => {

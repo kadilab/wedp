@@ -455,6 +455,7 @@ export default function Invitations() {
                             src={invitation.qrCodeUrl}
                             alt="QR Code"
                             className="h-10 w-10 rounded"
+                            loading="lazy"
                           />
                         )}
                       </td>

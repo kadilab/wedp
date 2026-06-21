@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation } from 'react-query'
 import { templateAPI, weddingAPI } from '../../services/api'
 import toast from 'react-hot-toast'
+import { processImage } from '../../utils/imageProcessor'
 import {
   ArrowLeftIcon,
   EyeIcon,
@@ -574,30 +575,29 @@ export default function InvitationDesigner() {
 
   // ===================== BACKGROUND =====================
 
+  const [backgroundUploading, setBackgroundUploading] = useState(false)
+
   const handleBackgroundUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) {
-      return toast.error('Seules les images sont acceptées')
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      return toast.error('Image trop volumineuse (max 10 Mo)')
-    }
+    e.target.value = ''
 
-    // Upload to server directly — the image will adapt to the container (contain)
+    setBackgroundUploading(true)
     try {
+      // Compress + re-encode (WebP when supported) in the browser before
+      // sending anything — keeps the payload small and the editor snappy,
+      // and avoids ever stuffing a multi-MB base64 string into app state.
+      const result = await processImage(file, 'background', { maxSizeMB: 10 })
+
       const formData = new FormData()
-      formData.append('background', file)
+      formData.append('background', result.upload, result.filename)
       const res = await templateAPI.uploadBackgroundForTemplate(templateId, formData)
-      const serverPath = res.data.backgroundImage
-      setBackgroundImage(serverPath)
+      setBackgroundImage(res.data.backgroundImage)
       toast.success("Image de fond chargée — elle s'adapte au format défini")
     } catch (err) {
-      // Fallback: use local preview
-      const reader = new FileReader()
-      reader.onload = (ev) => setBackgroundImage(ev.target.result)
-      reader.readAsDataURL(file)
-      toast.success('Image de fond chargée (aperçu local)')
+      toast.error(err.message || err.response?.data?.error || "Erreur lors de l'upload de l'image de fond")
+    } finally {
+      setBackgroundUploading(false)
     }
   }
 
@@ -1146,11 +1146,21 @@ export default function InvitationDesigner() {
               {/* Upload button */}
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full flex flex-col items-center gap-2 p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-colors"
+                disabled={backgroundUploading}
+                className="w-full flex flex-col items-center gap-2 p-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <ArrowUpTrayIcon className="h-8 w-8 text-gray-400" />
-                <span className="text-sm text-gray-600">Charger une image</span>
-                <span className="text-xs text-gray-400">JPG, PNG, WebP (max 10 Mo)</span>
+                {backgroundUploading ? (
+                  <>
+                    <div className="h-8 w-8 rounded-full border-2 border-gray-300 border-t-primary-500 animate-spin" />
+                    <span className="text-sm text-gray-600">Compression et envoi...</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowUpTrayIcon className="h-8 w-8 text-gray-400" />
+                    <span className="text-sm text-gray-600">Charger une image</span>
+                    <span className="text-xs text-gray-400">JPG, PNG, WebP (max 10 Mo) — compressée automatiquement</span>
+                  </>
+                )}
               </button>
               <input
                 ref={fileInputRef}

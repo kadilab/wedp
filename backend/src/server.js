@@ -95,7 +95,11 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // Static files
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Uploaded files get a fresh UUID filename on every upload (never reused/
+// overwritten), so it's safe to let browsers cache them aggressively -
+// avoids re-downloading the same avatar/background/etc. on every page load.
+const UPLOADS_CACHE_OPTIONS = { maxAge: '7d', immutable: true };
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), UPLOADS_CACHE_OPTIONS));
 app.use('/templates', express.static(path.join(__dirname, '../templates')));
 
 // Health check

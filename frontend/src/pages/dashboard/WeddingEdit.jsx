@@ -1,10 +1,11 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { weddingAPI, templateAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import TemplatePreview from '../../components/templates/TemplatePreview'
+import ImageUpload from '../../components/common/ImageUpload'
 import {
   ArrowLeftIcon, TrashIcon, BuildingLibraryIcon, MusicalNoteIcon,
   CalendarDaysIcon, HeartIcon,
@@ -132,9 +133,8 @@ export default function WeddingEdit() {
     }
   )
 
-  const photoInputRef = useRef(null)
   const uploadPhotoMutation = useMutation(
-    (file) => weddingAPI.uploadCouplePhoto(id, file),
+    ({ file, onProgress }) => weddingAPI.uploadCouplePhoto(id, file, onProgress),
     {
       onSuccess: () => {
         toast.success('Photo des mariés mise à jour')
@@ -143,14 +143,8 @@ export default function WeddingEdit() {
       onError: (error) => toast.error(error.response?.data?.error || "Erreur lors de l'upload")
     }
   )
-  const handlePhotoChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    if (!file.type.startsWith('image/')) { toast.error('Veuillez sélectionner une image'); return }
-    if (file.size > 5 * 1024 * 1024) { toast.error('Image trop volumineuse (max 5 Mo)'); return }
-    uploadPhotoMutation.mutate(file)
-    e.target.value = ''
-  }
+  const handlePhotoUpload = (file, filename, onProgress) =>
+    uploadPhotoMutation.mutateAsync({ file, onProgress })
 
   const cleanValue = (val) => (val === '' || val === undefined) ? null : val
 
@@ -255,27 +249,14 @@ export default function WeddingEdit() {
             <p className="text-sm text-gray-500 mb-3">
               Si votre template prévoit un emplacement photo, cette image y sera intégrée automatiquement.
             </p>
-            <div className="flex items-center gap-4">
-              <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 border flex items-center justify-center flex-shrink-0">
-                {wedding?.couplePhoto ? (
-                  <img src={wedding.couplePhoto} alt="Photo des mariés" className="w-full h-full object-cover" />
-                ) : (
-                  <PhotoIcon className="h-8 w-8 text-gray-300" />
-                )}
-              </div>
-              <div>
-                <button
-                  type="button"
-                  onClick={() => photoInputRef.current?.click()}
-                  disabled={uploadPhotoMutation.isLoading}
-                  className="btn-secondary text-sm"
-                >
-                  {uploadPhotoMutation.isLoading ? 'Envoi...' : wedding?.couplePhoto ? 'Changer la photo' : 'Ajouter une photo'}
-                </button>
-                <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP (max 5 Mo)</p>
-              </div>
-              <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
-            </div>
+            <ImageUpload
+              value={wedding?.couplePhoto}
+              onUpload={handlePhotoUpload}
+              preset="couplePhoto"
+              size="lg"
+              helpText="JPG, PNG ou WebP — compressée automatiquement (max 5 Mo)"
+              validation={{ maxSizeMB: 5 }}
+            />
           </div>
 
           {/* Extra personalization */}
