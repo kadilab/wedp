@@ -536,6 +536,9 @@ export default function TemplateDesigner({ clientMode = false }) {
   const templateId = params.id || params.templateId
   const [searchParams] = useSearchParams()
   const weddingId = searchParams.get('wedding')
+  // Coming from "Créer un template pour ce type" on a specific event-type
+  // section pre-selects that type instead of always defaulting to Mariage.
+  const initialEventType = EVENT_TYPES.includes(searchParams.get('eventType')) ? searchParams.get('eventType') : 'WEDDING'
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const isEditing = !!templateId
@@ -544,12 +547,12 @@ export default function TemplateDesigner({ clientMode = false }) {
   const [templateName, setTemplateName] = useState('')
   const [templateDescription, setTemplateDescription] = useState('')
   const [templateCategory, setTemplateCategory] = useState('MODERN')
-  const [templateEventType, setTemplateEventType] = useState('WEDDING')
+  const [templateEventType, setTemplateEventType] = useState(initialEventType)
   const [isPremium, setIsPremium] = useState(false)
   const [previewImage, setPreviewImage] = useState('')
 
   // Design state
-  const [elements, setElements] = useState(DEFAULT_ELEMENTS)
+  const [elements, setElements] = useState(getDefaultElements(initialEventType))
   const [selectedId, setSelectedId] = useState(null)
   const [selectedIds, setSelectedIds] = useState([]) // Multiple selection
   const [backgroundUrl, setBackgroundUrl] = useState('')

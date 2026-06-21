@@ -13,7 +13,8 @@ import {
   StarIcon,
   ExclamationTriangleIcon,
   DocumentDuplicateIcon,
-  PaintBrushIcon
+  PaintBrushIcon,
+  PlusIcon
 } from '@heroicons/react/24/outline'
 
 export default function AdminTemplates() {
@@ -162,6 +163,26 @@ export default function AdminTemplates() {
         </div>
       </div>
 
+      {/* Per-event-type breakdown - jump straight to a type, and spot at a
+          glance which ones still have zero templates available to clients */}
+      {templates.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-wrap gap-2">
+          {eventTypeSections.map(section => (
+            <a
+              key={section.value}
+              href={`#section-${section.value}`}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                section.templates.length > 0
+                  ? `${section.color} hover:opacity-80`
+                  : 'bg-red-50 text-red-600 hover:bg-red-100'
+              }`}
+            >
+              {section.label} · {section.templates.length}
+            </a>
+          ))}
+        </div>
+      )}
+
       {/* Templates Grid */}
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -182,16 +203,28 @@ export default function AdminTemplates() {
       ) : (
         <div className="space-y-10">
           {eventTypeSections.map(section => {
-            if (section.templates.length === 0) return null
-
             return (
-              <div key={section.value}>
+              <div key={section.value} id={`section-${section.value}`}>
                 <div className="flex items-center gap-3 mb-5">
                   <h2 className="text-xl font-serif font-bold text-gray-900">{section.label}</h2>
                   <span className={`px-3 py-1 rounded-full text-sm font-medium ${section.color}`}>
                     {section.templates.length}
                   </span>
                 </div>
+                {section.templates.length === 0 ? (
+                  <button
+                    onClick={() => navigate(`/admin/templates/new/design?eventType=${section.value}`)}
+                    className="w-full border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 hover:bg-primary-50/30 transition-colors group"
+                  >
+                    <div className="w-12 h-12 bg-gray-100 group-hover:bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors">
+                      <PlusIcon className="h-6 w-6 text-gray-400 group-hover:text-primary-600" />
+                    </div>
+                    <p className="text-gray-500 group-hover:text-primary-700 font-medium">
+                      Aucun template "{section.label}" - les clients ne pourront pas en choisir un pour ce type
+                    </p>
+                    <p className="text-sm text-gray-400 mt-1">Cliquez pour en créer un</p>
+                  </button>
+                ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {section.templates.map((template) => (
                     <div
@@ -277,6 +310,7 @@ export default function AdminTemplates() {
                     </div>
                   ))}
                 </div>
+                )}
               </div>
             )
           })}
