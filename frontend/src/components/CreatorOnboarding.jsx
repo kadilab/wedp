@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { api } from '../services/api';
-import '../styles/modal.css';
 
 export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
   const [step, setStep] = useState(1);
