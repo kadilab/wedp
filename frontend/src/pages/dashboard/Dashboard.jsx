@@ -1,20 +1,24 @@
-﻿import { Link } from 'react-router-dom'
+﻿import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from 'react-query'
 import { userAPI, weddingAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import CreatorOnboarding from '../../components/CreatorOnboarding'
 import {
   HeartIcon,
   UserGroupIcon,
   CheckCircleIcon,
   TicketIcon,
   PlusIcon,
-  ArrowRightIcon
+  ArrowRightIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline'
 
 export default function Dashboard() {
-  const { user } = useAuthStore()
+  const { user, setUser } = useAuthStore()
+  const [showCreatorModal, setShowCreatorModal] = useState(false)
 
   const { data: statsData, isLoading: statsLoading } = useQuery(
     'userStats',
@@ -86,6 +90,44 @@ export default function Dashboard() {
           Nouvel événement
         </Link>
       </div>
+
+      {/* Creator CTA - Show if user is not a creator */}
+      {!user?.isCreator && (
+        <div className="bg-gradient-to-r from-primary-500 to-primary-600 rounded-xl shadow-lg p-6 text-white">
+          <div className="flex items-start justify-between">
+            <div className="flex items-start space-x-4">
+              <SparklesIcon className="h-8 w-8 flex-shrink-0 mt-1" />
+              <div>
+                <h3 className="text-xl font-serif font-bold mb-2">
+                  Devenez créateur
+                </h3>
+                <p className="text-primary-100 mb-4">
+                  Partagez vos superbes modèles d'invitations et gagnez des commissions à chaque utilisation
+                </p>
+                <button
+                  onClick={() => setShowCreatorModal(true)}
+                  className="bg-white text-primary-600 px-6 py-2 rounded-lg font-medium hover:bg-primary-50 transition-colors"
+                >
+                  Commencer maintenant
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Creator Dashboard Link - Show if user is a creator */}
+      {user?.isCreator && (
+        <div className="flex justify-between items-center bg-primary-50 rounded-xl p-4 border border-primary-200">
+          <div>
+            <h3 className="font-medium text-primary-900">Vous êtes créateur ✨</h3>
+            <p className="text-sm text-primary-700">Gérez vos modèles et vos gains</p>
+          </div>
+          <Link to="/creator-dashboard" className="btn-primary">
+            Tableau de bord créateur
+          </Link>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -230,6 +272,13 @@ export default function Dashboard() {
           </div>
         </Link>
       </div>
+
+      {/* Creator Onboarding Modal */}
+      <CreatorOnboarding
+        isOpen={showCreatorModal}
+        onClose={() => setShowCreatorModal(false)}
+        onSuccess={() => setUser({ ...user, isCreator: true })}
+      />
     </div>
   )
 }

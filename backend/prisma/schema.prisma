@@ -80,6 +80,34 @@ enum LogAction {
   QR_SCAN
 }
 
+enum CreatorVerificationStatus {
+  UNVERIFIED
+  VERIFIED
+  SUSPENDED
+}
+
+enum MarketplaceStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  UNLISTED
+}
+
+enum TemplateUsageStatus {
+  PENDING
+  APPROVED
+  PAID
+}
+
+enum CreatorPayoutStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSING
+  PAID
+}
+
 // ==================== TABLES ====================
 
 model User {
@@ -101,10 +129,13 @@ model User {
   resetPasswordExpires DateTime? @map("reset_password_expires")
   preferredLanguage String      @default("fr") @map("preferred_language")
   darkMode          Boolean     @default(false) @map("dark_mode")
+  isCreator         Boolean     @default(false) @map("is_creator")
+  creatorProfileId  String?     @unique @map("creator_profile_id")
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
 
   plan              Plan?       @relation(fields: [planId], references: [id])
+  creatorProfile    CreatorProfile? @relation("user_creator")
   weddings          Wedding[]
   payments          Payment[]
   invitationOrders  InvitationOrder[]
@@ -112,6 +143,9 @@ model User {
   couponsUsed       CouponUsage[]
   printOrders       PrintOrder[]
   templates         Template[]
+  payoutApprovals   CreatorPayout[] @relation("payout_approved_by")
+  templateUsageTracks TemplateUsageTrack[]
+  creatorPayouts    CreatorPayout[] @relation("payout_creator_user")
 
   @@map("users")
 }
@@ -167,12 +201,20 @@ model Template {
   canvasHeight      Int?        @default(1120) @map("canvas_height")
   userId            String?     @map("user_id")
   isCustom          Boolean     @default(false) @map("is_custom")
+  isMarketplaceTemplate Boolean @default(false) @map("is_marketplace_template")
+  marketplaceId     String?     @map("marketplace_id")
+  creatorId         String?     @map("creator_id")
+  marketplaceStatus String      @default("NONE") @map("marketplace_status")
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
 
   user              User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  marketplace       TemplateMarketplace? @relation("marketplace_template")
+  creator           CreatorProfile? @relation(fields: [creatorId], references: [id], onDelete: SetNull)
   weddings          Wedding[]
 
+  @@index([isMarketplaceTemplate])
+  @@index([creatorId])
   @@map("templates")
 }
 
@@ -294,6 +336,7 @@ model Wedding {
   invitationOrders  InvitationOrder[]
   checkIns          CheckIn[]
   printOrders       PrintOrder[]
+  templateUsageTracks TemplateUsageTrack[]
 
   @@index([userId])
   @@index([status])
@@ -579,6 +622,122 @@ model PrintOrder {
   @@map("print_orders")
 }
 
+model CreatorProfile {
+  id                    String      @id @default(uuid())
+  userId                String      @unique @map("user_id")
+  displayName           String      @map("display_name")
+  bio                   String?     @db.Text
+  profileImage          String?     @map("profile_image")
+  bannerImage           String?     @map("banner_image")
+  website               String?
+  socialLinks           Json?       @map("social_links")
+  verificationStatus    CreatorVerificationStatus @default(UNVERIFIED) @map("verification_status")
+  verifiedAt            DateTime?   @map("verified_at")
+  bankAccountVerified   Boolean     @default(false) @map("bank_account_verified")
+  bankAccountVerifiedAt DateTime?   @map("bank_account_verified_at")
+  bankDetails           Json?       @map("bank_details")
+  totalEarnings         Decimal     @default(0) @db.Decimal(12, 2) @map("total_earnings")
+  totalCommissionsEarned Decimal    @default(0) @db.Decimal(12, 2) @map("total_commissions_earned")
+  isActive              Boolean     @default(true) @map("is_active")
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
+
+  user                  User        @relation("user_creator", fields: [userId], references: [id], onDelete: Cascade)
+  marketplaceListings   TemplateMarketplace[]
+  usageTracks           TemplateUsageTrack[]
+  payouts               CreatorPayout[]
+  templates             Template[]
+
+  @@index([verificationStatus])
+  @@map("creator_profiles")
+}
+
+model TemplateMarketplace {
+  id                    String      @id @default(uuid())
+  templateId            String      @unique @map("template_id")
+  creatorId             String      @map("creator_id")
+  isPublished           Boolean     @default(false) @map("is_published")
+  publishedAt           DateTime?   @map("published_at")
+  status                MarketplaceStatus @default(DRAFT)
+  adminNote             String?     @db.Text @map("admin_note")
+  reviewedBy            String?     @map("reviewed_by")
+  reviewedAt            DateTime?   @map("reviewed_at")
+  priceUSD              Decimal     @default(0) @db.Decimal(10, 2) @map("price_usd")
+  commissionPercentage  Decimal     @default(30) @db.Decimal(5, 2) @map("commission_percentage")
+  usageCount            Int         @default(0) @map("usage_count")
+  revenueGenerated      Decimal     @default(0) @db.Decimal(12, 2) @map("revenue_generated")
+  popularityScore       Float       @default(0) @map("popularity_score")
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
+
+  template              Template    @relation("marketplace_template", fields: [templateId], references: [id], onDelete: Cascade)
+  creator               CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  usageTracks           TemplateUsageTrack[]
+
+  @@index([creatorId])
+  @@index([status])
+  @@index([publishedAt])
+  @@map("template_marketplaces")
+}
+
+model TemplateUsageTrack {
+  id                    String      @id @default(uuid())
+  templateMarketplaceId String      @map("template_marketplace_id")
+  weddingId             String      @map("wedding_id")
+  userId                String      @map("user_id")
+  creatorId             String      @map("creator_id")
+  templateId            String      @map("template_id")
+  usedAt                DateTime    @default(now()) @map("used_at")
+  commissionAmount      Decimal     @db.Decimal(10, 2) @map("commission_amount")
+  commissionPercentage  Decimal     @db.Decimal(5, 2) @map("commission_percentage")
+  status                TemplateUsageStatus @default(PENDING)
+  payoutId              String?     @map("payout_id")
+  createdAt             DateTime    @default(now()) @map("created_at")
+
+  marketplace           TemplateMarketplace @relation(fields: [templateMarketplaceId], references: [id], onDelete: Cascade)
+  wedding               Wedding     @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  user                  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creator               CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([creatorId])
+  @@index([templateId])
+  @@index([userId])
+  @@index([weddingId])
+  @@index([status])
+  @@index([usedAt])
+  @@map("template_usage_tracks")
+}
+
+model CreatorPayout {
+  id                    String      @id @default(uuid())
+  creatorId             String      @map("creator_id")
+  userId                String      @map("user_id")
+  totalAmount           Decimal     @db.Decimal(12, 2) @map("total_amount")
+  currency              String      @default("USD")
+  status                CreatorPayoutStatus @default(PENDING)
+  paymentMethod         String?     @map("payment_method")
+  paymentDetails        Json?       @map("payment_details")
+  transactionId         String?     @map("transaction_id")
+  proofUrl              String?     @map("proof_url")
+  requestedAt           DateTime    @default(now()) @map("requested_at")
+  processedAt           DateTime?   @map("processed_at")
+  processedBy           String?     @map("processed_by")
+  adminNote             String?     @db.Text @map("admin_note")
+  usageTracksIncluded   Json?       @map("usage_tracks_included")
+  minPayoutAmount       Decimal     @default(10) @db.Decimal(10, 2) @map("min_payout_amount")
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
+
+  creator               CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  user                  User        @relation("payout_creator_user", fields: [userId], references: [id])
+  approvedBy            User?       @relation("payout_approved_by", fields: [processedBy], references: [id], onDelete: SetNull)
+
+  @@index([creatorId])
+  @@index([status])
+  @@index([requestedAt])
+  @@map("creator_payouts")
+}
+
 model BackgroundImage {
   id                String      @id @default(uuid())
   name              String
@@ -587,7 +746,7 @@ model BackgroundImage {
   category          String      @default("general") // floral, geometric, watercolor, minimal, nature, texture
   isPublic          Boolean     @default(true) @map("is_public")
   uploadedBy        String?     @map("uploaded_by")
-  
+
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
 

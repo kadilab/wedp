@@ -28,6 +28,11 @@ import Templates from './pages/dashboard/Templates'
 import Payments from './pages/dashboard/Payments'
 import PrintOrders from './pages/dashboard/PrintOrders'
 import Profile from './pages/dashboard/Profile'
+import CreatorDashboard from './pages/dashboard/CreatorDashboard'
+import CreatorEarnings from './pages/dashboard/CreatorEarnings'
+import Marketplace from './pages/marketplace/Marketplace'
+import MarketplaceTemplateDetail from './pages/marketplace/MarketplaceTemplateDetail'
+import TemplatePublish from './pages/dashboard/TemplatePublish'
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -61,6 +66,8 @@ function App() {
       {/* Public Routes */}
       <Route element={<PublicLayout />}>
         <Route path="/" element={<Home />} />
+        <Route path="/marketplace" element={<Marketplace />} />
+        <Route path="/marketplace/templates/:templateId" element={<MarketplaceTemplateDetail />} />
       </Route>
 
       {/* Auth Routes */}
@@ -98,6 +105,9 @@ function App() {
         <Route path="/payments" element={<Payments />} />
         <Route path="/print-orders" element={<PrintOrders />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/creator-dashboard" element={<CreatorDashboard />} />
+        <Route path="/creator-earnings" element={<CreatorEarnings />} />
+        <Route path="/templates/:templateId/publish" element={<TemplatePublish />} />
       </Route>
 
       {/* Client Template Designer (full-screen, outside DashboardLayout) */}

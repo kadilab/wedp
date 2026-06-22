@@ -1622,4 +1622,344 @@ router.post('/print-layout/generate', authenticate, isAdmin, async (req, res) =>
   }
 });
 
+/**
+ * ==================== MARKETPLACE MANAGEMENT ====================
+ */
+
+/**
+ * @route   GET /api/admin/marketplace/submissions
+ * @desc    Get pending marketplace template submissions
+ * @access  Private/Admin
+ */
+router.get('/marketplace/submissions', authenticate, isAdmin, paginationValidation, async (req, res) => {
+  try {
+    const { skip, take, page, limit } = paginate(req.query.page, req.query.limit);
+    const { status, creatorId } = req.query;
+
+    const where = {};
+    if (status) where.status = status;
+    if (creatorId) where.creatorId = creatorId;
+
+    const [submissions, total] = await Promise.all([
+      prisma.templateMarketplace.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          template: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              thumbnail: true,
+              category: true,
+              eventType: true,
+              userId: true
+            }
+          },
+          creator: {
+            select: {
+              id: true,
+              displayName: true,
+              profileImage: true,
+              verificationStatus: true,
+              bankAccountVerified: true
+            }
+          }
+        }
+      }),
+      prisma.templateMarketplace.count({ where })
+    ]);
+
+    res.json({
+      submissions: submissions.map(s => ({
+        id: s.id,
+        templateId: s.template.id,
+        templateName: s.template.name,
+        templateSlug: s.template.slug,
+        templateThumbnail: s.template.thumbnail,
+        category: s.template.category,
+        eventType: s.template.eventType,
+        status: s.status,
+        priceUSD: parseFloat(s.priceUSD),
+        commissionPercentage: parseFloat(s.commissionPercentage),
+        creator: {
+          id: s.creator.id,
+          displayName: s.creator.displayName,
+          profileImage: s.creator.profileImage,
+          verified: s.creator.verificationStatus === 'VERIFIED',
+          bankAccountVerified: s.creator.bankAccountVerified
+        },
+        submittedAt: s.createdAt,
+        reviewedAt: s.reviewedAt
+      })),
+      pagination: buildPaginationMeta(page, limit, total)
+    });
+  } catch (error) {
+    logger.error('Error fetching marketplace submissions:', error);
+    res.status(500).json({ message: 'Error fetching submissions', error: error.message });
+  }
+});
+
+/**
+ * @route   GET /api/admin/marketplace/templates/:marketplaceId
+ * @desc    Get marketplace submission detail
+ * @access  Private/Admin
+ */
+router.get('/marketplace/templates/:marketplaceId', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { marketplaceId } = req.params;
+
+    const submission = await prisma.templateMarketplace.findUnique({
+      where: { id: marketplaceId },
+      include: {
+        template: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            thumbnail: true,
+            previewImage: true,
+            category: true,
+            eventType: true
+          }
+        },
+        creator: {
+          select: {
+            id: true,
+            displayName: true,
+            profileImage: true,
+            bio: true,
+            verificationStatus: true,
+            bankAccountVerified: true
+          }
+        }
+      }
+    });
+
+    if (!submission) {
+      return res.status(404).json({ message: 'Submission not found' });
+    }
+
+    res.json({
+      submission: {
+        id: submission.id,
+        template: submission.template,
+        creator: submission.creator,
+        status: submission.status,
+        priceUSD: parseFloat(submission.priceUSD),
+        commissionPercentage: parseFloat(submission.commissionPercentage),
+        usageCount: submission.usageCount,
+        adminNote: submission.adminNote,
+        submittedAt: submission.createdAt,
+        reviewedAt: submission.reviewedAt
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching submission detail:', error);
+    res.status(500).json({ message: 'Error fetching submission', error: error.message });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/marketplace/templates/:marketplaceId/review
+ * @desc    Review and approve/reject marketplace submission
+ * @access  Private/Admin
+ */
+router.put('/marketplace/templates/:marketplaceId/review', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { marketplaceId } = req.params;
+    const { status, adminNote } = req.body;
+    const adminId = req.user.id;
+
+    const validStatuses = ['APPROVED', 'REJECTED'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    const submission = await prisma.templateMarketplace.findUnique({
+      where: { id: marketplaceId },
+      include: {
+        creator: { include: { user: true } },
+        template: true
+      }
+    });
+
+    if (!submission) {
+      return res.status(404).json({ message: 'Submission not found' });
+    }
+
+    // Update marketplace listing
+    const updated = await prisma.templateMarketplace.update({
+      where: { id: marketplaceId },
+      data: {
+        status,
+        adminNote,
+        reviewedBy: adminId,
+        reviewedAt: new Date()
+      }
+    });
+
+    // If approved, mark template as marketplace template
+    if (status === 'APPROVED') {
+      await prisma.template.update({
+        where: { id: submission.templateId },
+        data: { marketplaceStatus: 'APPROVED' }
+      });
+    }
+
+    // Create notification for creator
+    const notificationMessages = {
+      APPROVED: `Votre template "${submission.template.name}" a été approuvée pour la marketplace!`,
+      REJECTED: `Votre template "${submission.template.name}" a été rejetée de la marketplace.${adminNote ? ` Raison: ${adminNote}` : ''}`
+    };
+
+    await prisma.notification.create({
+      data: {
+        userId: submission.creator.userId,
+        type: 'MARKETPLACE_REVIEW',
+        title: status === 'APPROVED' ? 'Template approuvée' : 'Template rejetée',
+        message: notificationMessages[status],
+        data: { templateMarketplaceId: marketplaceId, status }
+      }
+    });
+
+    logger.info(`Marketplace submission ${marketplaceId} reviewed by admin ${adminId}: ${status}`);
+
+    res.json({
+      message: `Template ${status === 'APPROVED' ? 'approved' : 'rejected'}`,
+      submission: {
+        id: updated.id,
+        status: updated.status,
+        reviewedAt: updated.reviewedAt
+      }
+    });
+  } catch (error) {
+    logger.error('Error reviewing marketplace submission:', error);
+    res.status(500).json({ message: 'Error reviewing submission', error: error.message });
+  }
+});
+
+/**
+ * @route   GET /api/admin/marketplace/creators
+ * @desc    Get all creators with statistics
+ * @access  Private/Admin
+ */
+router.get('/marketplace/creators', authenticate, isAdmin, paginationValidation, async (req, res) => {
+  try {
+    const { skip, take, page, limit } = paginate(req.query.page, req.query.limit);
+    const { verificationStatus } = req.query;
+
+    const where = {};
+    if (verificationStatus) where.verificationStatus = verificationStatus;
+
+    const [creators, total] = await Promise.all([
+      prisma.creatorProfile.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          displayName: true,
+          profileImage: true,
+          verificationStatus: true,
+          bankAccountVerified: true,
+          totalEarnings: true,
+          createdAt: true,
+          user: { select: { email: true } },
+          _count: {
+            select: {
+              marketplaceListings: true,
+              usageTracks: true,
+              payouts: true
+            }
+          }
+        }
+      }),
+      prisma.creatorProfile.count({ where })
+    ]);
+
+    res.json({
+      creators: creators.map(c => ({
+        id: c.id,
+        displayName: c.displayName,
+        profileImage: c.profileImage,
+        email: c.user.email,
+        verificationStatus: c.verificationStatus,
+        bankAccountVerified: c.bankAccountVerified,
+        totalEarnings: parseFloat(c.totalEarnings),
+        statistics: {
+          templateCount: c._count.marketplaceListings,
+          totalUsages: c._count.usageTracks,
+          totalPayouts: c._count.payouts
+        },
+        createdAt: c.createdAt
+      })),
+      pagination: buildPaginationMeta(page, limit, total)
+    });
+  } catch (error) {
+    logger.error('Error fetching creators:', error);
+    res.status(500).json({ message: 'Error fetching creators', error: error.message });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/marketplace/creators/:creatorId/verify
+ * @desc    Verify a creator
+ * @access  Private/Admin
+ */
+router.put('/marketplace/creators/:creatorId/verify', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { creatorId } = req.params;
+    const { verified, adminNote } = req.body;
+
+    const creator = await prisma.creatorProfile.findUnique({
+      where: { id: creatorId },
+      include: { user: true }
+    });
+
+    if (!creator) {
+      return res.status(404).json({ message: 'Creator not found' });
+    }
+
+    const newStatus = verified ? 'VERIFIED' : 'UNVERIFIED';
+
+    const updated = await prisma.creatorProfile.update({
+      where: { id: creatorId },
+      data: {
+        verificationStatus: newStatus,
+        verifiedAt: verified ? new Date() : null
+      }
+    });
+
+    // Notify creator
+    await prisma.notification.create({
+      data: {
+        userId: creator.userId,
+        type: 'CREATOR_VERIFICATION',
+        title: verified ? 'Compte vérifié' : 'Vérification annulée',
+        message: verified
+          ? 'Votre compte créateur a été vérifié!'
+          : `Votre vérification a été annulée.${adminNote ? ` Raison: ${adminNote}` : ''}`,
+        data: { creatorId, verificationStatus: newStatus }
+      }
+    });
+
+    logger.info(`Creator ${creatorId} verification status changed to ${newStatus}`);
+
+    res.json({
+      message: `Creator ${verified ? 'verified' : 'unverified'}`,
+      creator: {
+        id: updated.id,
+        verificationStatus: updated.verificationStatus
+      }
+    });
+  } catch (error) {
+    logger.error('Error verifying creator:', error);
+    res.status(500).json({ message: 'Error verifying creator', error: error.message });
+  }
+});
+
 module.exports = router;

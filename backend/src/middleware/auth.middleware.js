@@ -139,6 +139,31 @@ const isClient = (req, res, next) => {
 };
 
 /**
+ * Check if user is a creator
+ */
+const isCreator = async (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { isCreator: true }
+    });
+
+    if (!user || !user.isCreator) {
+      return res.status(403).json({ error: 'Creator access required. Please create a creator profile first.' });
+    }
+
+    next();
+  } catch (error) {
+    logger.error('Creator check error:', error);
+    return res.status(500).json({ error: 'Authorization check failed' });
+  }
+};
+
+/**
  * Check resource ownership
  */
 const isOwner = (resourceField = 'userId') => {
@@ -190,5 +215,6 @@ module.exports = {
   isAdmin,
   isSuperAdmin,
   isClient,
+  isCreator,
   isOwner
 };

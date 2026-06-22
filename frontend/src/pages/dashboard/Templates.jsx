@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from 'react-query'
 import { useNavigate } from 'react-router-dom'
 import { templateAPI, weddingAPI } from '../../services/api'
+import { useAuthStore } from '../../stores/authStore'
 import TemplatePreview from '../../components/templates/TemplatePreview'
 import toast from 'react-hot-toast'
-import { 
-  HeartIcon, 
-  SwatchIcon, 
+import {
+  HeartIcon,
+  SwatchIcon,
   StarIcon,
   EyeIcon,
   XMarkIcon,
@@ -15,13 +16,15 @@ import {
   DevicePhoneMobileIcon,
   ComputerDesktopIcon,
   PaintBrushIcon,
-  UserIcon
+  UserIcon,
+  ArrowUpIcon
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid'
 import { EVENT_TYPES, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
 
 export default function Templates() {
   const navigate = useNavigate()
+  const { user } = useAuthStore()
   const [selectedEventType, setSelectedEventType] = useState('all')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [previewTemplate, setPreviewTemplate] = useState(null)
@@ -450,6 +453,20 @@ export default function Templates() {
                     </p>
                   </div>
                 </div>
+
+                {/* Publish to Marketplace Button - Only for custom templates and creators */}
+                {previewTemplate.isCustom && user?.isCreator && (
+                  <button
+                    onClick={() => {
+                      setPreviewTemplate(null)
+                      navigate(`/templates/${previewTemplate.id}/publish`)
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-medium hover:from-green-600 hover:to-emerald-600 transition-all w-full mt-3"
+                  >
+                    <ArrowUpIcon className="h-5 w-5" />
+                    Publier sur la Marketplace
+                  </button>
+                )}
 
                 <button
                   onClick={() => {

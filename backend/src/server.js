@@ -28,6 +28,8 @@ const checkInRoutes = require('./routes/checkin.routes');
 const publicRoutes = require('./routes/public.routes');
 const backgroundRoutes = require('./routes/background.routes');
 const printOrderRoutes = require('./routes/printOrder.routes');
+const creatorRoutes = require('./routes/creator.routes');
+const marketplaceRoutes = require('./routes/marketplace.routes');
 
 const prisma = new PrismaClient();
 const app = express();
@@ -138,6 +140,8 @@ app.use('/api/coupons', couponRoutes);
 app.use('/api/checkin', checkInRoutes);
 app.use('/api/backgrounds', backgroundRoutes);
 app.use('/api/print-orders', printOrderRoutes);
+app.use('/api/creators', creatorRoutes);
+app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/public', publicRoutes); // Public invitation routes
 
 // Socket.IO connection handling
