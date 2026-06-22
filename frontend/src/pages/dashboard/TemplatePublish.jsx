@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
-import { api } from '../../services/api';
+import api from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
 
 export default function TemplatePublish() {

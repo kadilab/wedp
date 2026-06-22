@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
-import { api } from '../../services/api';
+import api from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
 import { StarIcon, LinkIcon } from '@heroicons/react/24/outline';
 

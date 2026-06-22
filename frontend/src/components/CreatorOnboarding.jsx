@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuthStore } from '../stores/authStore';
-import { api } from '../services/api';
+import api from '../services/api';
 
 export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
   const [step, setStep] = useState(1);

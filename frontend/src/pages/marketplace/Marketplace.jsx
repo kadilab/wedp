@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
-import { api } from '../../services/api';
+import api from '../../services/api';
 import MarketplaceTemplateCard from '../../components/MarketplaceTemplateCard';
 import { FunnelIcon } from '@heroicons/react/24/outline';
 

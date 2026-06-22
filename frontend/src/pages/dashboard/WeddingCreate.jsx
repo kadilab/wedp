@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useMutation, useQuery } from 'react-query'
-import { weddingAPI, templateAPI, api } from '../../services/api'
+import api, { weddingAPI, templateAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import TemplatePreview from '../../components/templates/TemplatePreview'
 import {
