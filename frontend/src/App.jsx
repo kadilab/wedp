@@ -30,6 +30,8 @@ import PrintOrders from './pages/dashboard/PrintOrders'
 import Profile from './pages/dashboard/Profile'
 import CreatorDashboard from './pages/dashboard/CreatorDashboard'
 import CreatorEarnings from './pages/dashboard/CreatorEarnings'
+import CreatorBankAccounts from './pages/dashboard/CreatorBankAccounts'
+import CreatorPayoutRequest from './pages/dashboard/CreatorPayoutRequest'
 import Marketplace from './pages/marketplace/Marketplace'
 import MarketplaceTemplateDetail from './pages/marketplace/MarketplaceTemplateDetail'
 import TemplatePublish from './pages/dashboard/TemplatePublish'
@@ -43,6 +45,7 @@ import AdminPrintOrders from './pages/admin/AdminPrintOrders'
 import AdminTemplates from './pages/admin/AdminTemplates'
 import AdminCoupons from './pages/admin/AdminCoupons'
 import AdminSettings from './pages/admin/AdminSettings'
+import AdminPayoutDashboard from './pages/admin/AdminPayoutDashboard'
 import TemplateDesigner from './pages/admin/TemplateDesigner'
 
 // Public pages
@@ -107,6 +110,8 @@ function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/creator-dashboard" element={<CreatorDashboard />} />
         <Route path="/creator-earnings" element={<CreatorEarnings />} />
+        <Route path="/creator-bank-accounts" element={<CreatorBankAccounts />} />
+        <Route path="/creator-request-payout" element={<CreatorPayoutRequest />} />
         <Route path="/templates/:templateId/publish" element={<TemplatePublish />} />
       </Route>
 
@@ -133,6 +138,7 @@ function App() {
         <Route path="/admin/templates" element={<AdminTemplates />} />
         <Route path="/admin/coupons" element={<AdminCoupons />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
+        <Route path="/admin/payouts" element={<AdminPayoutDashboard />} />
       </Route>
 
       {/* 404 */}

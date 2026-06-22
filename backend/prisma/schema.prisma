@@ -647,9 +647,34 @@ model CreatorProfile {
   usageTracks           TemplateUsageTrack[]
   payouts               CreatorPayout[]
   templates             Template[]
+  bankAccounts          CreatorBankAccount[]
 
   @@index([verificationStatus])
   @@map("creator_profiles")
+}
+
+model CreatorBankAccount {
+  id                    String      @id @default(uuid())
+  creatorId             String      @map("creator_id")
+  accountHolderName     String      @map("account_holder_name")
+  bankName              String      @map("bank_name")
+  accountNumber         String      @map("account_number")
+  routingNumber         String?     @map("routing_number")
+  iban                  String?
+  swiftCode             String?     @map("swift_code")
+  accountType           String      @default("checking") // checking, savings
+  currency              String      @default("USD")
+  isDefault             Boolean     @default(true) @map("is_default")
+  isVerified            Boolean     @default(false) @map("is_verified")
+  verifiedAt            DateTime?   @map("verified_at")
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
+
+  creator               CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([creatorId])
+  @@index([isDefault])
+  @@map("creator_bank_accounts")
 }
 
 model TemplateMarketplace {
@@ -688,6 +713,7 @@ model TemplateUsageTrack {
   creatorId             String      @map("creator_id")
   templateId            String      @map("template_id")
   usedAt                DateTime    @default(now()) @map("used_at")
+  approvedAt            DateTime?   @map("approved_at")
   commissionAmount      Decimal     @db.Decimal(10, 2) @map("commission_amount")
   commissionPercentage  Decimal     @db.Decimal(5, 2) @map("commission_percentage")
   status                TemplateUsageStatus @default(PENDING)

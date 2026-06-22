@@ -1962,4 +1962,259 @@ router.put('/marketplace/creators/:creatorId/verify', authenticate, isAdmin, asy
   }
 });
 
+// ==================== PAYOUT MANAGEMENT ====================
+
+/**
+ * @route   GET /api/admin/payouts
+ * @desc    Get all pending/approved payouts for review
+ * @access  Private/Admin
+ */
+router.get('/payouts', authenticate, isAdmin, paginationValidation, async (req, res) => {
+  try {
+    const { skip, take, page, limit } = paginate(req.query.page, req.query.limit);
+    const { status } = req.query;
+
+    const where = {};
+    if (status) where.status = status;
+
+    const [payouts, total] = await Promise.all([
+      prisma.creatorPayout.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { requestedAt: 'desc' },
+        include: {
+          creator: {
+            select: {
+              id: true,
+              displayName: true,
+              profileImage: true,
+              verificationStatus: true
+            }
+          },
+          user: {
+            select: {
+              email: true
+            }
+          }
+        }
+      }),
+      prisma.creatorPayout.count({ where })
+    ]);
+
+    res.json({
+      payouts: payouts.map(p => ({
+        id: p.id,
+        creator: p.creator,
+        email: p.user.email,
+        totalAmount: parseFloat(p.totalAmount),
+        currency: p.currency,
+        status: p.status,
+        requestedAt: p.requestedAt,
+        processedAt: p.processedAt,
+        adminNote: p.adminNote
+      })),
+      pagination: buildPaginationMeta(page, limit, total)
+    });
+  } catch (error) {
+    logger.error('Error fetching payouts:', error);
+    res.status(500).json({ message: 'Error fetching payouts', error: error.message });
+  }
+});
+
+/**
+ * @route   GET /api/admin/payouts/:payoutId
+ * @desc    Get payout detail
+ * @access  Private/Admin
+ */
+router.get('/payouts/:payoutId', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { payoutId } = req.params;
+
+    const payout = await prisma.creatorPayout.findUnique({
+      where: { id: payoutId },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            displayName: true,
+            profileImage: true,
+            verificationStatus: true,
+            bankAccountVerified: true
+          }
+        },
+        user: {
+          select: {
+            email: true,
+            firstName: true,
+            lastName: true
+          }
+        },
+        approvedBy: {
+          select: {
+            email: true,
+            firstName: true,
+            lastName: true
+          }
+        }
+      }
+    });
+
+    if (!payout) {
+      return res.status(404).json({ message: 'Payout not found' });
+    }
+
+    res.json({
+      payout: {
+        id: payout.id,
+        creator: payout.creator,
+        user: payout.user,
+        totalAmount: parseFloat(payout.totalAmount),
+        currency: payout.currency,
+        status: payout.status,
+        paymentMethod: payout.paymentMethod,
+        paymentDetails: payout.paymentDetails,
+        transactionId: payout.transactionId,
+        proofUrl: payout.proofUrl,
+        requestedAt: payout.requestedAt,
+        processedAt: payout.processedAt,
+        processedBy: payout.approvedBy,
+        adminNote: payout.adminNote,
+        usageTracksIncluded: payout.usageTracksIncluded
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching payout detail:', error);
+    res.status(500).json({ message: 'Error fetching payout', error: error.message });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/payouts/:payoutId/approve
+ * @desc    Approve a payout request
+ * @access  Private/Admin
+ */
+router.put('/payouts/:payoutId/approve', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { payoutId } = req.params;
+    const adminId = req.user.id;
+    const { transactionId, proofUrl, adminNote } = req.body;
+
+    if (!transactionId) {
+      return res.status(400).json({ message: 'Transaction ID is required' });
+    }
+
+    const payout = await prisma.creatorPayout.findUnique({
+      where: { id: payoutId }
+    });
+
+    if (!payout) {
+      return res.status(404).json({ message: 'Payout not found' });
+    }
+
+    // Update payout
+    const updatedPayout = await prisma.creatorPayout.update({
+      where: { id: payoutId },
+      data: {
+        status: 'PAID',
+        transactionId,
+        proofUrl,
+        processedAt: new Date(),
+        processedBy: adminId,
+        adminNote: adminNote || ''
+      }
+    });
+
+    // Update all associated template usage tracks to PAID
+    if (payout.usageTracksIncluded && Array.isArray(payout.usageTracksIncluded)) {
+      await prisma.templateUsageTrack.updateMany({
+        where: { id: { in: payout.usageTracksIncluded } },
+        data: { status: 'PAID' }
+      });
+    }
+
+    logger.info(`Payout ${payoutId} approved by admin ${adminId}`);
+
+    res.json({
+      message: 'Payout approved successfully',
+      payout: {
+        id: updatedPayout.id,
+        status: updatedPayout.status,
+        processedAt: updatedPayout.processedAt
+      }
+    });
+  } catch (error) {
+    logger.error('Error approving payout:', error);
+    res.status(500).json({ message: 'Error approving payout', error: error.message });
+  }
+});
+
+/**
+ * @route   PUT /api/admin/payouts/:payoutId/reject
+ * @desc    Reject a payout request
+ * @access  Private/Admin
+ */
+router.put('/payouts/:payoutId/reject', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { payoutId } = req.params;
+    const adminId = req.user.id;
+    const { reason } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({ message: 'Rejection reason is required' });
+    }
+
+    const payout = await prisma.creatorPayout.findUnique({
+      where: { id: payoutId }
+    });
+
+    if (!payout) {
+      return res.status(404).json({ message: 'Payout not found' });
+    }
+
+    // Update payout to REJECTED
+    const updatedPayout = await prisma.creatorPayout.update({
+      where: { id: payoutId },
+      data: {
+        status: 'REJECTED',
+        processedAt: new Date(),
+        processedBy: adminId,
+        adminNote: reason
+      }
+    });
+
+    // Reset usage tracks to APPROVED so they can be re-requested
+    if (payout.usageTracksIncluded && Array.isArray(payout.usageTracksIncluded)) {
+      await prisma.templateUsageTrack.updateMany({
+        where: { id: { in: payout.usageTracksIncluded } },
+        data: { payoutId: null }
+      });
+    }
+
+    // Notify creator
+    await prisma.notification.create({
+      data: {
+        userId: payout.userId,
+        type: 'PAYOUT_REJECTED',
+        title: 'Payout Rejected',
+        message: `Your payout request of $${parseFloat(payout.totalAmount).toFixed(2)} has been rejected. Reason: ${reason}`,
+        data: { payoutId }
+      }
+    });
+
+    logger.info(`Payout ${payoutId} rejected by admin ${adminId}`);
+
+    res.json({
+      message: 'Payout rejected successfully',
+      payout: {
+        id: updatedPayout.id,
+        status: updatedPayout.status
+      }
+    });
+  } catch (error) {
+    logger.error('Error rejecting payout:', error);
+    res.status(500).json({ message: 'Error rejecting payout', error: error.message });
+  }
+});
+
 module.exports = router;

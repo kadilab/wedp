@@ -328,4 +328,230 @@ router.get('/:creatorId', async (req, res) => {
   }
 });
 
+// ==================== BANK ACCOUNT ENDPOINTS ====================
+
+/**
+ * @route   GET /api/creators/me/bank-accounts
+ * @desc    Get creator's bank accounts
+ * @access  Private (creators only)
+ */
+router.get('/me/bank-accounts', authenticate, isCreator, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const creatorProfile = await prisma.creatorProfile.findUnique({
+      where: { userId }
+    });
+
+    if (!creatorProfile) {
+      return res.status(404).json({ message: 'Creator profile not found' });
+    }
+
+    const bankAccounts = await prisma.creatorBankAccount.findMany({
+      where: { creatorId: creatorProfile.id },
+      orderBy: { isDefault: 'desc' }
+    });
+
+    res.json({
+      bankAccounts: bankAccounts.map(acc => ({
+        id: acc.id,
+        accountHolderName: acc.accountHolderName,
+        bankName: acc.bankName,
+        accountNumber: `****${acc.accountNumber.slice(-4)}`,
+        accountType: acc.accountType,
+        currency: acc.currency,
+        isDefault: acc.isDefault,
+        isVerified: acc.isVerified,
+        createdAt: acc.createdAt
+      }))
+    });
+  } catch (error) {
+    logger.error('Error fetching bank accounts:', error);
+    res.status(500).json({ message: 'Error fetching bank accounts', error: error.message });
+  }
+});
+
+/**
+ * @route   POST /api/creators/me/bank-accounts
+ * @desc    Add a bank account for creator
+ * @access  Private (creators only)
+ */
+router.post('/me/bank-accounts', authenticate, isCreator, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { accountHolderName, bankName, accountNumber, routingNumber, iban, swiftCode, accountType, currency, isDefault } = req.body;
+
+    if (!accountHolderName || !bankName || (!accountNumber && !iban)) {
+      return res.status(400).json({ message: 'Missing required fields: accountHolderName, bankName, and either accountNumber or IBAN' });
+    }
+
+    const creatorProfile = await prisma.creatorProfile.findUnique({
+      where: { userId }
+    });
+
+    if (!creatorProfile) {
+      return res.status(404).json({ message: 'Creator profile not found' });
+    }
+
+    // If setting as default, unset other defaults
+    if (isDefault) {
+      await prisma.creatorBankAccount.updateMany({
+        where: { creatorId: creatorProfile.id },
+        data: { isDefault: false }
+      });
+    }
+
+    const bankAccount = await prisma.creatorBankAccount.create({
+      data: {
+        creatorId: creatorProfile.id,
+        accountHolderName,
+        bankName,
+        accountNumber: accountNumber || '',
+        routingNumber,
+        iban,
+        swiftCode,
+        accountType: accountType || 'checking',
+        currency: currency || 'USD',
+        isDefault: isDefault ? true : false
+      }
+    });
+
+    logger.info(`Bank account added for creator ${creatorProfile.id}`);
+
+    res.status(201).json({
+      message: 'Bank account added successfully',
+      bankAccount: {
+        id: bankAccount.id,
+        accountHolderName: bankAccount.accountHolderName,
+        bankName: bankAccount.bankName,
+        accountNumber: `****${bankAccount.accountNumber.slice(-4)}`,
+        accountType: bankAccount.accountType,
+        currency: bankAccount.currency,
+        isDefault: bankAccount.isDefault,
+        isVerified: bankAccount.isVerified,
+        createdAt: bankAccount.createdAt
+      }
+    });
+  } catch (error) {
+    logger.error('Error adding bank account:', error);
+    res.status(500).json({ message: 'Error adding bank account', error: error.message });
+  }
+});
+
+/**
+ * @route   PUT /api/creators/me/bank-accounts/:accountId
+ * @desc    Update a bank account
+ * @access  Private (creators only)
+ */
+router.put('/me/bank-accounts/:accountId', authenticate, isCreator, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { accountId } = req.params;
+    const { accountHolderName, bankName, accountType, isDefault } = req.body;
+
+    const creatorProfile = await prisma.creatorProfile.findUnique({
+      where: { userId }
+    });
+
+    if (!creatorProfile) {
+      return res.status(404).json({ message: 'Creator profile not found' });
+    }
+
+    // Verify ownership
+    const bankAccount = await prisma.creatorBankAccount.findUnique({
+      where: { id: accountId }
+    });
+
+    if (!bankAccount || bankAccount.creatorId !== creatorProfile.id) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+
+    // If setting as default, unset other defaults
+    if (isDefault) {
+      await prisma.creatorBankAccount.updateMany({
+        where: { creatorId: creatorProfile.id, id: { not: accountId } },
+        data: { isDefault: false }
+      });
+    }
+
+    const updatedAccount = await prisma.creatorBankAccount.update({
+      where: { id: accountId },
+      data: {
+        ...(accountHolderName && { accountHolderName }),
+        ...(bankName && { bankName }),
+        ...(accountType && { accountType }),
+        ...(isDefault !== undefined && { isDefault })
+      }
+    });
+
+    logger.info(`Bank account ${accountId} updated`);
+
+    res.json({
+      message: 'Bank account updated successfully',
+      bankAccount: {
+        id: updatedAccount.id,
+        accountHolderName: updatedAccount.accountHolderName,
+        bankName: updatedAccount.bankName,
+        accountNumber: `****${updatedAccount.accountNumber.slice(-4)}`,
+        accountType: updatedAccount.accountType,
+        currency: updatedAccount.currency,
+        isDefault: updatedAccount.isDefault,
+        isVerified: updatedAccount.isVerified
+      }
+    });
+  } catch (error) {
+    logger.error('Error updating bank account:', error);
+    res.status(500).json({ message: 'Error updating bank account', error: error.message });
+  }
+});
+
+/**
+ * @route   DELETE /api/creators/me/bank-accounts/:accountId
+ * @desc    Delete a bank account
+ * @access  Private (creators only)
+ */
+router.delete('/me/bank-accounts/:accountId', authenticate, isCreator, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { accountId } = req.params;
+
+    const creatorProfile = await prisma.creatorProfile.findUnique({
+      where: { userId }
+    });
+
+    if (!creatorProfile) {
+      return res.status(404).json({ message: 'Creator profile not found' });
+    }
+
+    // Verify ownership
+    const bankAccount = await prisma.creatorBankAccount.findUnique({
+      where: { id: accountId }
+    });
+
+    if (!bankAccount || bankAccount.creatorId !== creatorProfile.id) {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+
+    // Check if it's the only account
+    const accountCount = await prisma.creatorBankAccount.count({
+      where: { creatorId: creatorProfile.id }
+    });
+
+    if (accountCount === 1) {
+      return res.status(400).json({ message: 'Cannot delete the last bank account' });
+    }
+
+    await prisma.creatorBankAccount.delete({
+      where: { id: accountId }
+    });
+
+    logger.info(`Bank account ${accountId} deleted`);
+
+    res.json({ message: 'Bank account deleted successfully' });
+  } catch (error) {
+    logger.error('Error deleting bank account:', error);
+    res.status(500).json({ message: 'Error deleting bank account', error: error.message });
+  }
+});
+
 module.exports = router;

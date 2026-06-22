@@ -350,16 +350,66 @@ export default function CreatorDashboard() {
         </div>
       )}
 
-      {/* Payouts Tab - Coming Soon */}
+      {/* Payouts Tab */}
       {activeTab === 'payouts' && (
-        <div style={{ background: '#f5f5f5', borderRadius: '8px', padding: '2rem', textAlign: 'center' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💰</div>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: '500', color: '#333', marginBottom: '0.5rem' }}>
-            Payouts Coming Soon
-          </h3>
-          <p style={{ color: '#666' }}>
-            In Phase 4, you'll be able to request and manage payouts of your earnings.
-          </p>
+        <div className="space-y-6">
+          {/* Bank Accounts Section */}
+          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-primary-600">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Bank Accounts</h3>
+                <p className="text-sm text-gray-600 mt-1">Manage bank accounts for payouts</p>
+              </div>
+            </div>
+            <Link to="/creator-bank-accounts" style={{ textDecoration: 'none' }}>
+              <button style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#1976d2',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: '500'
+              }}>
+                Manage Bank Accounts
+              </button>
+            </Link>
+          </div>
+
+          {/* Request Payout Section */}
+          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-600">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Request Payout</h3>
+                <p className="text-sm text-gray-600 mt-1">Withdraw your approved earnings to your bank account</p>
+              </div>
+            </div>
+            <Link to="/creator-request-payout" style={{ textDecoration: 'none' }}>
+              <button style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#4CAF50',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: '500'
+              }}>
+                Request Payout
+              </button>
+            </Link>
+          </div>
+
+          {/* Payout History */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Payout Process</h3>
+            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
+              <li>Add and verify your bank account</li>
+              <li>Approved earnings become available (after wedding activation)</li>
+              <li>Request a payout with a minimum of $10</li>
+              <li>Admin reviews and processes your request (5-7 business days)</li>
+              <li>Funds are transferred to your bank account</li>
+            </ol>
+          </div>
         </div>
       )}
     </div>

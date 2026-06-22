@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useMutation, useQuery } from 'react-query'
-import { weddingAPI, templateAPI } from '../../services/api'
+import { weddingAPI, templateAPI, api } from '../../services/api'
 import toast from 'react-hot-toast'
 import TemplatePreview from '../../components/templates/TemplatePreview'
 import {
@@ -224,9 +224,21 @@ export default function WeddingCreate() {
   const createMutation = useMutation(
     (data) => weddingAPI.create(data),
     {
-      onSuccess: async (response) => {
+      onSuccess: async (response, submittedData) => {
         setServerErrors([])
         const newWeddingId = response.data.wedding.id
+
+        // Track marketplace template usage if applicable
+        if (submittedData.templateId) {
+          try {
+            await api.post(`/marketplace/${submittedData.templateId}/use`, {
+              weddingId: newWeddingId
+            })
+          } catch (e) {
+            // Not a marketplace template or error, silently continue
+          }
+        }
+
         if (couplePhotoFile) {
           try {
             await weddingAPI.uploadCouplePhoto(newWeddingId, couplePhotoFile)
