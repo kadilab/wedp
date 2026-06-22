@@ -401,7 +401,11 @@ export default function InvitationView() {
                 const isDecorative = el.type === 'image'
                 const photoBorderColor = hexToRgba(el.borderColor || '#FFFFFF', (el.borderOpacity ?? 100) / 100)
                 const clipPath = getClipPath(el.shape)
-                const imgSrc = isDecorative ? (el.iconUrl || null) : (wedding?.couplePhoto || null)
+                // Each client photo placeholder binds to its own image by element
+                // id (multi-image templates), falling back to legacy couplePhoto.
+                const imgSrc = isDecorative
+                  ? (el.iconUrl || null)
+                  : (wedding?.templateImages?.[el.id] || wedding?.couplePhoto || null)
                 // No gray placeholder fill once a real image is set - many
                 // decorative uploads (PNG logos, ornaments) rely on transparency.
                 const placeholderBg = imgSrc ? 'transparent' : '#f3f4f6'

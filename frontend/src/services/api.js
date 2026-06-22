@@ -125,6 +125,18 @@ export const weddingAPI = {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
   },
+  // Upload one image for a specific template photo placeholder (multi-image templates)
+  uploadTemplateImage: (id, placeholderId, file, onProgress) => {
+    const formData = new FormData()
+    formData.append('couplePhoto', file)
+    formData.append('placeholderId', placeholderId)
+    return api.post(`/weddings/${id}/template-image`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: onProgress
+        ? (e) => onProgress(Math.round((e.loaded * 100) / (e.total || e.loaded)))
+        : undefined
+    })
+  },
   getTables: (id) => api.get(`/weddings/${id}/tables`),
   saveTables: (id, tables) => api.put(`/weddings/${id}/tables`, { tables })
 }

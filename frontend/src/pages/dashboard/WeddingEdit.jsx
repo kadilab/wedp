@@ -126,6 +126,13 @@ export default function WeddingEdit() {
   const wantsPrint = watch('wantsPrintService')
   const selectedTemplateId = watch('templateId')
 
+  // Photo placeholders of the bound template - drives the per-placeholder uploads
+  const selectedTemplateForImages = [...myTemplates, ...templates].find(t => t.id === selectedTemplateId)
+  const photoPlaceholders = (selectedTemplateForImages?.config?.designElements || [])
+    .filter(el => el.type === 'photo')
+  const weddingTemplateImages = (wedding?.templateImages && typeof wedding.templateImages === 'object')
+    ? wedding.templateImages : {}
+
   // Shared live-preview data so canvas tokens ({{event_title}}, {{venue_name}}...)
   // reflect what the user has typed so far, for wedding and non-wedding types alike.
   const previewWeddingData = {
@@ -180,6 +187,14 @@ export default function WeddingEdit() {
   )
   const handlePhotoUpload = (file, filename, onProgress) =>
     uploadPhotoMutation.mutateAsync({ file, onProgress })
+
+  // One upload handler per template photo placeholder (multi-image templates)
+  const makeTemplateImageUpload = (placeholderId) => async (file, filename, onProgress) => {
+    const res = await weddingAPI.uploadTemplateImage(id, placeholderId, file, onProgress)
+    queryClient.invalidateQueries(['wedding', id])
+    toast.success('Image mise à jour')
+    return res
+  }
 
   const cleanValue = (val) => (val === '' || val === undefined) ? null : val
 
@@ -305,6 +320,37 @@ export default function WeddingEdit() {
               validation={{ maxSizeMB: 5 }}
             />
           </div>
+
+          {/* Per-placeholder images for multi-photo templates */}
+          {photoPlaceholders.length > 1 && (
+            <div className="border-t pt-6">
+              <h3 className="font-medium text-gray-900 flex items-center mb-1">
+                <PhotoIcon className="h-5 w-5 mr-2 text-primary-500" />
+                Photos de l'invitation
+                <span className="ml-2 text-xs font-normal text-gray-400">
+                  ({photoPlaceholders.length} emplacements)
+                </span>
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Ce template a plusieurs emplacements photo — chacun reçoit sa propre image.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {photoPlaceholders.map((ph, i) => (
+                  <div key={ph.id}>
+                    <p className="text-xs font-medium text-gray-600 mb-1 truncate">{ph.label || `Photo ${i + 1}`}</p>
+                    <ImageUpload
+                      value={weddingTemplateImages[ph.id]}
+                      onUpload={makeTemplateImageUpload(ph.id)}
+                      preset="couplePhoto"
+                      size="md"
+                      helpText="Max 5 Mo"
+                      validation={{ maxSizeMB: 5 }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Extra personalization */}
           <div className="border-t pt-6 space-y-4">

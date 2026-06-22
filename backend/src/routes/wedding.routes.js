@@ -430,7 +430,9 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
       qrCodeBgColor,
       qrCodeSize,
       // Tables
-      tables
+      tables,
+      // Multi-image templates
+      templateImages
     } = req.body;
 
     // Get current wedding state before update
@@ -500,7 +502,9 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
         ...(printSize !== undefined && { printSize }),
         ...(printNotes !== undefined && { printNotes }),
         // Tables
-        ...(tables !== undefined && { tables })
+        ...(tables !== undefined && { tables }),
+        // Multi-image templates
+        ...(templateImages !== undefined && { templateImages })
       },
       include: {
         template: { select: { id: true, name: true } },
@@ -712,6 +716,8 @@ router.delete('/:id', authenticate, isOwner(), async (req, res) => {
     }
 
     const galleryPhotos = Array.isArray(wedding.galleryPhotos) ? wedding.galleryPhotos : [];
+    const templateImageUrls = (wedding.templateImages && typeof wedding.templateImages === 'object')
+      ? Object.values(wedding.templateImages) : [];
     const weddingFiles = [
       wedding.coverPhoto,
       wedding.couplePhoto,
@@ -720,6 +726,7 @@ router.delete('/:id', authenticate, isOwner(), async (req, res) => {
       wedding.qrCodeLogo,
       wedding.qrCodeUrl,
       ...galleryPhotos,
+      ...templateImageUrls,
       ...wedding.invitations.flatMap(inv => [inv.qrCodeUrl, inv.pdfUrl])
     ];
     // Never delete shared template assets, even if a wedding field happens to
@@ -847,6 +854,52 @@ router.post('/:id/couple-photo', authenticate, isOwner(), uploadSingle('couplePh
     res.json({ message: 'Photo de couple mise à jour', couplePhoto: photoPath });
   } catch (error) {
     logger.error('Upload couple photo error:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'upload' });
+  }
+});
+
+/**
+ * @route   POST /api/weddings/:id/template-image
+ * @desc    Upload one image for a specific photo placeholder of the template.
+ *          Body must include `placeholderId` (the design element id). The URL
+ *          is merged into the wedding's templateImages map so each placeholder
+ *          keeps its own independent image.
+ * @access  Private
+ */
+router.post('/:id/template-image', authenticate, isOwner(), uploadSingle('couplePhoto'), handleUploadError, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Aucune image uploadée' });
+    }
+    const placeholderId = req.body.placeholderId;
+    if (!placeholderId) {
+      return res.status(400).json({ error: 'placeholderId requis' });
+    }
+
+    const photoPath = `/uploads/couple-photos/${req.file.filename}`;
+
+    const wedding = await prisma.wedding.findUnique({
+      where: { id: req.params.id },
+      select: { templateImages: true, couplePhoto: true }
+    });
+
+    const current = (wedding && wedding.templateImages && typeof wedding.templateImages === 'object')
+      ? wedding.templateImages
+      : {};
+    const updatedImages = { ...current, [placeholderId]: photoPath };
+
+    // Keep couplePhoto pointing at the first placeholder's image for backward
+    // compatibility with anything still reading the legacy single-photo field.
+    const data = { templateImages: updatedImages };
+    if (!wedding || !wedding.couplePhoto) {
+      data.couplePhoto = photoPath;
+    }
+
+    await prisma.wedding.update({ where: { id: req.params.id }, data });
+
+    res.json({ message: 'Image mise à jour', url: photoPath, templateImages: updatedImages });
+  } catch (error) {
+    logger.error('Upload template image error:', error);
     res.status(500).json({ error: 'Erreur lors de l\'upload' });
   }
 });

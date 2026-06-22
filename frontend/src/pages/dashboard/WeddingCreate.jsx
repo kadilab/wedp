@@ -122,9 +122,19 @@ export default function WeddingCreate() {
   const { data: myTemplatesData } = useQuery('my-templates', () => templateAPI.getMyTemplates())
   const myTemplates = (myTemplatesData?.data?.templates || []).filter(t => (t.eventType || 'WEDDING') === eventType)
 
+  // Multi-image templates: one File + preview per photo placeholder, keyed by element id
+  const [templateImageFiles, setTemplateImageFiles] = useState({})   // { [elementId]: File }
+  const [templateImagePreviews, setTemplateImagePreviews] = useState({}) // { [elementId]: objectURL }
+
+  // Photo placeholders of the currently-selected template (drives dynamic upload fields)
+  const selectedTemplateForImages = [...myTemplates, ...templates].find(t => t.id === watch('templateId'))
+  const photoPlaceholders = (selectedTemplateForImages?.config?.designElements || [])
+    .filter(el => el.type === 'photo')
+
   // Shared live-preview data so canvas tokens ({{event_title}}, {{venue_name}}...)
   // reflect what the user has typed so far, for wedding and non-wedding types alike.
   const previewWeddingData = {
+    templateImages: templateImagePreviews,
     eventType,
     eventTitle: watch('eventTitle'),
     brideName: watch('brideName'),
@@ -201,6 +211,16 @@ export default function WeddingCreate() {
     e.target.value = ''
   }
 
+  const handleTemplateImageChange = (placeholderId, e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { toast.error('Veuillez sélectionner une image'); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Image trop volumineuse (max 5 Mo)'); return }
+    setTemplateImageFiles(prev => ({ ...prev, [placeholderId]: file }))
+    setTemplateImagePreviews(prev => ({ ...prev, [placeholderId]: URL.createObjectURL(file) }))
+    e.target.value = ''
+  }
+
   const createMutation = useMutation(
     (data) => weddingAPI.create(data),
     {
@@ -212,6 +232,19 @@ export default function WeddingCreate() {
             await weddingAPI.uploadCouplePhoto(newWeddingId, couplePhotoFile)
           } catch (e) {
             toast.error("Événement créé, mais l'envoi de la photo a échoué. Vous pourrez la rajouter depuis la page de l'événement.")
+          }
+        }
+        // Upload per-placeholder template images (multi-image templates)
+        const placeholderEntries = Object.entries(templateImageFiles)
+        if (placeholderEntries.length > 0) {
+          try {
+            await Promise.all(
+              placeholderEntries.map(([placeholderId, file]) =>
+                weddingAPI.uploadTemplateImage(newWeddingId, placeholderId, file)
+              )
+            )
+          } catch (e) {
+            toast.error("Événement créé, mais l'envoi d'une ou plusieurs photos a échoué. Vous pourrez les rajouter depuis la page de l'événement.")
           }
         }
         toast.success('Événement créé avec succès !')
@@ -786,6 +819,57 @@ export default function WeddingCreate() {
                   </div>
                 )}
               </div>
+
+              {/* Dynamic per-placeholder image uploads (multi-image templates) */}
+              {watch('templateId') && photoPlaceholders.length > 0 && (
+                <div className="border-t pt-6">
+                  <h3 className="font-medium text-gray-900 mb-1">
+                    Photos de l'invitation
+                    <span className="ml-2 text-xs font-normal text-gray-400">
+                      ({photoPlaceholders.length} emplacement{photoPlaceholders.length > 1 ? 's' : ''})
+                    </span>
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Ce template contient {photoPlaceholders.length} emplacement{photoPlaceholders.length > 1 ? 's' : ''} photo.
+                    Chargez une image pour chacun — chaque emplacement reçoit sa propre photo.
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {photoPlaceholders.map((ph, i) => {
+                      const preview = templateImagePreviews[ph.id]
+                      return (
+                        <div key={ph.id} className="space-y-1">
+                          <label className="block cursor-pointer">
+                            <div className={`aspect-square rounded-xl border-2 ${preview ? 'border-primary-300' : 'border-dashed border-gray-300'} overflow-hidden bg-gray-50 flex items-center justify-center hover:border-primary-400 transition-colors`}>
+                              {preview ? (
+                                <img src={preview} alt={ph.label || `Photo ${i + 1}`} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="text-center text-gray-400 p-2">
+                                  <PhotoIcon className="h-7 w-7 mx-auto mb-1" />
+                                  <span className="text-[11px]">Ajouter</span>
+                                </div>
+                              )}
+                            </div>
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleTemplateImageChange(ph.id, e)} />
+                          </label>
+                          <p className="text-xs text-center text-gray-600 truncate">{ph.label || `Photo ${i + 1}`}</p>
+                          {preview && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTemplateImageFiles(prev => { const n = { ...prev }; delete n[ph.id]; return n })
+                                setTemplateImagePreviews(prev => { const n = { ...prev }; delete n[ph.id]; return n })
+                              }}
+                              className="block mx-auto text-[11px] text-red-500 hover:text-red-700"
+                            >
+                              Retirer
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

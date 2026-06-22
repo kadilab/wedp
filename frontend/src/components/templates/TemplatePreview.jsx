@@ -188,9 +188,12 @@ export default function TemplatePreview({ template, className = '', weddingData 
                   const photoBorderColor = hexToRgba(el.borderColor || '#FFFFFF', (el.borderOpacity ?? 100) / 100)
                   const clipPath = getClipPath(el.shape)
                   const apiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || ''
+                  // Client photo placeholders each bind to their own image by
+                  // element id (multi-image templates), falling back to the
+                  // legacy single couplePhoto field.
                   const imgSrc = isDecorative
                     ? (el.iconUrl ? (el.iconUrl.startsWith('data:') || el.iconUrl.startsWith('http') ? el.iconUrl : `${apiBase}${el.iconUrl}`) : null)
-                    : weddingData?.couplePhoto
+                    : (weddingData?.templateImages?.[el.id] || weddingData?.couplePhoto)
                   // No gray placeholder fill once a real image is set - many
                   // decorative uploads (PNG logos, ornaments) rely on transparency.
                   const placeholderBg = imgSrc ? 'transparent' : '#f3f4f6'

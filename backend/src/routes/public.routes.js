@@ -78,6 +78,7 @@ router.get('/:weddingSlug/:invitationCode', async (req, res) => {
         fontFamily: wedding.fontFamily,
         coverPhoto: wedding.coverPhoto,
         couplePhoto: wedding.couplePhoto,
+        templateImages: wedding.templateImages,
         logo: wedding.logo,
         musicUrl: wedding.musicUrl,
         // Background settings

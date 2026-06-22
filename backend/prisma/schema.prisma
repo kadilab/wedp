@@ -256,6 +256,10 @@ model Wedding {
   
   // Extra Personalization
   couplePhoto       String?       @map("couple_photo")
+  // Per-placeholder images for templates with multiple photo slots:
+  // { "<photoElementId>": "/uploads/couple-photos/xxx.webp", ... }.
+  // Legacy single-photo templates keep using couplePhoto as the fallback.
+  templateImages    Json?         @map("template_images")
   dressCode         String?       @map("dress_code")
   eventTheme        String?       @map("event_theme")
   rsvpDeadline      DateTime?     @map("rsvp_deadline")

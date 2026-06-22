@@ -120,9 +120,9 @@ router.post('/:weddingId/generate', authenticate, async (req, res) => {
         // Generate unique code
         const uniqueCode = generateUniqueCode();
         
-        // Generate QR code
-        const qrResult = await generateQRCode(uniqueCode, wedding.slug);
-        
+        // Generate QR code with the event's configured style (colors + size)
+        const qrResult = await generateQRCode(uniqueCode, wedding.slug, wedding);
+
         // Create invitation
         const invitation = await prisma.invitation.create({
           data: {
@@ -495,9 +495,9 @@ router.post('/:weddingId/:guestId/regenerate', authenticate, async (req, res) =>
       return res.status(404).json({ error: 'Mariage non trouvÃ©' });
     }
 
-    // Generate new code
+    // Generate new code with the event's configured QR style (colors + size)
     const uniqueCode = generateUniqueCode();
-    const qrResult = await generateQRCode(uniqueCode, wedding.slug);
+    const qrResult = await generateQRCode(uniqueCode, wedding.slug, wedding);
 
     // Update or create invitation
     const invitation = await prisma.invitation.upsert({

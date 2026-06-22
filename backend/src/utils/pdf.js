@@ -748,7 +748,11 @@ function generateDesignBasedHTML(options) {
       // (rectangle/cercle/hexagone/losange/octogone/étoile) via clip-path.
       if (el.type === 'photo' || el.type === 'image') {
         const isDecorative = el.type === 'image';
-        const photoSrc = isDecorative ? resolveImageToDataUri(el.iconUrl) : resolveImageToDataUri(wedding.couplePhoto);
+        // Each client photo placeholder binds to its own image by element id
+        // (multi-image templates), falling back to legacy couplePhoto.
+        const templateImages = (wedding.templateImages && typeof wedding.templateImages === 'object') ? wedding.templateImages : {};
+        const photoForElement = templateImages[el.id] || wedding.couplePhoto;
+        const photoSrc = isDecorative ? resolveImageToDataUri(el.iconUrl) : resolveImageToDataUri(photoForElement);
         const borderColor = hexToRgba(el.borderColor || '#FFFFFF', el.borderOpacity ?? 100);
         const objectFit = el.objectFit || (isDecorative ? 'contain' : 'cover');
         const clipPath = getClipPath(el.shape);

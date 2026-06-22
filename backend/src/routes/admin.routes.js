@@ -657,9 +657,11 @@ router.delete('/weddings/:id', authenticate, isAdmin, async (req, res) => {
     }
 
     const galleryPhotos = Array.isArray(wedding.galleryPhotos) ? wedding.galleryPhotos : [];
+    const templateImageUrls = (wedding.templateImages && typeof wedding.templateImages === 'object')
+      ? Object.values(wedding.templateImages) : [];
     const weddingFiles = [
       wedding.coverPhoto, wedding.couplePhoto, wedding.logo, wedding.backgroundImage,
-      wedding.qrCodeLogo, wedding.qrCodeUrl, ...galleryPhotos,
+      wedding.qrCodeLogo, wedding.qrCodeUrl, ...galleryPhotos, ...templateImageUrls,
       ...wedding.invitations.flatMap(inv => [inv.qrCodeUrl, inv.pdfUrl])
     ];
     const sharedTemplateFiles = wedding.template
