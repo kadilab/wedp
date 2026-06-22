@@ -18,6 +18,13 @@ async function getSettingValue(key) {
   return setting.value;
 }
 
+function eventDisplayName(wedding) {
+  if (!wedding.eventType || wedding.eventType === 'WEDDING') {
+    return `${wedding.brideName} & ${wedding.groomName}`;
+  }
+  return wedding.eventTitle || 'Événement';
+}
+
 async function findOwnedWedding(weddingId, user) {
   return prisma.wedding.findFirst({
     where: {
@@ -125,7 +132,7 @@ router.get('/:weddingId/orders', authenticate, async (req, res) => {
  */
 router.post('/:weddingId', authenticate, async (req, res) => {
   try {
-    const { quantity } = req.body;
+    const { quantity, couponCode } = req.body;
     const qty = parseInt(quantity, 10);
 
     if (!Number.isInteger(qty) || qty < 1) {
@@ -139,7 +146,51 @@ router.post('/:weddingId', authenticate, async (req, res) => {
 
     const unitPriceRaw = await getSettingValue('invitationUnitPrice');
     const unitPrice = parseFloat(unitPriceRaw) || 0;
-    const totalAmount = Math.round(qty * unitPrice * 100) / 100;
+    let totalAmount = Math.round(qty * unitPrice * 100) / 100;
+
+    let couponId = null;
+    let discountAmount = null;
+
+    if (couponCode) {
+      const coupon = await prisma.coupon.findFirst({
+        where: {
+          code: couponCode.toUpperCase(),
+          isActive: true,
+          validFrom: { lte: new Date() },
+          OR: [
+            { validUntil: null },
+            { validUntil: { gte: new Date() } }
+          ]
+        }
+      });
+
+      if (!coupon) {
+        return res.status(400).json({ error: 'Code coupon invalide ou expiré' });
+      }
+
+      if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
+        return res.status(400).json({ error: 'Ce coupon a atteint sa limite d\'utilisation' });
+      }
+
+      if (coupon.minPurchase && totalAmount < parseFloat(coupon.minPurchase)) {
+        return res.status(400).json({ error: `Montant minimum requis pour ce coupon : ${coupon.minPurchase}$` });
+      }
+
+      const alreadyUsed = await prisma.couponUsage.findFirst({
+        where: { couponId: coupon.id, userId: req.user.id }
+      });
+
+      if (alreadyUsed) {
+        return res.status(400).json({ error: 'Vous avez déjà utilisé ce coupon' });
+      }
+
+      discountAmount = coupon.discountType === 'percentage'
+        ? Math.round(totalAmount * parseFloat(coupon.discountValue)) / 100
+        : parseFloat(coupon.discountValue);
+      discountAmount = Math.min(discountAmount, totalAmount);
+      totalAmount = Math.round((totalAmount - discountAmount) * 100) / 100;
+      couponId = coupon.id;
+    }
 
     const order = await prisma.invitationOrder.create({
       data: {
@@ -148,6 +199,8 @@ router.post('/:weddingId', authenticate, async (req, res) => {
         quantity: qty,
         unitPrice,
         totalAmount,
+        couponId,
+        discountAmount,
         status: 'PENDING'
       }
     });
@@ -203,7 +256,7 @@ router.put('/:weddingId/orders/:orderId/submit', authenticate, async (req, res) 
       }
     });
 
-    const weddingLabel = `${wedding.brideName} & ${wedding.groomName}`;
+    const weddingLabel = eventDisplayName(wedding);
 
     sendTelegramNotification(
       `🔔 <b>Nouvelle commande d'invitations</b>\n` +

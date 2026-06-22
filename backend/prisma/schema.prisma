@@ -403,6 +403,11 @@ model InvitationOrder {
   totalAmount     Decimal       @db.Decimal(10, 2) @map("total_amount")
   currency        String        @default("USD")
 
+  // Coupon applied at order time - usage (CouponUsage + usedCount) is only
+  // recorded once an admin approves the order, mirroring the Payment flow.
+  couponId        String?       @map("coupon_id")
+  discountAmount  Decimal?      @db.Decimal(10, 2) @map("discount_amount")
+
   paymentProvider String?       @map("payment_provider")
   payerPhone      String?       @map("payer_phone")
   transactionId   String?       @map("transaction_id")
@@ -419,6 +424,7 @@ model InvitationOrder {
 
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   wedding         Wedding       @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  coupon          Coupon?       @relation(fields: [couponId], references: [id])
 
   @@index([userId])
   @@index([weddingId])
@@ -444,6 +450,7 @@ model Coupon {
 
   payments          Payment[]
   usages            CouponUsage[]
+  invitationOrders  InvitationOrder[]
 
   @@map("coupons")
 }

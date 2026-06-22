@@ -1085,6 +1085,17 @@ router.put('/invitation-orders/:id/approve', authenticate, isAdmin, async (req, 
     // No side effect on the wedding itself (unlike plan payments) — quota is derived
     // automatically from approved orders by getWeddingQuota().
 
+    // Record coupon usage only once the order is actually approved (same rule as Payment)
+    if (order.couponId) {
+      await prisma.coupon.update({
+        where: { id: order.couponId },
+        data: { usedCount: { increment: 1 } }
+      });
+      await prisma.couponUsage.create({
+        data: { couponId: order.couponId, userId: order.userId }
+      });
+    }
+
     await prisma.log.create({
       data: {
         userId: req.user.id,

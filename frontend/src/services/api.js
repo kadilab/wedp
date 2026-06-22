@@ -167,7 +167,7 @@ export const invitationOrderAPI = {
   getMine: () => api.get('/invitation-orders/mine'),
   getQuota: (weddingId) => api.get(`/invitation-orders/${weddingId}/quota`),
   getMyOrders: (weddingId) => api.get(`/invitation-orders/${weddingId}/orders`),
-  createOrder: (weddingId, quantity) => api.post(`/invitation-orders/${weddingId}`, { quantity }),
+  createOrder: (weddingId, quantity, couponCode) => api.post(`/invitation-orders/${weddingId}`, { quantity, couponCode }),
   submitTransaction: (weddingId, orderId, data) => api.put(`/invitation-orders/${weddingId}/orders/${orderId}/submit`, data)
 }
 
@@ -220,7 +220,7 @@ export const checkinAPI = {
 
 // Coupon API
 export const couponAPI = {
-  validate: (code) => api.post('/coupons/validate', { code })
+  validate: (code, amount) => api.post('/coupons/validate', { code, amount })
 }
 
 // Background API

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
-import { invitationOrderAPI } from '../../services/api'
+import { invitationOrderAPI, couponAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -30,6 +30,9 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
   const [quantity, setQuantity] = useState(10)
   const [activeOrderId, setActiveOrderId] = useState(null)
   const [transactionForm, setTransactionForm] = useState({ transactionId: '', paymentProvider: '', payerPhone: '' })
+  const [couponCode, setCouponCode] = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState(null) // { code, discount, finalAmount }
+  const [couponError, setCouponError] = useState('')
 
   const { data: pricingData } = useQuery(
     'invitation-pricing',
@@ -45,14 +48,37 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
   const pricing = pricingData?.data || { unitPrice: 0, paymentMethods: [] }
   const orders = ordersData?.data?.orders || []
   const total = Math.round(quantity * pricing.unitPrice * 100) / 100
+  const finalTotal = appliedCoupon ? appliedCoupon.finalAmount : total
+
+  const validateCouponMutation = useMutation(
+    () => couponAPI.validate(couponCode.trim(), total),
+    {
+      onSuccess: (res) => {
+        setAppliedCoupon({ code: couponCode.trim().toUpperCase(), ...res.data })
+        setCouponError('')
+        toast.success('Coupon appliqué !')
+      },
+      onError: (err) => {
+        setAppliedCoupon(null)
+        setCouponError(err.response?.data?.error || 'Code coupon invalide')
+      }
+    }
+  )
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponCode('')
+    setCouponError('')
+  }
 
   const createOrderMutation = useMutation(
-    () => invitationOrderAPI.createOrder(weddingId, quantity),
+    () => invitationOrderAPI.createOrder(weddingId, quantity, appliedCoupon?.code),
     {
       onSuccess: (res) => {
         queryClient.invalidateQueries(['invitation-orders', weddingId])
         setActiveOrderId(res.data.order.id)
         setTransactionForm({ transactionId: '', paymentProvider: '', payerPhone: '' })
+        removeCoupon()
         setView('submit')
       },
       onError: (err) => toast.error(err.response?.data?.error || 'Erreur lors de la création de la commande')
@@ -76,6 +102,7 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
 
   const close = () => {
     setView('list')
+    removeCoupon()
     onClose()
   }
 
@@ -104,12 +131,58 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
                   min="1"
                   className="input"
                   value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) => {
+                    setQuantity(Math.max(1, parseInt(e.target.value) || 1))
+                    removeCoupon()
+                  }}
                 />
                 <p className="text-sm text-gray-500 mt-2">
                   Prix unitaire : {pricing.unitPrice}$ — Total :{' '}
-                  <span className="font-semibold text-gray-900">{total}$</span>
+                  {appliedCoupon ? (
+                    <>
+                      <span className="line-through text-gray-400">{total}$</span>{' '}
+                      <span className="font-semibold text-green-600">{finalTotal}$</span>
+                    </>
+                  ) : (
+                    <span className="font-semibold text-gray-900">{total}$</span>
+                  )}
                 </p>
+              </div>
+
+              <div>
+                <label htmlFor="couponCode" className="block text-sm font-medium text-gray-700 mb-1">
+                  Code promo (optionnel)
+                </label>
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <span className="text-sm text-green-700">
+                      Coupon <strong>{appliedCoupon.code}</strong> appliqué — réduction de {appliedCoupon.discount}$
+                    </span>
+                    <button onClick={removeCoupon} className="text-xs text-green-700 underline hover:text-green-900">
+                      Retirer
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      id="couponCode"
+                      type="text"
+                      className="input flex-1 font-mono uppercase"
+                      placeholder="Ex: WEDX1Y2Z3"
+                      value={couponCode}
+                      onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError('') }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => validateCouponMutation.mutate()}
+                      disabled={!couponCode.trim() || validateCouponMutation.isLoading}
+                      className="btn-secondary whitespace-nowrap"
+                    >
+                      {validateCouponMutation.isLoading ? 'Vérification...' : 'Appliquer'}
+                    </button>
+                  </div>
+                )}
+                {couponError && <p className="text-xs text-red-600 mt-1">{couponError}</p>}
               </div>
 
               {pricing.paymentMethods.length > 0 ? (
@@ -134,7 +207,7 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
                 disabled={createOrderMutation.isLoading || pricing.paymentMethods.length === 0}
                 className="btn-primary w-full"
               >
-                {createOrderMutation.isLoading ? 'Création...' : `Commander ${quantity} invitation(s)`}
+                {createOrderMutation.isLoading ? 'Création...' : `Commander ${quantity} invitation(s) — ${finalTotal}$`}
               </button>
 
               {orders.length > 0 && (

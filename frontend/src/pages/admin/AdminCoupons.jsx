@@ -21,9 +21,13 @@ export default function AdminCoupons() {
   const [selectedCoupon, setSelectedCoupon] = useState(null)
   const [formData, setFormData] = useState({
     code: '',
-    discountPercent: 10,
+    description: '',
+    discountType: 'percentage',
+    discountValue: 10,
     maxUses: 100,
-    expiresAt: ''
+    minPurchase: '',
+    validUntil: '',
+    isActive: true
   })
 
   const { data: couponsData, isLoading } = useQuery('admin-coupons', () =>
@@ -64,9 +68,13 @@ export default function AdminCoupons() {
   const resetForm = () => {
     setFormData({
       code: '',
-      discountPercent: 10,
+      description: '',
+      discountType: 'percentage',
+      discountValue: 10,
       maxUses: 100,
-      expiresAt: ''
+      minPurchase: '',
+      validUntil: '',
+      isActive: true
     })
     setSelectedCoupon(null)
     setShowModal(false)
@@ -76,22 +84,33 @@ export default function AdminCoupons() {
     setSelectedCoupon(coupon)
     setFormData({
       code: coupon.code,
-      discountPercent: coupon.discountPercent,
-      maxUses: coupon.maxUses,
-      expiresAt: coupon.expiresAt
-        ? new Date(coupon.expiresAt).toISOString().split('T')[0]
-        : ''
+      description: coupon.description || '',
+      discountType: coupon.discountType || 'percentage',
+      discountValue: coupon.discountValue,
+      maxUses: coupon.maxUses || '',
+      minPurchase: coupon.minPurchase || '',
+      validUntil: coupon.validUntil
+        ? new Date(coupon.validUntil).toISOString().split('T')[0]
+        : '',
+      isActive: coupon.isActive !== false
     })
     setShowModal(true)
   }
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    // Omit empty optional fields entirely rather than sending null - the
+    // backend's express-validator .optional() only skips undefined values,
+    // an explicit null would fail isInt()/isISO8601() and reject the request.
     const data = {
-      ...formData,
-      discountPercent: parseInt(formData.discountPercent),
-      maxUses: parseInt(formData.maxUses),
-      expiresAt: formData.expiresAt ? new Date(formData.expiresAt).toISOString() : null
+      code: formData.code,
+      description: formData.description || undefined,
+      discountType: formData.discountType,
+      discountValue: parseFloat(formData.discountValue),
+      isActive: formData.isActive,
+      ...(formData.maxUses && { maxUses: parseInt(formData.maxUses) }),
+      ...(formData.minPurchase && { minPurchase: parseFloat(formData.minPurchase) }),
+      ...(formData.validUntil && { validUntil: new Date(formData.validUntil).toISOString() })
     }
     if (selectedCoupon) {
       updateMutation.mutate({ id: selectedCoupon.id, data })
@@ -118,6 +137,8 @@ export default function AdminCoupons() {
     if (!date) return false
     return new Date(date) < new Date()
   }
+
+  const DISCOUNT_TYPE_LABELS = { percentage: '%', fixed: '$' }
 
   return (
     <div className="space-y-6">
@@ -174,23 +195,28 @@ export default function AdminCoupons() {
                     </td>
                     <td>
                       <span className="font-semibold text-green-600">
-                        -{coupon.discountPercent}%
+                        -{coupon.discountValue}{DISCOUNT_TYPE_LABELS[coupon.discountType] || ''}
                       </span>
+                      {coupon.minPurchase && (
+                        <p className="text-xs text-gray-400">dès {coupon.minPurchase}$</p>
+                      )}
                     </td>
                     <td>
                       <span className="text-gray-600">
-                        {coupon._count?.usages || 0} / {coupon.maxUses}
+                        {coupon._count?.usages || 0}{coupon.maxUses ? ` / ${coupon.maxUses}` : ''}
                       </span>
                     </td>
                     <td className="text-sm text-gray-500">
-                      {coupon.expiresAt
-                        ? format(new Date(coupon.expiresAt), 'd MMM yyyy', { locale: fr })
+                      {coupon.validUntil
+                        ? format(new Date(coupon.validUntil), 'd MMM yyyy', { locale: fr })
                         : 'Jamais'}
                     </td>
                     <td>
-                      {isExpired(coupon.expiresAt) ? (
+                      {!coupon.isActive ? (
+                        <span className="badge">Désactivé</span>
+                      ) : isExpired(coupon.validUntil) ? (
                         <span className="badge-danger">Expiré</span>
-                      ) : (coupon._count?.usages || 0) >= coupon.maxUses ? (
+                      ) : coupon.maxUses && (coupon._count?.usages || 0) >= coupon.maxUses ? (
                         <span className="badge-warning">Épuisé</span>
                       ) : (
                         <span className="badge-success">Actif</span>
@@ -259,34 +285,75 @@ export default function AdminCoupons() {
                   </button>
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description (optionnel)
+                </label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Ex: Promo lancement"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Réduction (%)
+                    Type de réduction
+                  </label>
+                  <select
+                    className="input"
+                    value={formData.discountType}
+                    onChange={(e) => setFormData({ ...formData, discountType: e.target.value })}
+                  >
+                    <option value="percentage">Pourcentage (%)</option>
+                    <option value="fixed">Montant fixe ($)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Valeur {formData.discountType === 'percentage' ? '(%)' : '($)'}
                   </label>
                   <input
                     type="number"
                     className="input"
-                    min="1"
-                    max="100"
-                    value={formData.discountPercent}
+                    min="0"
+                    max={formData.discountType === 'percentage' ? 100 : undefined}
+                    step="0.01"
+                    value={formData.discountValue}
                     onChange={(e) =>
-                      setFormData({ ...formData, discountPercent: e.target.value })
+                      setFormData({ ...formData, discountValue: e.target.value })
                     }
                     required
                   />
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Utilisations max
+                    Utilisations max (optionnel)
                   </label>
                   <input
                     type="number"
                     className="input"
                     min="1"
+                    placeholder="Illimité"
                     value={formData.maxUses}
                     onChange={(e) => setFormData({ ...formData, maxUses: e.target.value })}
-                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Achat minimum $ (optionnel)
+                  </label>
+                  <input
+                    type="number"
+                    className="input"
+                    min="0"
+                    step="0.01"
+                    value={formData.minPurchase}
+                    onChange={(e) => setFormData({ ...formData, minPurchase: e.target.value })}
                   />
                 </div>
               </div>
@@ -297,10 +364,21 @@ export default function AdminCoupons() {
                 <input
                   type="date"
                   className="input"
-                  value={formData.expiresAt}
-                  onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })}
+                  value={formData.validUntil}
+                  onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
                 />
               </div>
+              {selectedCoupon && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.isActive}
+                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                    className="h-4 w-4 text-green-600 rounded"
+                  />
+                  <span className="text-sm">Coupon actif</span>
+                </label>
+              )}
               <div className="flex space-x-4 pt-4">
                 <button type="button" onClick={resetForm} className="flex-1 btn-secondary">
                   Annuler
