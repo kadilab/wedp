@@ -76,104 +76,135 @@ export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
   const isStep1Valid = formData.displayName.trim().length > 0;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '500px' }}>
-        <div className="modal-header">
-          <h2>Become a Creator</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-2xl font-serif font-bold text-gray-900">
+            ✨ Become a Creator
+          </h2>
           <button
-            className="modal-close"
             onClick={onClose}
             disabled={loading}
+            className="text-gray-400 hover:text-gray-600 disabled:opacity-50 text-xl"
           >
             ✕
           </button>
         </div>
 
-        <div className="modal-body">
+        {/* Body */}
+        <div className="p-6 max-h-[70vh] overflow-y-auto">
           {error && (
-            <div className="error-message">
-              {error}
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm">{error}</p>
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="space-y-6">
             {/* Step 1: Basic Info */}
-            <div style={{ display: step >= 1 ? 'block' : 'none' }}>
-              <div className="form-group">
-                <label>Display Name *</label>
-                <input
-                  type="text"
-                  value={formData.displayName}
-                  onChange={(e) => handleInputChange('displayName', e.target.value)}
-                  placeholder="Your creator name"
-                  required
-                />
-                <small>This is how creators appear on the marketplace</small>
-              </div>
+            {step >= 1 && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Display Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.displayName}
+                    onChange={(e) => handleInputChange('displayName', e.target.value)}
+                    placeholder="Your creator name"
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    This is how creators appear on the marketplace
+                  </p>
+                </div>
 
-              <div className="form-group">
-                <label>Bio</label>
-                <textarea
-                  value={formData.bio}
-                  onChange={(e) => handleInputChange('bio', e.target.value)}
-                  placeholder="Tell creators about yourself..."
-                  rows="3"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bio
+                  </label>
+                  <textarea
+                    value={formData.bio}
+                    onChange={(e) => handleInputChange('bio', e.target.value)}
+                    placeholder="Tell creators about yourself..."
+                    rows="3"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition resize-none"
+                  />
+                </div>
 
-              <div className="form-group">
-                <label>Website</label>
-                <input
-                  type="url"
-                  value={formData.website}
-                  onChange={(e) => handleInputChange('website', e.target.value)}
-                  placeholder="https://yourwebsite.com"
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Website
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.website}
+                    onChange={(e) => handleInputChange('website', e.target.value)}
+                    placeholder="https://yourwebsite.com"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Step 2: Social Links */}
             {step >= 2 && (
-              <div>
-                <h3 style={{ marginBottom: '1rem' }}>Social Links (Optional)</h3>
+              <div className="space-y-4">
+                <h3 className="text-lg font-serif font-bold text-gray-900">
+                  Social Links (Optional)
+                </h3>
 
-                <div className="form-group">
-                  <label>Instagram</label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Instagram
+                  </label>
                   <input
                     type="text"
                     value={formData.socialLinks.instagram}
                     onChange={(e) => handleSocialChange('instagram', e.target.value)}
                     placeholder="@yourusername"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
                   />
                 </div>
 
-                <div className="form-group">
-                  <label>Twitter</label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Twitter
+                  </label>
                   <input
                     type="text"
                     value={formData.socialLinks.twitter}
                     onChange={(e) => handleSocialChange('twitter', e.target.value)}
                     placeholder="@yourusername"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
                   />
                 </div>
 
-                <div className="form-group">
-                  <label>TikTok</label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    TikTok
+                  </label>
                   <input
                     type="text"
                     value={formData.socialLinks.tiktok}
                     onChange={(e) => handleSocialChange('tiktok', e.target.value)}
                     placeholder="@yourusername"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
                   />
                 </div>
 
-                <div className="form-group">
-                  <label>Pinterest</label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Pinterest
+                  </label>
                   <input
                     type="text"
                     value={formData.socialLinks.pinterest}
                     onChange={(e) => handleSocialChange('pinterest', e.target.value)}
                     placeholder="@yourusername"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
                   />
                 </div>
               </div>
@@ -181,61 +212,58 @@ export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
 
             {/* Step 3: Terms */}
             {step >= 3 && (
-              <div style={{ backgroundColor: '#f5f5f5', padding: '1rem', borderRadius: '8px' }}>
-                <h3 style={{ marginBottom: '0.5rem' }}>Creator Terms</h3>
-                <p style={{ fontSize: '0.9rem', lineHeight: '1.6', color: '#666' }}>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                <h3 className="font-semibold text-gray-900">Creator Terms</h3>
+                <p className="text-sm text-gray-700">
                   By becoming a creator, you agree to:
                 </p>
-                <ul style={{ fontSize: '0.9rem', color: '#666', paddingLeft: '1.5rem' }}>
+                <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
                   <li>Create original or properly licensed templates</li>
                   <li>Maintain creator account in good standing</li>
                   <li>Accept platform commission structure</li>
                   <li>Comply with platform policies</li>
                 </ul>
-                <label style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <input type="checkbox" required />
-                  <span>I agree to creator terms</span>
+                <label className="flex items-center gap-2 mt-4 cursor-pointer">
+                  <input type="checkbox" required className="rounded" />
+                  <span className="text-sm text-gray-700">I agree to creator terms</span>
                 </label>
               </div>
             )}
-
-            {/* Navigation */}
-            <div className="modal-footer">
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between' }}>
-                {step > 1 && (
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => setStep(step - 1)}
-                    disabled={loading}
-                  >
-                    Back
-                  </button>
-                )}
-
-                {step < 3 ? (
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={() => setStep(step + 1)}
-                    disabled={!isStep1Valid || loading}
-                    style={{ marginLeft: step === 1 ? 'auto' : 'auto' }}
-                  >
-                    Next
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={loading}
-                    style={{ marginLeft: 'auto' }}
-                  >
-                    {loading ? 'Creating...' : 'Create Profile'}
-                  </button>
-                )}
-              </div>
-            </div>
           </form>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 flex gap-3 justify-between">
+          {step > 1 && (
+            <button
+              type="button"
+              onClick={() => setStep(step - 1)}
+              disabled={loading}
+              className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition font-medium"
+            >
+              Back
+            </button>
+          )}
+
+          {step < 3 ? (
+            <button
+              type="button"
+              onClick={() => setStep(step + 1)}
+              disabled={!isStep1Valid || loading}
+              className="ml-auto px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition font-medium"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              type="submit"
+              onClick={handleSubmit}
+              disabled={loading}
+              className="ml-auto px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition font-medium"
+            >
+              {loading ? 'Creating...' : 'Create Profile'}
+            </button>
+          )}
         </div>
       </div>
     </div>
