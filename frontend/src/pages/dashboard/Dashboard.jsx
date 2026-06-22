@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from 'react-query'
+import { useQuery, useQueryClient } from 'react-query'
 import { userAPI, weddingAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { format } from 'date-fns'
@@ -19,6 +19,15 @@ import {
 export default function Dashboard() {
   const { user, setUser } = useAuthStore()
   const [showCreatorModal, setShowCreatorModal] = useState(false)
+  const queryClient = useQueryClient()
+
+  const handleCreatorSuccess = () => {
+    // Update user state
+    setUser({ ...user, isCreator: true })
+    // Invalidate queries to force refresh
+    queryClient.invalidateQueries('userStats')
+    setShowCreatorModal(false)
+  }
 
   const { data: statsData, isLoading: statsLoading } = useQuery(
     'userStats',
@@ -277,7 +286,7 @@ export default function Dashboard() {
       <CreatorOnboarding
         isOpen={showCreatorModal}
         onClose={() => setShowCreatorModal(false)}
-        onSuccess={() => setUser({ ...user, isCreator: true })}
+        onSuccess={handleCreatorSuccess}
       />
     </div>
   )

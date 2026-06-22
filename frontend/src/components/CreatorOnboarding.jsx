@@ -30,16 +30,24 @@ export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
         bio: formData.bio.trim()
       });
 
-      // Update user state
-      setUser({
-        ...user,
-        isCreator: true
-      });
+      // Update user state to mark as creator
+      if (setUser && user) {
+        setUser({
+          ...user,
+          isCreator: true
+        });
+      }
 
+      // Call success callback to trigger parent refresh
       onSuccess?.();
-      onClose?.();
+
+      // Close modal after successful creation
+      setTimeout(() => {
+        onClose?.();
+      }, 500);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create creator profile');
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to create creator profile';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
