@@ -494,7 +494,7 @@ export default function WeddingCreate() {
               </div>
 
               {/* Photo des mariés */}
-              <div className="border-t pt-6">
+              {/*<div className="border-t pt-6">
                 <h3 className="font-medium text-gray-900 flex items-center mb-1">
                   <PhotoIcon className="h-5 w-5 mr-2 text-primary-500" />
                   Photo des mariés
@@ -518,7 +518,7 @@ export default function WeddingCreate() {
                   </div>
                   <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
                 </div>
-              </div>
+              </div>*/}
 
               {/* Extra personalization */}
               <div className="border-t pt-6 space-y-4">
