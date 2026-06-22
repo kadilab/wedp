@@ -82,21 +82,27 @@ router.get('/me', authenticate, isCreator, async (req, res) => {
     const userId = req.user.id;
 
     const creatorProfile = await prisma.creatorProfile.findUnique({
-      where: { userId },
-      include: {
-        _count: {
-          select: {
-            marketplaceListings: { where: { status: 'APPROVED' } },
-            usageTracks: true,
-            payouts: true
-          }
-        }
-      }
+      where: { userId }
     });
 
     if (!creatorProfile) {
       return res.status(404).json({ message: 'Creator profile not found' });
     }
+
+    // Count marketplace listings
+    const templateCount = await prisma.templateMarketplace.count({
+      where: { creatorId: creatorProfile.id, status: 'APPROVED' }
+    });
+
+    // Count usage tracks
+    const totalUsages = await prisma.templateUsageTrack.count({
+      where: { creatorId: creatorProfile.id }
+    });
+
+    // Count payouts
+    const totalPayouts = await prisma.creatorPayout.count({
+      where: { creatorId: creatorProfile.id, status: 'PAID' }
+    });
 
     // Calculate earnings summary
     const earnings = await prisma.templateUsageTrack.groupBy({
@@ -136,9 +142,9 @@ router.get('/me', authenticate, isCreator, async (req, res) => {
       },
       earnings: earningsSummary,
       statistics: {
-        templateCount: creatorProfile._count.marketplaceListings,
-        totalUsages: creatorProfile._count.usageTracks,
-        totalPayouts: creatorProfile._count.payouts
+        templateCount,
+        totalUsages,
+        totalPayouts
       }
     });
   } catch (error) {
