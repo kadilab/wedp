@@ -5,7 +5,7 @@ import api from '../services/api';
 export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { user, setUser } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
 
   const [formData, setFormData] = useState({
     displayName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim(),
@@ -31,11 +31,8 @@ export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
       });
 
       // Update user state to mark as creator
-      if (setUser && user) {
-        setUser({
-          ...user,
-          isCreator: true
-        });
+      if (updateUser && user) {
+        updateUser({ isCreator: true });
       }
 
       // Call success callback to trigger parent refresh

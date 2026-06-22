@@ -17,13 +17,13 @@ import {
 } from '@heroicons/react/24/outline'
 
 export default function Dashboard() {
-  const { user, setUser } = useAuthStore()
+  const { user, updateUser } = useAuthStore()
   const [showCreatorModal, setShowCreatorModal] = useState(false)
   const queryClient = useQueryClient()
 
   const handleCreatorSuccess = () => {
     // Update user state
-    setUser({ ...user, isCreator: true })
+    updateUser({ isCreator: true })
     // Invalidate queries to force refresh
     queryClient.invalidateQueries('userStats')
     setShowCreatorModal(false)
