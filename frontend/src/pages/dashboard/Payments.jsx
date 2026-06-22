@@ -145,9 +145,17 @@ export default function Payments() {
             <strong>1 invitation gratuite</strong> par événement, puis <strong>{pricing.unitPrice} $</strong> par invitation supplémentaire.
           </p>
           {pricing.paymentMethods?.length > 0 ? (
-            <p className="mt-1 text-primary-700">
-              Paiement accepté via {pricing.paymentMethods.map(m => m.provider).join(', ')} — cliquez sur "Acheter" pour les détails.
-            </p>
+            <div className="mt-1 text-primary-700">
+              <span>Paiement accepté via — cliquez sur "Acheter" pour les détails.</span>
+              <div className="flex flex-wrap items-center gap-3 mt-2">
+                {pricing.paymentMethods.map((m, i) => (
+                  <span key={i} className="inline-flex items-center gap-1.5 bg-white rounded-lg px-2 py-1 border border-primary-100">
+                    {m.logo && <img src={m.logo} alt={m.provider} className="w-5 h-5 object-contain" />}
+                    <span className="text-xs font-medium text-gray-700">{m.provider}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
           ) : (
             <p className="mt-1 text-amber-700">Aucun moyen de paiement configuré pour le moment - contactez le support.</p>
           )}

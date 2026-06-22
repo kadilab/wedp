@@ -4,6 +4,7 @@ const { PrismaClient } = require('@prisma/client');
 const { authenticate, optionalAuth } = require('../middleware/auth.middleware');
 const logger = require('../utils/logger');
 const { createNotification, NotificationTemplates } = require('../utils/notifications');
+const { eventDisplayName } = require('../utils/helpers');
 
 const prisma = new PrismaClient();
 
@@ -116,7 +117,7 @@ router.post('/scan', authenticate, async (req, res) => {
     // Notify wedding owner
     const checkinNotif = NotificationTemplates.guestCheckedIn(
       `${invitation.guest.firstName} ${invitation.guest.lastName}`,
-      `${invitation.wedding.brideName} & ${invitation.wedding.groomName}`
+      eventDisplayName(invitation.wedding)
     );
     createNotification({
       userId: invitation.wedding.user.id,

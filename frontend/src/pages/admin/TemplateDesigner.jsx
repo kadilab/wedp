@@ -24,7 +24,9 @@ import {
   Cog6ToothIcon,
   SparklesIcon,
   StarIcon,
-  ArrowsPointingOutIcon
+  ArrowsPointingOutIcon,
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon
 } from '@heroicons/react/24/outline'
 
 // ===================== CONSTANTS =====================
@@ -567,6 +569,7 @@ export default function TemplateDesigner({ clientMode = false }) {
   const [zoom, setZoom] = useState(0.65)
   const [saving, setSaving] = useState(false)
   const [activePanel, setActivePanel] = useState('format') // format, background, elements, properties, settings
+  const [panelCollapsed, setPanelCollapsed] = useState(false) // collapse the left tools sidebar for a bigger canvas
   const [uploading, setUploading] = useState(false)
   const [canvasWidth, setCanvasWidth] = useState(DEFAULT_CANVAS_WIDTH)
   const [canvasHeight, setCanvasHeight] = useState(DEFAULT_CANVAS_HEIGHT)
@@ -1450,10 +1453,38 @@ export default function TemplateDesigner({ clientMode = false }) {
 
       {/* Main Area */}
       <div className="flex flex-1 overflow-hidden">
+        {/* Collapsed rail - thin strip with the panel tabs as icons + expand button */}
+        {panelCollapsed && (
+          <div className="w-12 bg-white border-r flex flex-col items-center py-2 gap-1 shrink-0">
+            <button
+              onClick={() => setPanelCollapsed(false)}
+              className="p-2 mb-1 text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
+              title="Afficher le panneau"
+            >
+              <ChevronDoubleRightIcon className="h-5 w-5" />
+            </button>
+            {[
+              { id: 'format', label: 'Format', icon: ArrowsPointingOutIcon },
+              { id: 'background', label: 'Fond', icon: PhotoIcon },
+              { id: 'elements', label: 'Éléments', icon: CursorArrowRaysIcon },
+              { id: 'settings', label: 'Infos', icon: Cog6ToothIcon }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => { setActivePanel(tab.id); setPanelCollapsed(false) }}
+                className={`p-2 rounded-lg ${activePanel === tab.id ? 'text-primary-600 bg-primary-50' : 'text-gray-400 hover:text-gray-600'}`}
+                title={tab.label}
+              >
+                <tab.icon className="h-5 w-5" />
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Left Panel */}
-        <div className="w-72 bg-white border-r flex flex-col shrink-0 overflow-hidden">
+        <div className={`${panelCollapsed ? 'hidden' : 'w-72'} bg-white border-r flex flex-col shrink-0 overflow-hidden`}>
           {/* Panel Tabs */}
-          <div className="flex border-b">
+          <div className="flex border-b items-stretch">
             {[
               { id: 'format', label: 'Format', icon: ArrowsPointingOutIcon },
               { id: 'background', label: 'Fond', icon: PhotoIcon },
@@ -1471,6 +1502,13 @@ export default function TemplateDesigner({ clientMode = false }) {
                 {tab.label}
               </button>
             ))}
+            <button
+              onClick={() => setPanelCollapsed(true)}
+              className="px-2 text-gray-400 hover:text-primary-600 border-l"
+              title="Masquer le panneau"
+            >
+              <ChevronDoubleLeftIcon className="h-4 w-4" />
+            </button>
           </div>
 
           {/* Format Panel */}

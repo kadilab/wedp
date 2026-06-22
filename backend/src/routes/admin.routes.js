@@ -3,13 +3,14 @@ const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const { authenticate, isAdmin } = require('../middleware/auth.middleware');
 const { paginationValidation } = require('../middleware/validation.middleware');
-const { paginate, buildPaginationMeta } = require('../utils/helpers');
+const { paginate, buildPaginationMeta, eventDisplayName } = require('../utils/helpers');
 const logger = require('../utils/logger');
 const { createNotification, NotificationTemplates } = require('../utils/notifications');
 const { getTelegramConfig } = require('../utils/telegram');
 const axios = require('axios');
 const { generatePrintLayoutPDF, calculateImposition, PRINT_SIZES_MM } = require('../utils/pdf');
 const { uploadSingle, handleUploadError } = require('../middleware/upload.middleware');
+const { safeDeleteUploads } = require('../utils/fileCleanup');
 
 const prisma = new PrismaClient();
 
@@ -645,14 +646,31 @@ router.delete('/weddings/:id', authenticate, isAdmin, async (req, res) => {
   try {
     const wedding = await prisma.wedding.findUnique({
       where: { id: req.params.id },
-      select: { id: true, brideName: true, groomName: true }
+      include: {
+        invitations: { select: { qrCodeUrl: true, pdfUrl: true } },
+        template: { select: { backgroundUrl: true, previewImage: true, thumbnail: true } }
+      }
     });
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
+    const galleryPhotos = Array.isArray(wedding.galleryPhotos) ? wedding.galleryPhotos : [];
+    const weddingFiles = [
+      wedding.coverPhoto, wedding.couplePhoto, wedding.logo, wedding.backgroundImage,
+      wedding.qrCodeLogo, wedding.qrCodeUrl, ...galleryPhotos,
+      ...wedding.invitations.flatMap(inv => [inv.qrCodeUrl, inv.pdfUrl])
+    ];
+    const sharedTemplateFiles = wedding.template
+      ? [wedding.template.backgroundUrl, wedding.template.previewImage, wedding.template.thumbnail]
+      : [];
+
     await prisma.wedding.delete({ where: { id: req.params.id } });
+
+    safeDeleteUploads(weddingFiles, sharedTemplateFiles)
+      .then(count => { if (count) logger.info(`Deleted ${count} file(s) for wedding ${req.params.id}`); })
+      .catch(err => logger.warn(`File cleanup for wedding ${req.params.id} failed: ${err.message}`));
 
     // Log deletion
     await prisma.log.create({
@@ -1317,6 +1335,21 @@ router.delete('/settings/logo', authenticate, isAdmin, async (req, res) => {
   }
 });
 
+// Upload a payment-method logo (e.g. Orange Money, Wave) - returns the URL,
+// which the admin then stores inside the invitationPaymentMethods JSON.
+router.post('/settings/payment-logo', authenticate, isAdmin, uploadSingle('logo'), handleUploadError, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Aucun fichier envoyé' });
+    }
+    const logoUrl = `/uploads/logos/${req.file.filename}`;
+    res.json({ message: 'Logo téléversé', logoUrl });
+  } catch (error) {
+    logger.error('Upload payment logo error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 // ==================== PRINT ORDERS ====================
 
 /**
@@ -1457,7 +1490,7 @@ router.put('/print-orders/:id/status', authenticate, isAdmin, async (req, res) =
           userId: order.userId,
           type: 'PRINT_ORDER_UPDATE',
           title: 'Commande d\'impression mise à jour',
-          message: `Votre commande d\'impression pour "${order.wedding.brideName} & ${order.wedding.groomName}" est ${statusLabels[status]}${trackingNumber ? `. Numéro de suivi: ${trackingNumber}` : ''}.`,
+          message: `Votre commande d\'impression pour "${eventDisplayName(order.wedding)}" est ${statusLabels[status]}${trackingNumber ? `. Numéro de suivi: ${trackingNumber}` : ''}.`,
           data: { orderId: order.id, status, trackingNumber }
         }
       });

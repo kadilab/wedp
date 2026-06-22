@@ -143,6 +143,21 @@ function sanitizeObject(obj) {
   );
 }
 
+/**
+ * Human-readable name for an event, coherent across event types:
+ * weddings show "Bride & Groom", everything else shows its event title.
+ * Falls back gracefully so notifications never print "undefined & undefined".
+ * @param {{eventType?: string, brideName?: string, groomName?: string, eventTitle?: string}} wedding
+ */
+function eventDisplayName(wedding) {
+  if (!wedding) return 'Événement';
+  const isWedding = !wedding.eventType || wedding.eventType === 'WEDDING';
+  if (isWedding && (wedding.brideName || wedding.groomName)) {
+    return `${wedding.brideName || ''} & ${wedding.groomName || ''}`.trim();
+  }
+  return wedding.eventTitle || 'Événement';
+}
+
 module.exports = {
   generateSlug,
   generateWeddingSlug,
@@ -153,5 +168,6 @@ module.exports = {
   parseCSV,
   mapCSVToGuest,
   generateToken,
-  sanitizeObject
+  sanitizeObject,
+  eventDisplayName
 };

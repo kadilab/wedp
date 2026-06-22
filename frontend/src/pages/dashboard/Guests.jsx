@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { guestAPI, weddingAPI, invitationOrderAPI } from '../../services/api'
 import BuyQuotaModal from '../../components/invitations/BuyQuotaModal'
-import { getGuestCategoryOptions } from '../../utils/eventTypes'
+import { getGuestCategoryOptions, eventUsesTables, eventUsesPlusOnes } from '../../utils/eventTypes'
 import toast from 'react-hot-toast'
 import {
   PlusIcon,
@@ -28,6 +28,8 @@ export default function Guests() {
 
   const { data: weddingData } = useQuery(['wedding', weddingId], () => weddingAPI.getOne(weddingId))
   const wedding = weddingData?.data?.wedding
+  const usesTables = eventUsesTables(wedding?.eventType)
+  const usesPlusOnes = eventUsesPlusOnes(wedding?.eventType)
 
   const { data: quotaData } = useQuery(
     ['quota', weddingId],
@@ -206,9 +208,9 @@ export default function Guests() {
                   <th>Nom</th>
                   <th>Téléphone</th>
                   <th>Catégorie</th>
-                  <th>Table</th>
+                  {usesTables && <th>Table</th>}
                   <th>RSVP</th>
-                  <th>Type</th>
+                  {usesPlusOnes && <th>Type</th>}
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -222,13 +224,15 @@ export default function Guests() {
                     <td>
                       <span className="badge-info">{guest.category || 'Autre'}</span>
                     </td>
-                    <td>{guest.tableNumber || '-'}</td>
+                    {usesTables && <td>{guest.tableNumber || '-'}</td>}
                     <td>{getRsvpBadge(guest.rsvpStatus)}</td>
-                    <td>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${guest.plusOnes > 0 ? 'bg-rose-100 text-rose-700' : 'bg-gray-100 text-gray-600'}`}>
-                        {guest.plusOnes > 0 ? '👫 Couple' : '🧍 Singleton'}
-                      </span>
-                    </td>
+                    {usesPlusOnes && (
+                      <td>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${guest.plusOnes > 0 ? 'bg-rose-100 text-rose-700' : 'bg-gray-100 text-gray-600'}`}>
+                          {guest.plusOnes > 0 ? '👫 Couple' : '🧍 Singleton'}
+                        </span>
+                      </td>
+                    )}
                     <td>
                       <div className="flex items-center gap-2">
                         <button
@@ -263,6 +267,8 @@ export default function Guests() {
           guest={editingGuest}
           weddingId={weddingId}
           eventType={wedding?.eventType}
+          usesTables={usesTables}
+          usesPlusOnes={usesPlusOnes}
           onClose={() => {
             setShowAddModal(false)
             setEditingGuest(null)
@@ -279,7 +285,7 @@ export default function Guests() {
   )
 }
 
-function GuestModal({ guest, weddingId, eventType, onClose }) {
+function GuestModal({ guest, weddingId, eventType, usesTables = true, usesPlusOnes = true, onClose }) {
   const queryClient = useQueryClient()
   const categoryOptions = getGuestCategoryOptions(eventType)
   const [formData, setFormData] = useState({
@@ -363,7 +369,7 @@ function GuestModal({ guest, weddingId, eventType, onClose }) {
             </div>
           </div>
           <div>
-            <label className="label">Téléphone (WhatsApp)</label>
+            <label className="label">Téléphone (WhatsApp) <span className="text-gray-400 font-normal">— optionnel</span></label>
             <input
               type="tel"
               className="input"
@@ -371,7 +377,7 @@ function GuestModal({ guest, weddingId, eventType, onClose }) {
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className={usesTables ? 'grid grid-cols-2 gap-4' : ''}>
             <div>
               <label className="label">Catégorie</label>
               <select
@@ -385,70 +391,74 @@ function GuestModal({ guest, weddingId, eventType, onClose }) {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="label">Table</label>
-              {tables.length > 0 ? (
-                <select
-                  className="input"
-                  value={formData.tableNumber}
-                  onChange={(e) => setFormData({ ...formData, tableNumber: e.target.value })}
-                >
-                  <option value="">-- Sélectionner une table --</option>
-                  {tables.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              ) : (
-                <div>
-                  <input
-                    type="text"
+            {usesTables && (
+              <div>
+                <label className="label">Table</label>
+                {tables.length > 0 ? (
+                  <select
                     className="input"
                     value={formData.tableNumber}
                     onChange={(e) => setFormData({ ...formData, tableNumber: e.target.value })}
-                    placeholder="Nom de la table"
-                  />
-                  <p className="text-xs text-gray-400 mt-1">
-                    💡 Ajoutez des tables dans les détails du mariage pour les retrouver ici en liste
-                  </p>
-                </div>
-              )}
-            </div>
+                  >
+                    <option value="">-- Sélectionner une table --</option>
+                    {tables.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div>
+                    <input
+                      type="text"
+                      className="input"
+                      value={formData.tableNumber}
+                      onChange={(e) => setFormData({ ...formData, tableNumber: e.target.value })}
+                      placeholder="Nom de la table"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      💡 Ajoutez des tables dans les détails de l'événement pour les retrouver ici en liste
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <div>
-            <label className="label">Type d'invitation</label>
-            <div className="grid grid-cols-2 gap-3 mt-1">
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, plusOnes: 0 })}
-                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 font-medium transition-all ${
-                  formData.plusOnes === 0
-                    ? 'border-primary-600 bg-primary-50 text-primary-700'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                }`}
-              >
-                <span className="text-xl">🧍</span>
-                <div className="text-left">
-                  <p className="text-sm font-semibold">Singleton</p>
-                  <p className="text-xs opacity-70">1 personne</p>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, plusOnes: 1 })}
-                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 font-medium transition-all ${
-                  formData.plusOnes > 0
-                    ? 'border-primary-600 bg-primary-50 text-primary-700'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                }`}
-              >
-                <span className="text-xl">👫</span>
-                <div className="text-left">
-                  <p className="text-sm font-semibold">Couple</p>
-                  <p className="text-xs opacity-70">2 personnes</p>
-                </div>
-              </button>
+          {usesPlusOnes && (
+            <div>
+              <label className="label">Type d'invitation</label>
+              <div className="grid grid-cols-2 gap-3 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, plusOnes: 0 })}
+                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 font-medium transition-all ${
+                    formData.plusOnes === 0
+                      ? 'border-primary-600 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="text-xl">🧍</span>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold">Singleton</p>
+                    <p className="text-xs opacity-70">1 personne</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, plusOnes: 1 })}
+                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 font-medium transition-all ${
+                    formData.plusOnes > 0
+                      ? 'border-primary-600 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="text-xl">👫</span>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold">Couple</p>
+                    <p className="text-xs opacity-70">2 personnes</p>
+                  </div>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
           <div>
             <label className="label">Notes</label>
             <textarea

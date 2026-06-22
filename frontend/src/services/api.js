@@ -272,6 +272,13 @@ export const adminAPI = {
     })
   },
   deleteSettingsLogo: () => api.delete('/admin/settings/logo'),
+  uploadPaymentLogo: (file) => {
+    const formData = new FormData()
+    formData.append('logo', file)
+    return api.post('/admin/settings/payment-logo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
   getUsers: (params) => api.get('/admin/users', { params }),
   getUser: (id) => api.get(`/admin/users/${id}`),
   updateUser: (id, data) => api.put(`/admin/users/${id}`, data),

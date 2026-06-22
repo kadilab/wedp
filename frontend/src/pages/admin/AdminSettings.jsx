@@ -133,8 +133,19 @@ export default function AdminSettings() {
   const addInvitationPaymentMethod = () =>
     setFormData(prev => ({
       ...prev,
-      invitationPaymentMethods: [...prev.invitationPaymentMethods, { provider: '', number: '', instructions: '' }]
+      invitationPaymentMethods: [...prev.invitationPaymentMethods, { provider: '', number: '', instructions: '', logo: '' }]
     }))
+
+  const uploadPaymentLogo = async (index, file) => {
+    if (!file) return
+    try {
+      const res = await adminAPI.uploadPaymentLogo(file)
+      updateInvitationPaymentMethod(index, 'logo', res.data.logoUrl)
+      toast.success('Logo ajouté — n\'oubliez pas d\'enregistrer')
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur lors de l\'upload du logo')
+    }
+  }
 
   const updateInvitationPaymentMethod = (index, field, value) =>
     setFormData(prev => ({
@@ -562,36 +573,66 @@ export default function AdminSettings() {
 
                     <div className="space-y-3">
                       {formData.invitationPaymentMethods.map((method, index) => (
-                        <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                          <input
-                            type="text"
-                            className="input"
-                            placeholder="Ex: Orange Money"
-                            value={method.provider}
-                            onChange={(e) => updateInvitationPaymentMethod(index, 'provider', e.target.value)}
-                          />
-                          <input
-                            type="text"
-                            className="input"
-                            placeholder="Numéro (+221 77 XXX XX XX)"
-                            value={method.number}
-                            onChange={(e) => updateInvitationPaymentMethod(index, 'number', e.target.value)}
-                          />
-                          <input
-                            type="text"
-                            className="input"
-                            placeholder="Instructions (optionnel)"
-                            value={method.instructions}
-                            onChange={(e) => updateInvitationPaymentMethod(index, 'instructions', e.target.value)}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeInvitationPaymentMethod(index)}
-                            className="flex items-center justify-center text-red-500 hover:text-red-700 px-2"
-                            title="Supprimer"
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button>
+                        <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_1fr_1fr_auto] gap-2 items-start">
+                            {/* Logo */}
+                            <div className="flex flex-col items-center gap-1">
+                              <label
+                                className="w-14 h-14 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer bg-white hover:border-primary-400 overflow-hidden"
+                                title="Logo du moyen de paiement"
+                              >
+                                {method.logo ? (
+                                  <img src={method.logo} alt={method.provider} className="w-full h-full object-contain" />
+                                ) : (
+                                  <PhotoIcon className="h-6 w-6 text-gray-300" />
+                                )}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => uploadPaymentLogo(index, e.target.files?.[0])}
+                                />
+                              </label>
+                              {method.logo && (
+                                <button
+                                  type="button"
+                                  onClick={() => updateInvitationPaymentMethod(index, 'logo', '')}
+                                  className="text-[10px] text-red-500 hover:text-red-700"
+                                >
+                                  Retirer
+                                </button>
+                              )}
+                            </div>
+                            <input
+                              type="text"
+                              className="input"
+                              placeholder="Ex: Orange Money"
+                              value={method.provider}
+                              onChange={(e) => updateInvitationPaymentMethod(index, 'provider', e.target.value)}
+                            />
+                            <input
+                              type="text"
+                              className="input"
+                              placeholder="Numéro (+221 77 XXX XX XX)"
+                              value={method.number}
+                              onChange={(e) => updateInvitationPaymentMethod(index, 'number', e.target.value)}
+                            />
+                            <input
+                              type="text"
+                              className="input"
+                              placeholder="Instructions (optionnel)"
+                              value={method.instructions}
+                              onChange={(e) => updateInvitationPaymentMethod(index, 'instructions', e.target.value)}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeInvitationPaymentMethod(index)}
+                              className="flex items-center justify-center text-red-500 hover:text-red-700 px-2 h-10"
+                              title="Supprimer"
+                            >
+                              <TrashIcon className="h-5 w-5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>

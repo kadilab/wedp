@@ -9,9 +9,13 @@ import './index.css'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
+      // Keep data feeling live: refetch when the user comes back to the tab or
+      // reconnects, and treat data as stale after 30s so background navigation
+      // pulls fresh data instead of showing minutes-old cached values.
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
       retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 30 * 1000, // 30 seconds
     },
   },
 })

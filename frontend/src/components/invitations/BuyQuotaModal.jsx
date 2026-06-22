@@ -189,10 +189,15 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
                 <div className="p-4 bg-gray-50 rounded-xl space-y-3">
                   <p className="text-sm font-medium text-gray-700">Moyens de paiement disponibles</p>
                   {pricing.paymentMethods.map((m, i) => (
-                    <div key={i} className="text-sm">
-                      <span className="font-semibold text-gray-900">{m.provider}</span>{' '}
-                      <span className="font-mono text-gray-700">{m.number}</span>
-                      {m.instructions && <p className="text-gray-500 mt-0.5">{m.instructions}</p>}
+                    <div key={i} className="text-sm flex items-start gap-2">
+                      {m.logo && (
+                        <img src={m.logo} alt={m.provider} className="w-8 h-8 object-contain rounded shrink-0" />
+                      )}
+                      <div>
+                        <span className="font-semibold text-gray-900">{m.provider}</span>{' '}
+                        <span className="font-mono text-gray-700">{m.number}</span>
+                        {m.instructions && <p className="text-gray-500 mt-0.5">{m.instructions}</p>}
+                      </div>
                     </div>
                   ))}
                 </div>

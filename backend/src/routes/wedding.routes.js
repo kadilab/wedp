@@ -6,6 +6,7 @@ const { createWeddingValidation, updateWeddingValidation, paginationValidation }
 const { uploadSingle, handleUploadError } = require('../middleware/upload.middleware');
 const { generateWeddingSlug, paginate, buildPaginationMeta, daysUntilWedding } = require('../utils/helpers');
 const { generateQRCode } = require('../utils/qrcode');
+const { safeDeleteUploads } = require('../utils/fileCleanup');
 const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
@@ -694,9 +695,47 @@ router.post('/:id/logo', authenticate, isOwner(), uploadSingle('logo'), handleUp
  */
 router.delete('/:id', authenticate, isOwner(), async (req, res) => {
   try {
+    // Gather the wedding's own uploaded assets + its invitations' generated
+    // files so we can remove them from disk after the DB row is deleted.
+    // Template images are shared across many weddings, so we explicitly exclude
+    // them from deletion.
+    const wedding = await prisma.wedding.findUnique({
+      where: { id: req.params.id },
+      include: {
+        invitations: { select: { qrCodeUrl: true, pdfUrl: true } },
+        template: { select: { backgroundUrl: true, previewImage: true, thumbnail: true } }
+      }
+    });
+
+    if (!wedding) {
+      return res.status(404).json({ error: 'Projet non trouvé' });
+    }
+
+    const galleryPhotos = Array.isArray(wedding.galleryPhotos) ? wedding.galleryPhotos : [];
+    const weddingFiles = [
+      wedding.coverPhoto,
+      wedding.couplePhoto,
+      wedding.logo,
+      wedding.backgroundImage,
+      wedding.qrCodeLogo,
+      wedding.qrCodeUrl,
+      ...galleryPhotos,
+      ...wedding.invitations.flatMap(inv => [inv.qrCodeUrl, inv.pdfUrl])
+    ];
+    // Never delete shared template assets, even if a wedding field happens to
+    // point at one.
+    const sharedTemplateFiles = wedding.template
+      ? [wedding.template.backgroundUrl, wedding.template.previewImage, wedding.template.thumbnail]
+      : [];
+
     await prisma.wedding.delete({
       where: { id: req.params.id }
     });
+
+    // Best-effort disk cleanup - runs after the row is gone, never blocks the response
+    safeDeleteUploads(weddingFiles, sharedTemplateFiles)
+      .then(count => { if (count) logger.info(`Deleted ${count} file(s) for wedding ${req.params.id}`); })
+      .catch(err => logger.warn(`File cleanup for wedding ${req.params.id} failed: ${err.message}`));
 
     // Log deletion
     await prisma.log.create({

@@ -206,7 +206,7 @@ router.get('/', authenticate, paginationValidation, async (req, res) => {
         orderBy: { createdAt: 'desc' },
         include: {
           wedding: {
-            select: { id: true, brideName: true, groomName: true, slug: true }
+            select: { id: true, brideName: true, groomName: true, eventType: true, eventTitle: true, slug: true }
           },
           user: {
             select: { id: true, firstName: true, lastName: true, email: true }

@@ -3,6 +3,7 @@ const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const logger = require('../utils/logger');
 const { createNotification, NotificationTemplates } = require('../utils/notifications');
+const { eventDisplayName } = require('../utils/helpers');
 
 const prisma = new PrismaClient();
 
@@ -214,7 +215,7 @@ router.post('/:weddingSlug/:invitationCode/rsvp', async (req, res) => {
     // Notify wedding owner
     const rsvpNotif = NotificationTemplates.rsvpReceived(
       `${guest.firstName} ${guest.lastName}`,
-      `${wedding.brideName} & ${wedding.groomName}`,
+      eventDisplayName(wedding),
       response
     );
     createNotification({
