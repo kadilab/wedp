@@ -79,17 +79,31 @@ export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-serif font-bold text-gray-900">
-            ✨ Become a Creator
-          </h2>
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="text-gray-400 hover:text-gray-600 disabled:opacity-50 text-xl"
-          >
-            ✕
-          </button>
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-serif font-bold text-gray-900">
+              ✨ Become a Creator
+            </h2>
+            <button
+              onClick={onClose}
+              disabled={loading}
+              className="text-gray-400 hover:text-gray-600 disabled:opacity-50 text-xl"
+            >
+              ✕
+            </button>
+          </div>
+          {/* Progress Bar */}
+          <div className="flex gap-2">
+            {[1, 2, 3].map(i => (
+              <div
+                key={i}
+                className={`flex-1 h-1 rounded-full transition-colors ${
+                  i <= step ? 'bg-primary-600' : 'bg-gray-300'
+                }`}
+              />
+            ))}
+          </div>
+          <p className="text-sm text-gray-600 mt-2">Step {step} of 3</p>
         </div>
 
         {/* Body */}
@@ -102,7 +116,7 @@ export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Step 1: Basic Info */}
-            {step >= 1 && (
+            {step === 1 && (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -139,7 +153,7 @@ export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
                     Website
                   </label>
                   <input
-                    type="url"
+                    type="text"
                     value={formData.website}
                     onChange={(e) => handleInputChange('website', e.target.value)}
                     placeholder="https://yourwebsite.com"
@@ -150,7 +164,7 @@ export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
             )}
 
             {/* Step 2: Social Links */}
-            {step >= 2 && (
+            {step === 2 && (
               <div className="space-y-4">
                 <h3 className="text-lg font-serif font-bold text-gray-900">
                   Social Links (Optional)
@@ -211,7 +225,7 @@ export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
             )}
 
             {/* Step 3: Terms */}
-            {step >= 3 && (
+            {step === 3 && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
                 <h3 className="font-semibold text-gray-900">Creator Terms</h3>
                 <p className="text-sm text-gray-700">
