@@ -60,9 +60,9 @@ export default function Marketplace() {
   return (
     <div className="space-y-8">
       {/* Hero Header */}
-      <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 rounded-3xl p-12 border border-indigo-100 shadow-sm">
+      <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-3xl p-12 border border-primary-100 shadow-sm">
         <div className="max-w-3xl">
-          <h1 className="text-5xl font-serif font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
+          <h1 className="text-5xl font-serif font-bold text-primary-700 mb-4">
             Template Marketplace
           </h1>
           <p className="text-gray-700 text-xl leading-relaxed">
@@ -75,7 +75,7 @@ export default function Marketplace() {
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2 text-lg font-semibold text-gray-900 hover:text-indigo-600 transition-colors"
+          className="flex items-center gap-2 text-lg font-semibold text-gray-900 hover:text-primary-600 transition-colors"
         >
           <FunnelIcon className="w-5 h-5" />
           {showFilters ? 'Masquer les filtres' : 'Afficher les filtres'}
@@ -91,7 +91,7 @@ export default function Marketplace() {
               <select
                 value={sort}
                 onChange={(e) => handleFilterChange('sort', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white transition-all hover:border-gray-400"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white transition-all hover:border-gray-400"
               >
                 <option value="newest">Plus récent</option>
                 <option value="popular">Plus populaire</option>
@@ -107,7 +107,7 @@ export default function Marketplace() {
               <select
                 value={eventType}
                 onChange={(e) => handleFilterChange('eventType', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white transition-all hover:border-gray-400"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white transition-all hover:border-gray-400"
               >
                 <option value="">Tous les événements</option>
                 {eventTypes.map(type => (
@@ -126,7 +126,7 @@ export default function Marketplace() {
               <select
                 value={category}
                 onChange={(e) => handleFilterChange('category', e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white transition-all hover:border-gray-400"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white transition-all hover:border-gray-400"
               >
                 <option value="">Toutes les catégories</option>
                 {categories.map(cat => (
@@ -157,9 +157,9 @@ export default function Marketplace() {
           <p className="text-red-600 mt-2">Veuillez réessayer plus tard</p>
         </div>
       ) : templates.length === 0 ? (
-        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-16 text-center border border-indigo-100">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-indigo-100 mb-6">
-            <svg className="w-10 h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-gradient-to-br from-primary-50 to-secondary-50 rounded-2xl p-16 text-center border border-primary-100">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary-100 mb-6">
+            <svg className="w-10 h-10 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 015.646 5.646M9 9h.01M15 15h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5-4h.01" />
             </svg>
           </div>
@@ -184,7 +184,7 @@ export default function Marketplace() {
               {pagination.page > 1 && (
                 <button
                   onClick={() => handlePageChange(pagination.page - 1)}
-                  className="px-5 py-2 border border-gray-300 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 text-gray-700 font-medium transition-all duration-200"
+                  className="px-5 py-2 border border-gray-300 rounded-xl hover:bg-primary-50 hover:border-primary-300 text-gray-700 font-medium transition-all duration-200"
                 >
                   ← Précédent
                 </button>
@@ -197,8 +197,8 @@ export default function Marketplace() {
                     onClick={() => handlePageChange(p)}
                     className={`px-3.5 py-2 rounded-xl font-medium transition-all duration-200 ${
                       p === pagination.page
-                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                        : 'border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-indigo-300'
+                        ? 'bg-primary-600 text-white shadow-md'
+                        : 'border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-primary-300'
                     }`}
                   >
                     {p}
@@ -209,7 +209,7 @@ export default function Marketplace() {
               {pagination.page < pagination.totalPages && (
                 <button
                   onClick={() => handlePageChange(pagination.page + 1)}
-                  className="px-5 py-2 border border-gray-300 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 text-gray-700 font-medium transition-all duration-200"
+                  className="px-5 py-2 border border-gray-300 rounded-xl hover:bg-primary-50 hover:border-primary-300 text-gray-700 font-medium transition-all duration-200"
                 >
                   Suivant →
                 </button>

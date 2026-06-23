@@ -91,17 +91,17 @@ export default function AdminMarketplaceApprovals() {
   return (
     <div className="space-y-6">
       {/* Header with Background */}
-      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-8 border border-indigo-100">
+      <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-2xl p-8 border border-primary-100">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-serif font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-serif font-bold text-primary-700">
               Marketplace
             </h1>
             <p className="text-gray-600 mt-2 text-lg">Approuvez ou rejetez les templates créateurs</p>
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-600">Total soumissions</p>
-            <p className="text-3xl font-bold text-indigo-600">{pagination.total || 0}</p>
+            <p className="text-3xl font-bold text-primary-600">{pagination.total || 0}</p>
           </div>
         </div>
       </div>
@@ -116,7 +116,7 @@ export default function AdminMarketplaceApprovals() {
             }}
             className={`flex-1 px-4 py-3 font-medium rounded-lg transition-all duration-200 ${
               viewMode === 'submissions'
-                ? 'bg-indigo-600 text-white shadow-md'
+                ? 'bg-primary-600 text-white shadow-md'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
@@ -129,7 +129,7 @@ export default function AdminMarketplaceApprovals() {
             }}
             className={`flex-1 px-4 py-3 font-medium rounded-lg transition-all duration-200 ${
               viewMode === 'by-creator'
-                ? 'bg-indigo-600 text-white shadow-md'
+                ? 'bg-primary-600 text-white shadow-md'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
@@ -152,10 +152,10 @@ export default function AdminMarketplaceApprovals() {
                 className={`flex-1 px-4 py-2 font-medium rounded-lg transition-all duration-200 text-sm ${
                   statusFilter === status
                     ? status === 'PENDING_REVIEW'
-                      ? 'bg-amber-500 text-white shadow-md'
+                      ? 'bg-gold-500 text-white shadow-md'
                       : status === 'APPROVED'
-                      ? 'bg-green-500 text-white shadow-md'
-                      : 'bg-red-500 text-white shadow-md'
+                      ? 'bg-green-600 text-white shadow-md'
+                      : 'bg-red-600 text-white shadow-md'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
               >
@@ -180,9 +180,9 @@ export default function AdminMarketplaceApprovals() {
       ) : viewMode === 'submissions' ? (
         // SUBMISSIONS VIEW
         submissions.length === 0 ? (
-          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl shadow-sm border border-indigo-100 p-16 text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-indigo-100 mb-6">
-              <SparklesIcon className="h-10 w-10 text-indigo-600" />
+          <div className="bg-gradient-to-br from-primary-50 to-secondary-50 rounded-2xl shadow-sm border border-primary-100 p-16 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary-100 mb-6">
+              <SparklesIcon className="h-10 w-10 text-primary-600" />
             </div>
             <h3 className="text-2xl font-bold text-gray-900 mb-2">
               Aucune soumission {statusFilter === 'PENDING_REVIEW' ? 'en attente' : statusFilter === 'APPROVED' ? 'approuvée' : 'rejetée'}
@@ -200,7 +200,7 @@ export default function AdminMarketplaceApprovals() {
               {submissions.map((submission) => (
                 <div
                   key={submission.id}
-                  className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:border-indigo-200 transition-all duration-300 group"
+                  className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:border-primary-200 transition-all duration-300 group"
                 >
                   {/* Template Preview */}
                   <div className="aspect-[3/4] bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden relative">
@@ -216,14 +216,14 @@ export default function AdminMarketplaceApprovals() {
                     <div className="space-y-1">
                       <h3 className="font-bold text-gray-900 text-lg">{submission.templateName}</h3>
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gold-100 text-gold-800">
                           {submission.category}
                         </span>
                       </div>
                     </div>
 
                     {/* Creator Info */}
-                    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-3 flex items-center gap-3 border border-indigo-100">
+                    <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-xl p-3 flex items-center gap-3 border border-primary-100">
                       {submission.creator.profileImage && (
                         <img
                           src={submission.creator.profileImage}
@@ -249,7 +249,7 @@ export default function AdminMarketplaceApprovals() {
                       </div>
                       <div>
                         <p className="text-xs text-gray-600 font-medium mb-1">Commission</p>
-                        <p className="text-lg font-bold text-indigo-600">{submission.commissionPercentage}%</p>
+                        <p className="text-lg font-bold text-primary-600">{submission.commissionPercentage}%</p>
                       </div>
                     </div>
 
@@ -265,7 +265,7 @@ export default function AdminMarketplaceApprovals() {
                       <div className="flex gap-2 pt-2">
                         <button
                           onClick={() => openReviewModal(submission, 'APPROVED')}
-                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50"
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50"
                           disabled={reviewMutation.isLoading}
                         >
                           <CheckIcon className="w-4 h-4" />
@@ -273,7 +273,7 @@ export default function AdminMarketplaceApprovals() {
                         </button>
                         <button
                           onClick={() => openReviewModal(submission, 'REJECTED')}
-                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2.5 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50"
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50"
                           disabled={reviewMutation.isLoading}
                         >
                           <XMarkIcon className="w-4 h-4" />
@@ -292,7 +292,7 @@ export default function AdminMarketplaceApprovals() {
                 {pagination.page > 1 && (
                   <button
                     onClick={() => setPage(pagination.page - 1)}
-                    className="px-5 py-2 border border-gray-300 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 text-gray-700 font-medium transition-all duration-200"
+                    className="px-5 py-2 border border-gray-300 rounded-xl hover:bg-primary-50 hover:border-primary-300 text-gray-700 font-medium transition-all duration-200"
                   >
                     ← Précédent
                   </button>
@@ -305,8 +305,8 @@ export default function AdminMarketplaceApprovals() {
                       onClick={() => setPage(p)}
                       className={`px-3.5 py-2 rounded-xl font-medium transition-all duration-200 ${
                         p === pagination.page
-                          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                          : 'border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-indigo-300'
+                          ? 'bg-primary-600 text-white shadow-md'
+                          : 'border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-primary-300'
                       }`}
                     >
                       {p}
@@ -317,7 +317,7 @@ export default function AdminMarketplaceApprovals() {
                 {pagination.page < pagination.totalPages && (
                   <button
                     onClick={() => setPage(pagination.page + 1)}
-                    className="px-5 py-2 border border-gray-300 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 text-gray-700 font-medium transition-all duration-200"
+                    className="px-5 py-2 border border-gray-300 rounded-xl hover:bg-primary-50 hover:border-primary-300 text-gray-700 font-medium transition-all duration-200"
                   >
                     Suivant →
                   </button>
@@ -329,9 +329,9 @@ export default function AdminMarketplaceApprovals() {
       ) : (
         // BY-CREATOR VIEW
         Object.keys(submissionsByCreator).length === 0 ? (
-          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl shadow-sm border border-purple-100 p-16 text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-purple-100 mb-6">
-              <SparklesIcon className="h-10 w-10 text-purple-600" />
+          <div className="bg-gradient-to-br from-secondary-50 to-gold-50 rounded-2xl shadow-sm border border-secondary-100 p-16 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-secondary-100 mb-6">
+              <SparklesIcon className="h-10 w-10 text-secondary-600" />
             </div>
             <h3 className="text-2xl font-bold text-gray-900 mb-2">Aucun template approuvé</h3>
             <p className="text-gray-600 text-lg max-w-md mx-auto">Les templates approuvés apparaîtront ici</p>
@@ -341,7 +341,7 @@ export default function AdminMarketplaceApprovals() {
             {Object.values(submissionsByCreator).map((group) => (
               <div key={group.creator.id} className="space-y-5">
                 {/* Creator Header */}
-                <div className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 rounded-2xl p-8 border border-purple-100 shadow-sm">
+                <div className="bg-gradient-to-r from-primary-50 via-secondary-50 to-gold-50 rounded-2xl p-8 border border-primary-100 shadow-sm">
                   <div className="flex items-center gap-6">
                     {group.creator.profileImage && (
                       <img
@@ -351,16 +351,16 @@ export default function AdminMarketplaceApprovals() {
                       />
                     )}
                     <div className="flex-1">
-                      <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                      <h3 className="text-2xl font-bold text-primary-700">
                         {group.creator.displayName}
                       </h3>
                       <div className="flex items-center gap-4 mt-3 flex-wrap">
                         {group.creator.verified && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 rounded-full text-xs font-semibold border border-green-200">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold border border-green-200">
                             ✓ Vérifié
                           </span>
                         )}
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold border border-indigo-200">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gold-100 text-gold-800 rounded-full text-xs font-semibold border border-gold-200">
                           📊 {group.templates.length} template{group.templates.length !== 1 ? 's' : ''}
                         </span>
                       </div>
@@ -373,7 +373,7 @@ export default function AdminMarketplaceApprovals() {
                   {group.templates.map((submission) => (
                     <div
                       key={submission.id}
-                      className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl hover:border-indigo-200 transition-all duration-300 group"
+                      className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl hover:border-primary-200 transition-all duration-300 group"
                     >
                       {/* Template Preview */}
                       <div className="aspect-[3/4] bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden relative">
@@ -387,14 +387,14 @@ export default function AdminMarketplaceApprovals() {
                       {/* Info */}
                       <div className="p-4 space-y-3">
                         <h4 className="font-bold text-gray-900">{submission.templateName}</h4>
-                        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-3 space-y-2 border border-indigo-100">
+                        <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-lg p-3 space-y-2 border border-primary-100">
                           <div className="flex justify-between text-xs">
                             <span className="text-gray-600 font-medium">Prix:</span>
                             <span className="font-bold text-gray-900">${submission.priceUSD.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-gray-600 font-medium">Commission:</span>
-                            <span className="font-bold text-indigo-600">{submission.commissionPercentage}%</span>
+                            <span className="font-bold text-primary-600">{submission.commissionPercentage}%</span>
                           </div>
                         </div>
                         <p className="text-xs text-gray-500 font-medium">
@@ -416,11 +416,11 @@ export default function AdminMarketplaceApprovals() {
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in duration-300">
             <div className="flex items-center gap-4 mb-8">
               {reviewData.status === 'APPROVED' ? (
-                <div className="w-14 h-14 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center">
+                <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center">
                   <CheckIcon className="w-7 h-7 text-green-600" />
                 </div>
               ) : (
-                <div className="w-14 h-14 bg-gradient-to-br from-red-100 to-rose-100 rounded-full flex items-center justify-center">
+                <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center">
                   <XMarkIcon className="w-7 h-7 text-red-600" />
                 </div>
               )}
@@ -451,13 +451,13 @@ export default function AdminMarketplaceApprovals() {
                     }
                     placeholder="Expliquez pourquoi ce template n'est pas approuvé..."
                     rows="3"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition resize-none bg-gray-50 hover:bg-white"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition resize-none bg-gray-50 hover:bg-white"
                   />
                 </div>
               )}
 
               {reviewData.status === 'APPROVED' && (
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5">
+                <div className="bg-green-50 border border-green-200 rounded-xl p-5">
                   <p className="text-sm font-medium text-green-900">
                     ✓ Ce template sera visible dans la marketplace et les créateurs pourront gagner des commissions.
                   </p>
@@ -477,8 +477,8 @@ export default function AdminMarketplaceApprovals() {
                   disabled={reviewMutation.isLoading}
                   className={`flex-1 px-4 py-3 rounded-xl text-white font-semibold transition-all duration-200 disabled:opacity-50 shadow-sm hover:shadow-md ${
                     reviewData.status === 'APPROVED'
-                      ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
-                      : 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
+                      ? 'bg-green-600 hover:bg-green-700'
+                      : 'bg-red-600 hover:bg-red-700'
                   }`}
                 >
                   {reviewMutation.isLoading
