@@ -15,7 +15,7 @@ import {
 
 export default function CreatorDashboard() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, refreshUser } = useAuthStore();
   const [activeTab, setActiveTab] = useState('overview');
   const {
     creatorProfile,
@@ -28,13 +28,42 @@ export default function CreatorDashboard() {
   const { data: templatesData } = useQuery('creatorTemplates', templateAPI.getMyTemplates);
   const templates = templatesData?.data?.templates || [];
 
+  const isCreator = user?.role === 'CREATOR' || user?.isCreator;
+
   useEffect(() => {
-    if (!user?.isCreator) {
-      navigate('/dashboard');
-      return;
+    if (!isCreator) {
+      // Wait a moment then redirect
+      const timer = setTimeout(() => {
+        navigate('/dashboard');
+      }, 2000);
+      return () => clearTimeout(timer);
     }
     fetchCreatorProfile();
-  }, [user?.isCreator, navigate, fetchCreatorProfile]);
+  }, [isCreator, navigate, fetchCreatorProfile]);
+
+  if (!isCreator) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-primary-50 to-white">
+        <div className="text-center space-y-4">
+          <SparklesIcon className="w-12 h-12 text-gray-400 mx-auto" />
+          <p className="text-gray-900 font-semibold">Accès créateur requis</p>
+          <p className="text-gray-600 text-sm">
+            Vous n'êtes pas enregistré comme créateur. <br />
+            L'administrateur doit activer votre rôle de créateur.
+          </p>
+          <p className="text-xs text-gray-500 mt-2">
+            Redirection vers le dashboard dans 2 secondes...
+          </p>
+          <button
+            onClick={() => refreshUser()}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors text-sm mt-4"
+          >
+            Rafraîchir
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
