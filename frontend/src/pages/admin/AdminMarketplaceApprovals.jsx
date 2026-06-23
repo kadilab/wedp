@@ -6,6 +6,10 @@ import {
   CheckIcon,
   XMarkIcon,
   SparklesIcon,
+  BookOpenIcon,
+  UsersIcon,
+  ClockIcon,
+  DocumentCheckIcon
 } from '@heroicons/react/24/outline'
 import TemplatePreview from '../../components/templates/TemplatePreview'
 
@@ -120,7 +124,8 @@ export default function AdminMarketplaceApprovals() {
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
-            📋 Soumissions
+             <BookOpenIcon className="w-4 h-4" /> Soumissions
+            
           </button>
           <button
             onClick={() => {
@@ -133,7 +138,7 @@ export default function AdminMarketplaceApprovals() {
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
-            👥 Par Créateur
+           <UsersIcon className="w-4 h-4" /> Par Créateur
           </button>
         </div>
       </div>
@@ -159,9 +164,26 @@ export default function AdminMarketplaceApprovals() {
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
               >
-                {status === 'PENDING_REVIEW' && '⏳ En attente'}
-                {status === 'APPROVED' && '✅ Approuvés'}
-                {status === 'REJECTED' && '❌ Rejetés'}
+                {status === 'PENDING_REVIEW' && (
+                <>
+                  <ClockIcon className="w-4 h-4" />
+                  <span>En attente</span>
+                </>
+              )}
+
+              {status === 'APPROVED' && (
+                <>
+                  <DocumentCheckIcon className="w-4 h-4" />
+                  <span>Approuvés</span>
+                </>
+              )}
+
+              {status === 'REJECTED' && (
+                <>
+                  <XMarkIcon className="w-4 h-4" />
+                  <span>Rejetés</span>
+                </>
+              )}
               </button>
             ))}
           </div>
@@ -268,7 +290,7 @@ export default function AdminMarketplaceApprovals() {
                           className="flex-1 flex items-center justify-center gap-1 px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50"
                           disabled={reviewMutation.isLoading}
                         >
-                          <CheckIcon className="w-4 h-4" />
+                          <DocumentCheckIcon className="w-4 h-4" />
                           Approuver
                         </button>
                         <button
