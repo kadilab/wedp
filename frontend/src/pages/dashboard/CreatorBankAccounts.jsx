@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
@@ -9,13 +9,8 @@ export default function CreatorBankAccounts() {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     accountHolderName: '',
-    bankName: '',
-    accountNumber: '',
-    routingNumber: '',
-    iban: '',
-    swiftCode: '',
-    accountType: 'checking',
-    currency: 'USD',
+    phoneNumber: '',
+    mobileMoneyProvider: 'airtel',
     isDefault: false
   });
   const queryClient = useQueryClient();
@@ -42,12 +37,12 @@ export default function CreatorBankAccounts() {
     },
     {
       onSuccess: () => {
-        toast.success(editingId ? 'Bank account updated' : 'Bank account added');
+        toast.success(editingId ? 'Compte mobile money mis à jour' : 'Compte mobile money ajouté');
         queryClient.invalidateQueries('bank-accounts');
         resetForm();
       },
       onError: (error) => {
-        toast.error(error.response?.data?.message || 'Error saving bank account');
+        toast.error(error.response?.data?.message || 'Erreur lors de la sauvegarde');
       }
     }
   );
@@ -59,11 +54,11 @@ export default function CreatorBankAccounts() {
     },
     {
       onSuccess: () => {
-        toast.success('Bank account deleted');
+        toast.success('Compte supprimé');
         queryClient.invalidateQueries('bank-accounts');
       },
       onError: (error) => {
-        toast.error(error.response?.data?.message || 'Error deleting bank account');
+        toast.error(error.response?.data?.message || 'Erreur lors de la suppression');
       }
     }
   );
@@ -71,13 +66,8 @@ export default function CreatorBankAccounts() {
   const resetForm = () => {
     setFormData({
       accountHolderName: '',
-      bankName: '',
-      accountNumber: '',
-      routingNumber: '',
-      iban: '',
-      swiftCode: '',
-      accountType: 'checking',
-      currency: 'USD',
+      phoneNumber: '',
+      mobileMoneyProvider: 'airtel',
       isDefault: false
     });
     setIsAddingAccount(false);
@@ -88,40 +78,56 @@ export default function CreatorBankAccounts() {
     setEditingId(account.id);
     setFormData({
       accountHolderName: account.accountHolderName,
-      bankName: account.bankName,
-      accountType: account.accountType,
-      currency: account.currency,
-      isDefault: account.isDefault,
-      accountNumber: '',
-      routingNumber: '',
-      iban: '',
-      swiftCode: ''
+      phoneNumber: account.accountNumber || '',
+      mobileMoneyProvider: account.bankName?.toLowerCase() || 'airtel',
+      isDefault: account.isDefault
     });
     setIsAddingAccount(true);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    saveMutation.mutate(formData);
+
+    // Validate phone number format
+    if (!formData.phoneNumber.match(/^\+?[0-9]{7,15}$/)) {
+      toast.error('Veuillez entrer un numéro de téléphone valide');
+      return;
+    }
+
+    saveMutation.mutate({
+      accountHolderName: formData.accountHolderName,
+      bankName: formData.mobileMoneyProvider.toUpperCase(),
+      accountNumber: formData.phoneNumber,
+      accountType: 'mobile_money',
+      currency: 'XAF',
+      isDefault: formData.isDefault
+    });
   };
 
   const handleDelete = (accountId) => {
-    if (window.confirm('Are you sure you want to delete this bank account?')) {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce compte?')) {
       deleteMutation.mutate(accountId);
     }
   };
+
+  const mobileMoneyProviders = [
+    { value: 'airtel', label: 'Airtel Money' },
+    { value: 'orangemoney', label: 'Orange Money' },
+    { value: 'mtn', label: 'MTN Mobile Money' },
+    { value: 'wave', label: 'Wave' }
+  ];
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-serif font-bold text-gray-900">Bank Accounts</h1>
-        <p className="text-gray-600 mt-1">Manage your bank accounts for payouts</p>
+        <h1 className="text-3xl font-serif font-bold text-gray-900">Comptes Mobile Money</h1>
+        <p className="text-gray-600 mt-1">Gérez vos comptes de paiement Mobile Money pour les retraits</p>
       </div>
 
       {isLoading ? (
         <div className="bg-white rounded-lg shadow p-8 text-center">
-          <p className="text-gray-500">Loading bank accounts...</p>
+          <p className="text-gray-500">Chargement des comptes...</p>
         </div>
       ) : (
         <>
@@ -129,207 +135,172 @@ export default function CreatorBankAccounts() {
           {isAddingAccount && (
             <div className="bg-white rounded-lg shadow p-6 border-l-4 border-primary-600">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                {editingId ? 'Edit Bank Account' : 'Add Bank Account'}
+                {editingId ? 'Modifier le Compte' : 'Ajouter un Compte Mobile Money'}
               </h2>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Account Holder Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.accountHolderName}
-                      onChange={(e) => setFormData({ ...formData, accountHolderName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Bank Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.bankName}
-                      onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Intitulé du Compte *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: Mon Compte Airtel"
+                    value={formData.accountHolderName}
+                    onChange={(e) => setFormData({ ...formData, accountHolderName: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Nom d'affichage de ce compte</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Account Number / IBAN *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.accountNumber || formData.iban}
-                      onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
-                      placeholder="Last 4 digits hidden for security"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Routing Number (US only)
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.routingNumber || ''}
-                      onChange={(e) => setFormData({ ...formData, routingNumber: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Opérateur Mobile Money *
+                  </label>
+                  <select
+                    required
+                    value={formData.mobileMoneyProvider}
+                    onChange={(e) => setFormData({ ...formData, mobileMoneyProvider: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+                  >
+                    <option value="">Sélectionnez un opérateur</option>
+                    {mobileMoneyProviders.map(provider => (
+                      <option key={provider.value} value={provider.value}>
+                        {provider.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Account Type
-                    </label>
-                    <select
-                      value={formData.accountType}
-                      onChange={(e) => setFormData({ ...formData, accountType: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                    >
-                      <option value="checking">Checking</option>
-                      <option value="savings">Savings</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Currency
-                    </label>
-                    <select
-                      value={formData.currency}
-                      onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                    >
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                      <option value="GBP">GBP</option>
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Numéro de Téléphone *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="Ex: +237123456789 ou 123456789"
+                    value={formData.phoneNumber}
+                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Format: +237123456789 ou 123456789</p>
                 </div>
 
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 pt-2">
                   <input
                     type="checkbox"
                     checked={formData.isDefault}
                     onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
                     className="rounded"
                   />
-                  <span className="text-sm text-gray-700">Set as default account</span>
+                  <span className="text-sm text-gray-700">Définir comme compte par défaut</span>
                 </label>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 pt-4">
                   <button
                     type="submit"
                     disabled={saveMutation.isLoading}
-                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                    className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 font-medium transition-colors"
                   >
-                    {saveMutation.isLoading ? 'Saving...' : editingId ? 'Update Account' : 'Add Account'}
+                    {saveMutation.isLoading ? 'Enregistrement...' : editingId ? 'Mettre à Jour' : 'Ajouter'}
                   </button>
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
                   >
-                    Cancel
+                    Annuler
                   </button>
                 </div>
               </form>
             </div>
           )}
 
-          {/* Bank Accounts List */}
-          {bankAccounts.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <p className="text-gray-500 mb-4">No bank accounts added yet</p>
-              {!isAddingAccount && (
-                <button
-                  onClick={() => setIsAddingAccount(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-                >
-                  <PlusIcon className="w-5 h-5" />
-                  Add Bank Account
-                </button>
-              )}
-            </div>
-          ) : (
-            <>
-              {!isAddingAccount && (
-                <button
-                  onClick={() => setIsAddingAccount(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-                >
-                  <PlusIcon className="w-5 h-5" />
-                  Add Bank Account
-                </button>
-              )}
-
-              <div className="space-y-3">
-                {bankAccounts.map((account) => (
-                  <div
-                    key={account.id}
-                    className={`bg-white rounded-lg shadow p-6 border-l-4 ${
-                      account.isDefault ? 'border-l-green-500' : 'border-l-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-semibold text-gray-900">{account.accountHolderName}</h3>
-                          {account.isDefault && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
-                              <CheckCircleIcon className="w-4 h-4" />
-                              Default
-                            </span>
-                          )}
-                          {account.isVerified && (
-                            <span className="inline-flex px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
-                              Verified
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 mb-2">
-                          {account.bankName} • {account.accountNumber} • {account.accountType}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {account.currency} • Added {new Date(account.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEdit(account)}
-                          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                        >
-                          <PencilIcon className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(account.id)}
-                          disabled={deleteMutation.isLoading}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
-                        >
-                          <TrashIcon className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
+          {/* Add Button */}
+          {!isAddingAccount && (
+            <button
+              onClick={() => setIsAddingAccount(true)}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
+            >
+              <PlusIcon className="w-5 h-5" />
+              Ajouter un Compte
+            </button>
           )}
 
-          {/* Info Box */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-800">
-              <strong>Security Note:</strong> Bank account numbers are partially masked for your security. You must verify your bank account before requesting payouts.
-            </p>
-          </div>
+          {/* Accounts List */}
+          {bankAccounts.length === 0 ? (
+            <div className="bg-white rounded-lg shadow p-12 text-center">
+              <p className="text-gray-500 mb-4">Aucun compte mobile money configuré</p>
+              <button
+                onClick={() => setIsAddingAccount(true)}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
+              >
+                <PlusIcon className="w-5 h-5" />
+                Ajouter un Compte
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {bankAccounts.map((account) => (
+                <div
+                  key={account.id}
+                  className="bg-white rounded-lg shadow p-6 border border-gray-200 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {account.accountHolderName}
+                        </h3>
+                        {account.isDefault && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                            <CheckCircleIcon className="w-3 h-3" />
+                            Par défaut
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium">Opérateur</p>
+                          <p className="text-sm text-gray-900 mt-1">{account.bankName || 'Non spécifié'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 font-medium">Numéro de Téléphone</p>
+                          <p className="text-sm text-gray-900 mt-1 font-mono">
+                            {account.accountNumber ? account.accountNumber.replace(/(\d)(?=\d{2})/g, '*') : 'Non spécifié'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-gray-400 mt-4">
+                        Ajouté le {new Date(account.createdAt).toLocaleDateString('fr-FR')}
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2 ml-4">
+                      <button
+                        onClick={() => handleEdit(account)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Modifier"
+                      >
+                        <PencilIcon className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(account.id)}
+                        disabled={deleteMutation.isLoading}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Supprimer"
+                      >
+                        <TrashIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>
