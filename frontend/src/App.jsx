@@ -25,6 +25,7 @@ import Invitations from './pages/dashboard/Invitations'
 import CheckIn from './pages/dashboard/CheckIn'
 import WeddingStats from './pages/dashboard/WeddingStats'
 import Templates from './pages/dashboard/Templates'
+import CreatorTemplates from './pages/dashboard/CreatorTemplates'
 import Payments from './pages/dashboard/Payments'
 import PrintOrders from './pages/dashboard/PrintOrders'
 import Profile from './pages/dashboard/Profile'
@@ -105,6 +106,7 @@ function App() {
         <Route path="/weddings/:id/checkin" element={<CheckIn />} />
         <Route path="/weddings/:id/stats" element={<WeddingStats />} />
         <Route path="/templates" element={<Templates />} />
+        <Route path="/creator-templates" element={<CreatorTemplates />} />
         <Route path="/payments" element={<Payments />} />
         <Route path="/print-orders" element={<PrintOrders />} />
         <Route path="/profile" element={<Profile />} />

@@ -273,7 +273,7 @@ export default function CreatorDashboard() {
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-gray-900">Mes Templates</h2>
             <button
-              onClick={() => navigate('/templates')}
+              onClick={() => navigate('/creator-templates')}
               className="flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
             >
               <PlusIcon className="w-5 h-5" />
@@ -290,11 +290,11 @@ export default function CreatorDashboard() {
                 Dupliquez un template existant de la galerie pour créer votre propre design.
               </p>
               <button
-                onClick={() => navigate('/templates')}
+                onClick={() => navigate('/creator-templates')}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
               >
                 <PlusIcon className="w-5 h-5" />
-                Voir les Templates
+                Créer un Template
               </button>
             </div>
           ) : (
