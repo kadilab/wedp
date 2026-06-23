@@ -22,7 +22,9 @@ import {
   TagIcon,
   PrinterIcon,
   ArrowsRightLeftIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  market,
+
 } from '@heroicons/react/24/outline'
 
 const clientNavSections = [
@@ -57,6 +59,7 @@ const adminNavSections = [
       { name: 'Événements', href: '/admin/weddings', icon: HeartIcon },
       { name: 'Achats invitations', href: '/admin/invitation-orders', icon: TicketIcon, badgeKey: 'pendingInvitationOrders' },
       { name: 'Impressions', href: '/admin/print-orders', icon: PrinterIcon },
+      {name : 'MarketPlace', href: '/admin/marketplace', icon: market}
     ]
   },
   {
