@@ -101,7 +101,7 @@ export default function Dashboard() {
       </div>
 
       {/* Creator CTA - Show if user is not a creator */}
-      {!user?.isCreator && (
+      {user?.role !== 'CREATOR' && !user?.isCreator && (
         <div className="bg-gradient-to-r from-primary-500 to-primary-600 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-start justify-between">
             <div className="flex items-start space-x-4">
@@ -126,7 +126,7 @@ export default function Dashboard() {
       )}
 
       {/* Creator Dashboard Link - Show if user is a creator */}
-      {user?.isCreator && (
+      {(user?.role === 'CREATOR' || user?.isCreator) && (
         <div className="flex justify-between items-center bg-primary-50 rounded-xl p-4 border border-primary-200">
           <div>
             <h3 className="font-medium text-primary-900">Vous êtes créateur ✨</h3>

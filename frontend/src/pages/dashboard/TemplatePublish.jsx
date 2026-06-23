@@ -30,15 +30,16 @@ export default function TemplatePublish() {
   const template = templateData?.template;
 
   // Check if user is creator
-  if (!user?.isCreator) {
+  if (user?.role !== 'CREATOR' && !user?.isCreator) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-500 mb-4">You must be a creator to publish templates</p>
+      <div className="text-center py-12 space-y-4">
+        <p className="text-red-500 font-semibold">Accès réservé aux créateurs</p>
+        <p className="text-gray-600">Vous devez être créateur pour publier des templates</p>
         <button
-          onClick={() => navigate('/creator-dashboard')}
+          onClick={() => navigate('/dashboard')}
           className="btn-primary"
         >
-          Go to Creator Dashboard
+          Retour au dashboard
         </button>
       </div>
     );
