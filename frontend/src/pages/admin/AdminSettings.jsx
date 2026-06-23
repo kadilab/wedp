@@ -481,55 +481,7 @@ export default function AdminSettings() {
 
             {/* Payment Tab */}
             {activeTab === 'payment' && (
-              <div className="space-y-6">
-                <h2 className="text-xl font-serif font-bold text-gray-900 pb-4 border-b">
-                  Numéros Mobile Money
-                </h2>
-                <p className="text-gray-500 text-sm -mt-4">
-                  Ces numéros seront affichés aux utilisateurs pour les paiements
-                </p>
-
-                <div>
-                  <label htmlFor="orangeMoney" className="block text-sm font-medium text-gray-700 mb-1">
-                    Orange Money
-                  </label>
-                  <input
-                    id="orangeMoney"
-                    type="tel"
-                    className="input"
-                    placeholder="+221 77 XXX XX XX"
-                    value={formData.mobileMoney.orangeMoney}
-                    onChange={(e) => updateMobileMoney('orangeMoney', e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="mtnMoney" className="block text-sm font-medium text-gray-700 mb-1">
-                    MTN Money
-                  </label>
-                  <input
-                    id="mtnMoney"
-                    type="tel"
-                    className="input"
-                    placeholder="+237 6XX XXX XXX"
-                    value={formData.mobileMoney.mtn}
-                    onChange={(e) => updateMobileMoney('mtn', e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="waveMoney" className="block text-sm font-medium text-gray-700 mb-1">
-                    Wave
-                  </label>
-                  <input
-                    id="waveMoney"
-                    type="tel"
-                    className="input"
-                    placeholder="+221 7X XXX XX XX"
-                    value={formData.mobileMoney.wave}
-                    onChange={(e) => updateMobileMoney('wave', e.target.value)}
-                  />
-                </div>
+             
 
                 <div className="pt-6 border-t">
                   <h3 className="text-lg font-serif font-bold text-gray-900">
