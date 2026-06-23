@@ -46,18 +46,34 @@ export default function TemplatePublish() {
   }
 
   if (templateLoading) {
-    return <div className="text-center py-12">Loading template...</div>;
+    return <div className="text-center py-12">Chargement du template...</div>;
   }
 
-  if (!template || !template.isCustom) {
+  if (!template) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-500 mb-4">Template not found or cannot be published</p>
+      <div className="text-center py-12 space-y-4">
+        <p className="text-red-500 font-semibold">Template non trouvé</p>
+        <p className="text-gray-600">Le template n'existe pas ou a été supprimé</p>
         <button
-          onClick={() => navigate('/templates')}
+          onClick={() => navigate('/creator-templates')}
           className="btn-primary"
         >
-          Back to Templates
+          Retour à Créer un Template
+        </button>
+      </div>
+    );
+  }
+
+  if (!template.isCustom) {
+    return (
+      <div className="text-center py-12 space-y-4">
+        <p className="text-red-500 font-semibold">Impossible de publier ce template</p>
+        <p className="text-gray-600">Seuls les templates personnalisés peuvent être publiés</p>
+        <button
+          onClick={() => navigate('/creator-templates')}
+          className="btn-primary"
+        >
+          Retour à Créer un Template
         </button>
       </div>
     );

@@ -134,7 +134,34 @@ router.get('/categories', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const template = await prisma.template.findUnique({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        thumbnail: true,
+        previewImage: true,
+        backgroundUrl: true,
+        backgroundOpacity: true,
+        htmlContent: true,
+        cssContent: true,
+        config: true,
+        category: true,
+        eventType: true,
+        isPremium: true,
+        isActive: true,
+        allowBackgroundChange: true,
+        colorScheme: true,
+        canvasWidth: true,
+        canvasHeight: true,
+        createdAt: true,
+        updatedAt: true,
+        userId: true,
+        isCustom: true,
+        marketplaceStatus: true,
+        previewImages: true
+      }
     });
 
     if (!template) {
