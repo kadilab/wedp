@@ -233,6 +233,82 @@ router.get('/users', authenticate, isAdmin, paginationValidation, async (req, re
 });
 
 /**
+ * @route   POST /api/admin/users
+ * @desc    Create a new user
+ * @access  Private/Admin
+ */
+router.post('/users', authenticate, isAdmin, async (req, res) => {
+  try {
+    const { email, password, firstName, lastName, phone, role, status } = req.body;
+
+    if (!email || !password || !firstName || !lastName) {
+      return res.status(400).json({ error: 'Email, mot de passe, prénom et nom requis' });
+    }
+
+    if (!['CLIENT', 'ADMIN', 'CREATOR'].includes(role || 'CLIENT')) {
+      return res.status(400).json({ error: 'Rôle invalide' });
+    }
+
+    // Only SUPER_ADMIN can create ADMIN users
+    if (role === 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Seul un Super Admin peut créer des comptes Admin' });
+    }
+
+    // Check if email already exists
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      return res.status(409).json({ error: 'Cet email est déjà utilisé' });
+    }
+
+    const bcryptjs = require('bcryptjs');
+    const hashedPassword = await bcryptjs.hash(password, 10);
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        phone: phone || null,
+        role: role || 'CLIENT',
+        status: status || 'ACTIVE',
+        isCreator: role === 'CREATOR',
+        emailVerified: true
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        role: true,
+        status: true,
+        createdAt: true
+      }
+    });
+
+    // Log action
+    await prisma.log.create({
+      data: {
+        userId: req.user.id,
+        action: 'CREATE',
+        entity: 'user',
+        entityId: user.id,
+        details: { role, email }
+      }
+    });
+
+    res.status(201).json({
+      message: 'Utilisateur créé avec succès',
+      user
+    });
+  } catch (error) {
+    logger.error('Create user error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+/**
  * @route   GET /api/admin/users/:id
  * @desc    Get single user with weddings, invitations & print orders
  * @access  Private/Admin
@@ -363,7 +439,7 @@ router.put('/users/:id', authenticate, isAdmin, async (req, res) => {
     if (lastName !== undefined) updateData.lastName = lastName;
     if (email !== undefined) updateData.email = email;
     if (phone !== undefined) updateData.phone = phone;
-    if (role && ['CLIENT', 'ADMIN', 'SUPER_ADMIN'].includes(role)) updateData.role = role;
+    if (role && ['CLIENT', 'ADMIN', 'CREATOR', 'SUPER_ADMIN'].includes(role)) updateData.role = role;
     if (status && ['ACTIVE', 'INACTIVE', 'SUSPENDED'].includes(status)) updateData.status = status;
 
     const user = await prisma.user.update({
@@ -455,7 +531,7 @@ router.put('/users/:id/role', authenticate, isAdmin, async (req, res) => {
   try {
     const { role } = req.body;
 
-    if (!['CLIENT', 'ADMIN', 'SUPER_ADMIN'].includes(role)) {
+    if (!['CLIENT', 'ADMIN', 'CREATOR', 'SUPER_ADMIN'].includes(role)) {
       return res.status(400).json({ error: 'Rôle invalide' });
     }
 

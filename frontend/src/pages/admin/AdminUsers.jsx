@@ -40,6 +40,7 @@ export default function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [viewUserId, setViewUserId] = useState(null)
 
   const { data: usersData, isLoading } = useQuery(
@@ -85,6 +86,18 @@ export default function AdminUsers() {
     }
   )
 
+  const createUserMutation = useMutation(
+    (data) => adminAPI.createUser(data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('admin-users')
+        toast.success('Utilisateur créé avec succès')
+        setShowCreateModal(false)
+      },
+      onError: (err) => toast.error(err.response?.data?.error || 'Erreur')
+    }
+  )
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'ACTIVE':
@@ -104,6 +117,9 @@ export default function AdminUsers() {
     }
     if (role === 'ADMIN') {
       return <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs font-medium flex items-center"><ShieldCheckIcon className="h-4 w-4 mr-1" />Admin</span>
+    }
+    if (role === 'CREATOR') {
+      return <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium flex items-center"><ShieldCheckIcon className="h-4 w-4 mr-1" />Créateur</span>
     }
     return <span className="badge">Client</span>
   }
@@ -420,6 +436,9 @@ export default function AdminUsers() {
           <h1 className="text-3xl font-serif font-bold text-gray-900">Utilisateurs</h1>
           <p className="text-gray-600 mt-1">Gérez les utilisateurs de la plateforme</p>
         </div>
+        <button onClick={() => setShowCreateModal(true)} className="btn-primary">
+          + Créer un utilisateur
+        </button>
       </div>
 
       {/* Filters */}
@@ -438,6 +457,7 @@ export default function AdminUsers() {
           <select className="input" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
             <option value="">Tous les rôles</option>
             <option value="CLIENT">Client</option>
+            <option value="CREATOR">Créateur</option>
             <option value="ADMIN">Admin</option>
             <option value="SUPER_ADMIN">Super Admin</option>
           </select>
@@ -552,6 +572,7 @@ export default function AdminUsers() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
                 <select name="role" className="input" defaultValue={selectedUser.role}>
                   <option value="CLIENT">Client</option>
+                  <option value="CREATOR">Créateur</option>
                   <option value="ADMIN">Admin</option>
                   {currentUser?.role === 'SUPER_ADMIN' && <option value="SUPER_ADMIN">Super Admin</option>}
                 </select>
@@ -597,6 +618,72 @@ export default function AdminUsers() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-xl font-serif font-bold text-gray-900">Créer un utilisateur</h3>
+              <button onClick={() => setShowCreateModal(false)} className="text-gray-500 hover:text-gray-700">
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                const formData = new FormData(e.target)
+                createUserMutation.mutate({
+                  email: formData.get('email'),
+                  password: formData.get('password'),
+                  firstName: formData.get('firstName'),
+                  lastName: formData.get('lastName'),
+                  phone: formData.get('phone') || null,
+                  role: formData.get('role') || 'CLIENT',
+                  status: 'ACTIVE'
+                })
+              }}
+              className="p-6 space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
+                <input type="text" name="firstName" className="input" required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+                <input type="text" name="lastName" className="input" required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input type="email" name="email" className="input" required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+                <input type="password" name="password" className="input" required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone (optionnel)</label>
+                <input type="tel" name="phone" className="input" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
+                <select name="role" className="input" defaultValue="CLIENT">
+                  <option value="CLIENT">Client</option>
+                  <option value="CREATOR">Créateur</option>
+                  <option value="ADMIN">Admin</option>
+                  {currentUser?.role === 'SUPER_ADMIN' && <option value="SUPER_ADMIN">Super Admin</option>}
+                </select>
+              </div>
+              <div className="flex space-x-4 pt-4">
+                <button type="button" onClick={() => setShowCreateModal(false)} className="flex-1 btn-secondary">Annuler</button>
+                <button type="submit" disabled={createUserMutation.isLoading} className="flex-1 btn-primary">
+                  {createUserMutation.isLoading ? 'Création...' : 'Créer'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

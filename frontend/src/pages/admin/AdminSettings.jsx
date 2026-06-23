@@ -10,7 +10,8 @@ import {
   BellIcon,
   PhotoIcon,
   TrashIcon,
-  PlusIcon
+  PlusIcon,
+  ShoppingBagIcon
 } from '@heroicons/react/24/outline'
 
 const DEFAULT_FORM = {
@@ -26,6 +27,8 @@ const DEFAULT_FORM = {
   mobileMoney: { orangeMoney: '', mtn: '', wave: '' },
   invitationUnitPrice: '0.3',
   invitationPaymentMethods: [],
+  invitationPricePerUnit: '0.3',
+  creatorCommissionPercentage: '10',
   telegramBotToken: '',
   telegramChatId: '',
   telegramNotificationsEnabled: false,
@@ -69,6 +72,8 @@ export default function AdminSettings() {
       },
       invitationUnitPrice: s.invitationUnitPrice || DEFAULT_FORM.invitationUnitPrice,
       invitationPaymentMethods: Array.isArray(s.invitationPaymentMethods) ? s.invitationPaymentMethods : [],
+      invitationPricePerUnit: s.invitationPricePerUnit || DEFAULT_FORM.invitationPricePerUnit,
+      creatorCommissionPercentage: s.creatorCommissionPercentage || DEFAULT_FORM.creatorCommissionPercentage,
       telegramBotToken: s.telegramBotToken || '',
       telegramChatId: s.telegramChatId || '',
       telegramNotificationsEnabled: s.telegramNotificationsEnabled === 'true' || s.telegramNotificationsEnabled === true,
@@ -163,6 +168,7 @@ export default function AdminSettings() {
     { id: 'general', label: 'Général', icon: Cog6ToothIcon },
     { id: 'email', label: 'Email', icon: EnvelopeIcon },
     { id: 'payment', label: 'Paiement', icon: CurrencyDollarIcon },
+    { id: 'marketplace', label: 'Marketplace', icon: ShoppingBagIcon },
     { id: 'notifications', label: 'Notifications', icon: BellIcon }
   ]
 
@@ -637,6 +643,92 @@ export default function AdminSettings() {
                       ))}
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Marketplace Tab */}
+            {activeTab === 'marketplace' && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-serif font-bold text-gray-900 pb-4 border-b">
+                  Configuration Marketplace
+                </h2>
+                <p className="text-gray-500 text-sm -mt-4">
+                  Configurez les tarifs et commissions pour la marketplace de templates
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label htmlFor="invitationPrice" className="block text-sm font-medium text-gray-700 mb-1">
+                      Prix unitaire par invitation ($)
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="invitationPrice"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="input"
+                        placeholder="0.3"
+                        value={formData.invitationPricePerUnit}
+                        onChange={(e) => updateField('invitationPricePerUnit', e.target.value)}
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">USD</span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Montant facturé à chaque client lorsqu'il achète des invitations provenant d'un template marketplace.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="commissionPercentage" className="block text-sm font-medium text-gray-700 mb-1">
+                      Commission créateur (%)
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="commissionPercentage"
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        className="input"
+                        placeholder="10"
+                        value={formData.creatorCommissionPercentage}
+                        onChange={(e) => updateField('creatorCommissionPercentage', e.target.value)}
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Pourcentage du prix de vente que le créateur gagne à chaque invitation vendue.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h3 className="font-medium text-blue-900 mb-2">📊 Aperçu de la rémunération</h3>
+                  <div className="text-sm text-blue-800 space-y-1">
+                    <div className="flex justify-between">
+                      <span>Prix par invitation:</span>
+                      <span className="font-mono font-semibold">${parseFloat(formData.invitationPricePerUnit || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Commission créateur:</span>
+                      <span className="font-mono font-semibold">{parseFloat(formData.creatorCommissionPercentage || 0).toFixed(1)}%</span>
+                    </div>
+                    <div className="border-t border-blue-200 pt-1 mt-1 flex justify-between">
+                      <span>Gain créateur par invitation:</span>
+                      <span className="font-mono font-semibold text-green-700">
+                        ${(parseFloat(formData.invitationPricePerUnit || 0) * parseFloat(formData.creatorCommissionPercentage || 0) / 100).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-800">
+                    <strong>💡 Note:</strong> Ces paramètres s'appliquent à tous les templates premium de la marketplace.
+                    Les créateurs peuvent voir ces tarifs dans leur tableau de bord et les utiliser pour calculer leurs bénéfices potentiels.
+                  </p>
                 </div>
               </div>
             )}

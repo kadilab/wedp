@@ -293,6 +293,7 @@ export const adminAPI = {
   },
   getUsers: (params) => api.get('/admin/users', { params }),
   getUser: (id) => api.get(`/admin/users/${id}`),
+  createUser: (data) => api.post('/admin/users', data),
   updateUser: (id, data) => api.put(`/admin/users/${id}`, data),
   updateUserStatus: (id, status) => api.put(`/admin/users/${id}/status`, { status }),
   updateUserRole: (id, role) => api.put(`/admin/users/${id}/role`, { role }),
