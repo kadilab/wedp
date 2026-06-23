@@ -23,7 +23,7 @@ import {
   PrinterIcon,
   ArrowsRightLeftIcon,
   ChevronDownIcon,
-  market,
+  ShoppingBagIcon
 
 } from '@heroicons/react/24/outline'
 
@@ -59,7 +59,7 @@ const adminNavSections = [
       { name: 'Événements', href: '/admin/weddings', icon: HeartIcon },
       { name: 'Achats invitations', href: '/admin/invitation-orders', icon: TicketIcon, badgeKey: 'pendingInvitationOrders' },
       { name: 'Impressions', href: '/admin/print-orders', icon: PrinterIcon },
-      {name : 'MarketPlace', href: '/admin/marketplace', icon: market}
+      {name : 'MarketPlace', href: '/admin/marketplace', icon: ShoppingBagIcon}
     ]
   },
   {
