@@ -427,6 +427,11 @@ router.post('/:templateId/publish', authenticate, async (req, res) => {
           select: {
             displayName: true
           }
+        },
+        template: {
+          select: {
+            name: true
+          }
         }
       }
     });
@@ -440,6 +445,34 @@ router.post('/:templateId/publish', authenticate, async (req, res) => {
         creatorId: creatorProfile.id
       }
     });
+
+    // Create notification for all admins
+    const admins = await prisma.user.findMany({
+      where: {
+        role: { in: ['SUPER_ADMIN', 'ADMIN'] }
+      },
+      select: { id: true }
+    });
+
+    if (admins.length > 0) {
+      await Promise.all(
+        admins.map(admin =>
+          prisma.notification.create({
+            data: {
+              userId: admin.id,
+              type: 'MARKETPLACE_SUBMISSION',
+              title: 'Nouveau template en attente d\'approbation',
+              message: `Le créateur "${marketplace.creator.displayName}" a soumis le template "${marketplace.template.name}" pour la marketplace.`,
+              data: {
+                templateMarketplaceId: marketplace.id,
+                status: 'PENDING_REVIEW',
+                creatorId: creatorProfile.id
+              }
+            }
+          }).catch(err => logger.error('Error creating notification:', err))
+        )
+      );
+    }
 
     logger.info(`Template ${templateId} submitted for marketplace review by creator ${creatorProfile.id}`);
 

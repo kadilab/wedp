@@ -2,20 +2,24 @@ import { useEffect, useState } from 'react';
 import { useCreatorStore } from '../../stores/creatorStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useNavigate, Link } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { templateAPI } from '../../services/api';
 import CreatorOnboarding from '../../components/CreatorOnboarding';
+import TemplatePreview from '../../components/templates/TemplatePreview';
+import toast from 'react-hot-toast';
 import {
   SparklesIcon,
   ChartBarIcon,
   BanknotesIcon,
   PlusIcon,
   EyeIcon,
-  PencilIcon
+  PencilIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 
 export default function CreatorDashboard() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, refreshUser, updateUser } = useAuthStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -28,8 +32,26 @@ export default function CreatorDashboard() {
     fetchCreatorProfile
   } = useCreatorStore();
 
-  const { data: templatesData } = useQuery('creatorTemplates', templateAPI.getMyTemplates);
+  const { data: templatesData, refetch: refetchTemplates } = useQuery('creatorTemplates', templateAPI.getMyTemplates);
   const templates = templatesData?.data?.templates || [];
+
+  const deleteTemplateMutation = useMutation(
+    (templateId) => templateAPI.delete(templateId),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('creatorTemplates');
+        toast.success('Template supprimé');
+        refetchTemplates();
+      },
+      onError: (err) =>
+        toast.error(err.response?.data?.message || 'Erreur lors de la suppression')
+    }
+  );
+
+  const handleDeleteTemplate = (templateId) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce template?')) return;
+    deleteTemplateMutation.mutate(templateId);
+  };
 
   const isCreator = user?.role === 'CREATOR' || user?.isCreator;
 
@@ -199,6 +221,7 @@ export default function CreatorDashboard() {
                     </span>
                   )}
                 </div>
+                
                 {creatorProfile.bio && (
                   <p className="text-gray-600 mb-2">{creatorProfile.bio}</p>
                 )}
@@ -302,33 +325,44 @@ export default function CreatorDashboard() {
               {templates.map((template) => (
                 <div
                   key={template.id}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow group"
                 >
-                  {template.config?.previewImage && (
-                    <img
-                      src={template.config.previewImage}
-                      alt={template.name}
-                      className="w-full h-40 object-cover"
+                  {/* Template Preview */}
+                  <div className="aspect-[3/4] bg-gray-100 overflow-hidden">
+                    <TemplatePreview
+                      template={template}
+                      className="group-hover:scale-105 transition-transform duration-300"
                     />
-                  )}
-                  <div className="p-6">
+                  </div>
+
+                  <div className="p-4">
                     <h3 className="text-lg font-bold text-gray-900 mb-2">{template.name}</h3>
                     <p className="text-gray-600 text-sm mb-4 line-clamp-2">{template.description}</p>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <button
                         onClick={() => navigate(`/templates/${template.id}/design?wedding=null`)}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors"
+                        title="Modifier le template"
                       >
                         <PencilIcon className="w-4 h-4" />
                         Designer
                       </button>
                       <button
                         onClick={() => navigate(`/templates/${template.id}/publish`)}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-primary-600 text-primary-600 hover:bg-primary-50 rounded-lg font-medium transition-colors"
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 border border-primary-600 text-primary-600 hover:bg-primary-50 rounded-lg text-sm font-medium transition-colors"
+                        title="Publier sur la marketplace"
                       >
                         <SparklesIcon className="w-4 h-4" />
                         Publier
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTemplate(template.id)}
+                        disabled={deleteTemplateMutation.isLoading}
+                        className="px-3 py-2 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Supprimer le template"
+                      >
+                        <TrashIcon className="w-4 h-4" />
                       </button>
                     </div>
                   </div>

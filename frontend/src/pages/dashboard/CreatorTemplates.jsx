@@ -56,6 +56,25 @@ export default function CreatorTemplates() {
     }
   }
 
+  const handleCreateBlank = async () => {
+    try {
+      // Find the simplest template to fork as a base
+      const firstTemplate = allTemplates[0]
+      if (!firstTemplate) {
+        toast.error('Aucun template disponible pour créer un nouveau')
+        return
+      }
+      const response = await templateAPI.fork(firstTemplate.id)
+      const forkedId = response.data.template.id
+      queryClient.invalidateQueries('my-templates')
+      toast.success('Nouveau template créé')
+      // Rediriger vers l'éditeur
+      navigate(`/templates/${forkedId}/design?wedding=null`)
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur lors de la création')
+    }
+  }
+
   const handleDeleteTemplate = async (templateId) => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce template?')) return
 
@@ -74,8 +93,15 @@ export default function CreatorTemplates() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-serif font-bold text-gray-900">Créer un Template</h1>
-          <p className="text-gray-600 mt-1">Dupliquez un template existant pour commencer</p>
+          <p className="text-gray-600 mt-1">Choisissez une base ou créez un nouveau template vierge</p>
         </div>
+        <button
+          onClick={handleCreateBlank}
+          className="mt-4 sm:mt-0 flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors"
+        >
+          <PlusIcon className="w-5 h-5" />
+          Créer Vierge
+        </button>
       </div>
 
       {/* Mes Templates Section */}

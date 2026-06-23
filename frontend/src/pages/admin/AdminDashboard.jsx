@@ -68,11 +68,15 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function AdminDashboard() {
   const { data: statsData, isLoading } = useQuery('admin-stats', () => adminAPI.getStats())
+  const { data: marketplaceData } = useQuery('marketplace-pending', () =>
+    adminAPI.getMarketplaceSubmissions({ status: 'PENDING_REVIEW', limit: 1 })
+  )
   const dashData = statsData?.data || {}
   const stats = dashData.stats || {}
   const monthlyData = dashData.monthlyData || []
   const rsvpStats = dashData.rsvpStats || []
   const invitationOrderStatusStats = dashData.invitationOrderStatusStats || []
+  const pendingMarketplaceCount = marketplaceData?.pagination?.total || 0
 
   const rsvpPieData = rsvpStats.map(r => ({
     name: RSVP_LABELS[r.status] || r.status,
@@ -351,12 +355,42 @@ export default function AdminDashboard() {
               </a>
               <a
                 href="/admin/marketplace"
-                className="flex items-center gap-3 rounded-xl bg-purple-50 p-3 text-sm font-medium text-purple-700 hover:bg-purple-100 transition-colors"
+                className="flex items-center gap-3 rounded-xl bg-purple-50 p-3 text-sm font-medium text-purple-700 hover:bg-purple-100 transition-colors group relative"
               >
                 <SparklesIcon className="h-5 w-5" />
                 Marketplace - Approuver les templates
+                {pendingMarketplaceCount > 0 && (
+                  <span className="absolute top-1 right-2 inline-flex items-center justify-center h-6 w-6 rounded-full bg-red-500 text-white text-xs font-bold animate-pulse">
+                    {pendingMarketplaceCount}
+                  </span>
+                )}
               </a>
             </div>
+          </div>
+        </div>
+
+        {/* Marketplace Summary */}
+        <div className="rounded-2xl border border-gray-100 bg-gradient-to-br from-purple-50 to-indigo-50 p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Marketplace Creators</h3>
+              <p className="text-sm text-gray-600 mt-1">Soumissions en attente d'approbation</p>
+            </div>
+            <SparklesIcon className="h-8 w-8 text-purple-600" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white rounded-lg p-4 border border-purple-100">
+              <p className="text-gray-600 text-xs font-medium mb-1">En Attente</p>
+              <p className="text-2xl font-bold text-purple-600">{pendingMarketplaceCount}</p>
+            </div>
+            <a
+              href="/admin/marketplace"
+              className="bg-white rounded-lg p-4 border border-purple-100 hover:bg-purple-50 transition-colors flex flex-col justify-between cursor-pointer"
+            >
+              <p className="text-gray-600 text-xs font-medium">Action</p>
+              <p className="text-sm font-semibold text-purple-600 mt-1">Approuver →</p>
+            </a>
           </div>
         </div>
       </div>
