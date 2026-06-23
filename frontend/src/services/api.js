@@ -342,5 +342,9 @@ export const adminAPI = {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
   },
-  previewTemplate: (id, data) => api.post(`/templates/${id}/preview`, data)
+  previewTemplate: (id, data) => api.post(`/templates/${id}/preview`, data),
+  // Marketplace
+  getMarketplaceSubmissions: (params) => api.get('/admin/marketplace/submissions', { params }),
+  getMarketplaceSubmission: (id) => api.get(`/admin/marketplace/templates/${id}`),
+  reviewMarketplaceTemplate: (id, data) => api.put(`/admin/marketplace/templates/${id}/review`, data)
 }

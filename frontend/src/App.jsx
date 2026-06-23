@@ -47,6 +47,7 @@ import AdminTemplates from './pages/admin/AdminTemplates'
 import AdminCoupons from './pages/admin/AdminCoupons'
 import AdminSettings from './pages/admin/AdminSettings'
 import AdminPayoutDashboard from './pages/admin/AdminPayoutDashboard'
+import AdminMarketplaceApprovals from './pages/admin/AdminMarketplaceApprovals'
 import TemplateDesigner from './pages/admin/TemplateDesigner'
 
 // Public pages
@@ -140,6 +141,7 @@ function App() {
         <Route path="/admin/templates" element={<AdminTemplates />} />
         <Route path="/admin/coupons" element={<AdminCoupons />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
+        <Route path="/admin/marketplace" element={<AdminMarketplaceApprovals />} />
         <Route path="/admin/payouts" element={<AdminPayoutDashboard />} />
       </Route>
 

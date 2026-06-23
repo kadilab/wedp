@@ -349,6 +349,13 @@ export default function AdminDashboard() {
                 <HeartIcon className="h-5 w-5" />
                 Gérer les mariages
               </a>
+              <a
+                href="/admin/marketplace"
+                className="flex items-center gap-3 rounded-xl bg-purple-50 p-3 text-sm font-medium text-purple-700 hover:bg-purple-100 transition-colors"
+              >
+                <SparklesIcon className="h-5 w-5" />
+                Marketplace - Approuver les templates
+              </a>
             </div>
           </div>
         </div>

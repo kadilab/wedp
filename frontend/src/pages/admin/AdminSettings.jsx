@@ -482,6 +482,8 @@ export default function AdminSettings() {
             {/* Payment Tab */}
             {activeTab === 'payment' && (
               <div className="space-y-6">
+                {/* section of mobile money input */}
+                {/*
                 <h2 className="text-xl font-serif font-bold text-gray-900 pb-4 border-b">
                   Numéros Mobile Money
                 </h2>
@@ -530,6 +532,8 @@ export default function AdminSettings() {
                     onChange={(e) => updateMobileMoney('wave', e.target.value)}
                   />
                 </div>
+
+                */}
 
                 <div className="pt-6 border-t">
                   <h3 className="text-lg font-serif font-bold text-gray-900">
