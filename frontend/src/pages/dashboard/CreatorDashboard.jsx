@@ -2,7 +2,16 @@ import { useEffect, useState } from 'react';
 import { useCreatorStore } from '../../stores/creatorStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useNavigate, Link } from 'react-router-dom';
-import { ChartBarIcon, BanknotesIcon, ListBulletIcon } from '@heroicons/react/24/outline';
+import { useQuery } from 'react-query';
+import { templateAPI } from '../../services/api';
+import {
+  SparklesIcon,
+  ChartBarIcon,
+  BanknotesIcon,
+  PlusIcon,
+  EyeIcon,
+  PencilIcon
+} from '@heroicons/react/24/outline';
 
 export default function CreatorDashboard() {
   const navigate = useNavigate();
@@ -16,6 +25,9 @@ export default function CreatorDashboard() {
     fetchCreatorProfile
   } = useCreatorStore();
 
+  const { data: templatesData } = useQuery('creatorTemplates', templateAPI.getMyTemplates);
+  const templates = templatesData?.data?.templates || [];
+
   useEffect(() => {
     if (!user?.isCreator) {
       navigate('/dashboard');
@@ -26,16 +38,16 @@ export default function CreatorDashboard() {
 
   if (loading) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <p>Loading creator profile...</p>
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-gray-600">Chargement du profil créateur...</p>
       </div>
     );
   }
 
   if (!creatorProfile) {
     return (
-      <div style={{ padding: '2rem' }}>
-        <p>Creator profile not found</p>
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-gray-600">Profil créateur non trouvé</p>
       </div>
     );
   }
@@ -43,308 +55,234 @@ export default function CreatorDashboard() {
   const totalEarnings = earnings.pending + earnings.approved + earnings.paid;
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h1>Creator Dashboard</h1>
-        <p style={{ color: '#666' }}>Manage your templates and earnings</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-serif font-bold text-gray-900 mb-2">Tableau de Bord Créateur</h1>
+          <p className="text-gray-600">Gérez vos templates et vos gains</p>
+        </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid #eee', marginBottom: '2rem' }}>
-        <button
-          onClick={() => setActiveTab('overview')}
-          style={{
-            padding: '0.75rem 1.5rem',
-            borderBottom: activeTab === 'overview' ? '2px solid #1976d2' : 'none',
-            color: activeTab === 'overview' ? '#1976d2' : '#666',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontWeight: activeTab === 'overview' ? '600' : '500',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}
-        >
-          <ListBulletIcon style={{ width: '20px', height: '20px' }} />
-          Overview
-        </button>
-        <button
-          onClick={() => setActiveTab('earnings')}
-          style={{
-            padding: '0.75rem 1.5rem',
-            borderBottom: activeTab === 'earnings' ? '2px solid #1976d2' : 'none',
-            color: activeTab === 'earnings' ? '#1976d2' : '#666',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontWeight: activeTab === 'earnings' ? '600' : '500',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}
-        >
-          <ChartBarIcon style={{ width: '20px', height: '20px' }} />
-          Earnings
-        </button>
-        <button
-          onClick={() => setActiveTab('payouts')}
-          style={{
-            padding: '0.75rem 1.5rem',
-            borderBottom: activeTab === 'payouts' ? '2px solid #1976d2' : 'none',
-            color: activeTab === 'payouts' ? '#1976d2' : '#666',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontWeight: activeTab === 'payouts' ? '600' : '500',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}
-        >
-          <BanknotesIcon style={{ width: '20px', height: '20px' }} />
-          Payouts (Coming Soon)
-        </button>
-      </div>
+        {/* Tabs */}
+        <div className="flex gap-1 border-b-2 border-gray-200 mb-8 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`px-6 py-3 font-medium whitespace-nowrap transition-colors flex items-center gap-2 border-b-2 -mb-0.5 ${
+              activeTab === 'overview'
+                ? 'text-primary-600 border-primary-600'
+                : 'text-gray-600 border-transparent hover:text-gray-900'
+            }`}
+          >
+            <SparklesIcon className="w-5 h-5" />
+            Aperçu
+          </button>
+          <button
+            onClick={() => setActiveTab('templates')}
+            className={`px-6 py-3 font-medium whitespace-nowrap transition-colors flex items-center gap-2 border-b-2 -mb-0.5 ${
+              activeTab === 'templates'
+                ? 'text-primary-600 border-primary-600'
+                : 'text-gray-600 border-transparent hover:text-gray-900'
+            }`}
+          >
+            <PlusIcon className="w-5 h-5" />
+            Mes Templates
+          </button>
+          <button
+            onClick={() => setActiveTab('earnings')}
+            className={`px-6 py-3 font-medium whitespace-nowrap transition-colors flex items-center gap-2 border-b-2 -mb-0.5 ${
+              activeTab === 'earnings'
+                ? 'text-primary-600 border-primary-600'
+                : 'text-gray-600 border-transparent hover:text-gray-900'
+            }`}
+          >
+            <ChartBarIcon className="w-5 h-5" />
+            Gains
+          </button>
+          <button
+            onClick={() => setActiveTab('payouts')}
+            className={`px-6 py-3 font-medium whitespace-nowrap transition-colors flex items-center gap-2 border-b-2 -mb-0.5 ${
+              activeTab === 'payouts'
+                ? 'text-primary-600 border-primary-600'
+                : 'text-gray-600 border-transparent hover:text-gray-900'
+            }`}
+          >
+            <BanknotesIcon className="w-5 h-5" />
+            Retraits
+          </button>
+        </div>
 
       {/* Overview Tab */}
       {activeTab === 'overview' && (
-      <>
-
-      {/* Creator Profile Card */}
-      <div
-        style={{
-          background: 'white',
-          borderRadius: '8px',
-          padding: '1.5rem',
-          marginBottom: '2rem',
-          border: '1px solid #eee'
-        }}
-      >
-        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
-          {creatorProfile.profileImage && (
-            <img
-              src={creatorProfile.profileImage}
-              alt={creatorProfile.displayName}
-              style={{
-                width: '80px',
-                height: '80px',
-                borderRadius: '50%',
-                objectFit: 'cover'
-              }}
-            />
-          )}
-
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <h2 style={{ margin: 0 }}>{creatorProfile.displayName}</h2>
-              {creatorProfile.verificationStatus === 'VERIFIED' && (
-                <span
-                  style={{
-                    backgroundColor: '#4CAF50',
-                    color: 'white',
-                    padding: '0.25rem 0.5rem',
-                    borderRadius: '4px',
-                    fontSize: '0.75rem',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  Verified
-                </span>
+        <>
+          {/* Creator Profile Card */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <div className="flex gap-6 items-start">
+              {creatorProfile.profileImage && (
+                <img
+                  src={creatorProfile.profileImage}
+                  alt={creatorProfile.displayName}
+                  className="w-20 h-20 rounded-full object-cover"
+                />
               )}
-            </div>
-            {creatorProfile.bio && (
-              <p style={{ margin: '0.5rem 0', color: '#666' }}>
-                {creatorProfile.bio}
-              </p>
-            )}
-            {creatorProfile.website && (
-              <a
-                href={creatorProfile.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: '#1976d2', textDecoration: 'none', fontSize: '0.9rem' }}
+
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h2 className="text-2xl font-bold text-gray-900">{creatorProfile.displayName}</h2>
+                  {creatorProfile.verificationStatus === 'VERIFIED' && (
+                    <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium">
+                      Vérifié
+                    </span>
+                  )}
+                </div>
+                {creatorProfile.bio && (
+                  <p className="text-gray-600 mb-2">{creatorProfile.bio}</p>
+                )}
+                {creatorProfile.website && (
+                  <a
+                    href={creatorProfile.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary-600 hover:text-primary-700 text-sm"
+                  >
+                    {creatorProfile.website}
+                  </a>
+                )}
+              </div>
+
+              <button
+                onClick={() => navigate('/creator-settings')}
+                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
               >
-                {creatorProfile.website}
-              </a>
-            )}
+                Modifier Profil
+              </button>
+            </div>
           </div>
 
-          <button
-            onClick={() => navigate('/creator-settings')}
-            style={{
-              padding: '0.5rem 1rem',
-              backgroundColor: '#1976d2',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            Edit Profile
-          </button>
-        </div>
-      </div>
+          {/* Earnings Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <p className="text-gray-600 text-sm font-medium mb-2">Gains Totaux</p>
+              <p className="text-3xl font-bold text-primary-600">${totalEarnings.toFixed(2)}</p>
+            </div>
 
-      {/* Earnings Summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-        {/* Total Earnings */}
-        <div
-          style={{
-            background: 'white',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            border: '1px solid #eee'
-          }}
-        >
-          <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-            Total Earnings
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <p className="text-gray-600 text-sm font-medium mb-2">En Attente</p>
+              <p className="text-3xl font-bold text-amber-600">${earnings.pending.toFixed(2)}</p>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <p className="text-gray-600 text-sm font-medium mb-2">Disponible</p>
+              <p className="text-3xl font-bold text-emerald-600">${earnings.approved.toFixed(2)}</p>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <p className="text-gray-600 text-sm font-medium mb-2">Versé</p>
+              <p className="text-3xl font-bold text-primary-600">${earnings.paid.toFixed(2)}</p>
+            </div>
           </div>
-          <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2rem', color: '#1976d2' }}>
-            ${totalEarnings.toFixed(2)}
-          </h3>
-        </div>
 
-        {/* Pending */}
-        <div
-          style={{
-            background: 'white',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            border: '1px solid #eee'
-          }}
-        >
-          <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-            Pending (Awaiting Activation)
+          {/* Statistics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <p className="text-gray-600 text-sm font-medium mb-2">Templates Publiés</p>
+              <p className="text-3xl font-bold text-gray-900">{statistics.templateCount}</p>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <p className="text-gray-600 text-sm font-medium mb-2">Utilisations Totales</p>
+              <p className="text-3xl font-bold text-gray-900">{statistics.totalUsages}</p>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <p className="text-gray-600 text-sm font-medium mb-2">Versements Totaux</p>
+              <p className="text-3xl font-bold text-gray-900">{statistics.totalPayouts}</p>
+            </div>
           </div>
-          <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2rem', color: '#ff9800' }}>
-            ${earnings.pending.toFixed(2)}
-          </h3>
-        </div>
+        </>
+      )}
 
-        {/* Approved */}
-        <div
-          style={{
-            background: 'white',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            border: '1px solid #eee'
-          }}
-        >
-          <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-            Available (Ready to Withdraw)
+      {/* Templates Tab */}
+      {activeTab === 'templates' && (
+        <div className="space-y-6">
+          {/* Create Template Button */}
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold text-gray-900">Mes Templates</h2>
+            <button
+              onClick={() => navigate('/templates')}
+              className="flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
+            >
+              <PlusIcon className="w-5 h-5" />
+              Créer un Template
+            </button>
           </div>
-          <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2rem', color: '#4CAF50' }}>
-            ${earnings.approved.toFixed(2)}
-          </h3>
-        </div>
 
-        {/* Paid */}
-        <div
-          style={{
-            background: 'white',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            border: '1px solid #eee'
-          }}
-        >
-          <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-            Already Paid
-          </div>
-          <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2rem', color: '#1976d2' }}>
-            ${earnings.paid.toFixed(2)}
-          </h3>
-        </div>
-      </div>
+          {/* Templates List */}
+          {templates.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+              <SparklesIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Aucun Template Encore</h3>
+              <p className="text-gray-600 mb-6">
+                Dupliquez un template existant de la galerie pour créer votre propre design.
+              </p>
+              <button
+                onClick={() => navigate('/templates')}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
+              >
+                <PlusIcon className="w-5 h-5" />
+                Voir les Templates
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {templates.map((template) => (
+                <div
+                  key={template.id}
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
+                >
+                  {template.config?.previewImage && (
+                    <img
+                      src={template.config.previewImage}
+                      alt={template.name}
+                      className="w-full h-40 object-cover"
+                    />
+                  )}
+                  <div className="p-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">{template.name}</h3>
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{template.description}</p>
 
-      {/* Statistics */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-        <div
-          style={{
-            background: 'white',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            border: '1px solid #eee'
-          }}
-        >
-          <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-            Published Templates
-          </div>
-          <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.5rem' }}>
-            {statistics.templateCount}
-          </h3>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => navigate(`/templates/${template.id}/design?wedding=null`)}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                        Designer
+                      </button>
+                      <button
+                        onClick={() => navigate(`/templates/${template.id}/publish`)}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-primary-600 text-primary-600 hover:bg-primary-50 rounded-lg font-medium transition-colors"
+                      >
+                        <SparklesIcon className="w-4 h-4" />
+                        Publier
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-
-        <div
-          style={{
-            background: 'white',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            border: '1px solid #eee'
-          }}
-        >
-          <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-            Total Uses
-          </div>
-          <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.5rem' }}>
-            {statistics.totalUsages}
-          </h3>
-        </div>
-
-        <div
-          style={{
-            background: 'white',
-            borderRadius: '8px',
-            padding: '1.5rem',
-            border: '1px solid #eee'
-          }}
-        >
-          <div style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-            Total Payouts
-          </div>
-          <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.5rem' }}>
-            {statistics.totalPayouts}
-          </h3>
-        </div>
-      </div>
-
-      {/* Coming Soon Messages */}
-      <div style={{ background: '#f5f5f5', borderRadius: '8px', padding: '1.5rem' }}>
-        <h3>Next Steps</h3>
-        <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#666' }}>
-          <li style={{ marginBottom: '0.5rem' }}>
-            <strong>Publish Templates:</strong> Share templates to marketplace
-          </li>
-          <li style={{ marginBottom: '0.5rem' }}>
-            <strong>Track Earnings:</strong> Monitor usage and commissions (view in Earnings tab)
-          </li>
-          <li>
-            <strong>Request Payouts:</strong> Withdraw earnings via bank transfer (Phase 4)
-          </li>
-        </ul>
-      </div>
-      </>
       )}
 
       {/* Earnings Tab */}
       {activeTab === 'earnings' && (
-        <div style={{ background: 'white', borderRadius: '8px', padding: '2rem', border: '1px solid #eee' }}>
-          <p style={{ fontSize: '1rem', color: '#666', marginBottom: '1.5rem' }}>
-            Click the button below to view detailed earnings breakdown with charts and transaction history.
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          <p className="text-gray-600 mb-6">
+            Cliquez sur le bouton ci-dessous pour voir un détail complet de vos gains avec des graphiques et l'historique des transactions.
           </p>
-          <Link to="/creator-earnings" style={{ textDecoration: 'none' }}>
-            <button style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: '#1976d2',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: '500',
-              fontSize: '1rem'
-            }}>
-              View Detailed Earnings
+          <Link to="/creator-earnings">
+            <button className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors">
+              Voir les Gains Détaillés
             </button>
           </Link>
         </div>
@@ -354,60 +292,44 @@ export default function CreatorDashboard() {
       {activeTab === 'payouts' && (
         <div className="space-y-6">
           {/* Bank Accounts Section */}
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-primary-600">
+          <div className="bg-white rounded-lg shadow-sm border-l-4 border-primary-600 border p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Bank Accounts</h3>
-                <p className="text-sm text-gray-600 mt-1">Manage bank accounts for payouts</p>
+                <h3 className="text-lg font-bold text-gray-900">Comptes Bancaires</h3>
+                <p className="text-sm text-gray-600 mt-1">Gérez vos comptes bancaires pour les retraits</p>
               </div>
             </div>
-            <Link to="/creator-bank-accounts" style={{ textDecoration: 'none' }}>
-              <button style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#1976d2',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: '500'
-              }}>
-                Manage Bank Accounts
+            <Link to="/creator-bank-accounts">
+              <button className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors">
+                Gérer les Comptes Bancaires
               </button>
             </Link>
           </div>
 
           {/* Request Payout Section */}
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-600">
+          <div className="bg-white rounded-lg shadow-sm border-l-4 border-emerald-600 border p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Request Payout</h3>
-                <p className="text-sm text-gray-600 mt-1">Withdraw your approved earnings to your bank account</p>
+                <h3 className="text-lg font-bold text-gray-900">Demander un Retrait</h3>
+                <p className="text-sm text-gray-600 mt-1">Retirez vos gains approuvés vers votre compte bancaire</p>
               </div>
             </div>
-            <Link to="/creator-request-payout" style={{ textDecoration: 'none' }}>
-              <button style={{
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#4CAF50',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                fontWeight: '500'
-              }}>
-                Request Payout
+            <Link to="/creator-request-payout">
+              <button className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors">
+                Demander un Retrait
               </button>
             </Link>
           </div>
 
-          {/* Payout History */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Payout Process</h3>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
-              <li>Add and verify your bank account</li>
-              <li>Approved earnings become available (after wedding activation)</li>
-              <li>Request a payout with a minimum of $10</li>
-              <li>Admin reviews and processes your request (5-7 business days)</li>
-              <li>Funds are transferred to your bank account</li>
+          {/* Payout Process */}
+          <div className="bg-primary-50 border border-primary-200 rounded-lg p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Processus de Retrait</h3>
+            <ol className="list-decimal list-inside space-y-3 text-sm text-gray-700">
+              <li>Ajoutez et vérifiez votre compte bancaire</li>
+              <li>Les gains approuvés deviennent disponibles (après activation du mariage)</li>
+              <li>Demandez un retrait avec un minimum de 10 $</li>
+              <li>L'admin examine et traite votre demande (5-7 jours ouvrables)</li>
+              <li>Les fonds sont transférés vers votre compte bancaire</li>
             </ol>
           </div>
         </div>
