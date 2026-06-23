@@ -59,60 +59,60 @@ export default function Marketplace() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-serif font-bold text-gray-900">
+      {/* Hero Header */}
+      <div className="bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 rounded-3xl p-12 border border-indigo-100 shadow-sm">
+        <div className="max-w-3xl">
+          <h1 className="text-5xl font-serif font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
             Template Marketplace
           </h1>
-          <p className="text-gray-600 mt-1">
-            Discover beautiful templates created by our community
+          <p className="text-gray-700 text-xl leading-relaxed">
+            Découvrez les plus beaux templates d'invitations créés par notre communauté de designers talentueux
           </p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2 text-lg font-medium mb-4 sm:mb-0"
+          className="flex items-center gap-2 text-lg font-semibold text-gray-900 hover:text-indigo-600 transition-colors"
         >
           <FunnelIcon className="w-5 h-5" />
-          Filters
+          {showFilters ? 'Masquer les filtres' : 'Afficher les filtres'}
         </button>
 
         {showFilters && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-6 border-t">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-6 border-t border-gray-200">
             {/* Sort */}
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-2">
-                Sort By
+              <label className="block text-sm font-semibold text-gray-900 mb-3">
+                Trier par
               </label>
               <select
                 value={sort}
                 onChange={(e) => handleFilterChange('sort', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white transition-all hover:border-gray-400"
               >
-                <option value="newest">Newest</option>
-                <option value="popular">Most Popular</option>
-                <option value="highest_commission">Highest Commission</option>
+                <option value="newest">Plus récent</option>
+                <option value="popular">Plus populaire</option>
+                <option value="highest_commission">Commission la plus élevée</option>
               </select>
             </div>
 
             {/* Event Type */}
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-2">
-                Event Type
+              <label className="block text-sm font-semibold text-gray-900 mb-3">
+                Type d'événement
               </label>
               <select
                 value={eventType}
                 onChange={(e) => handleFilterChange('eventType', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white transition-all hover:border-gray-400"
               >
-                <option value="">All Events</option>
+                <option value="">Tous les événements</option>
                 {eventTypes.map(type => (
                   <option key={type} value={type}>
-                    {type}
+                    {type === 'WEDDING' ? 'Mariage' : type === 'BIRTHDAY' ? 'Anniversaire' : type === 'DOT' ? 'Jubilé' : type === 'CEREMONY' ? 'Cérémonie' : 'Conférence'}
                   </option>
                 ))}
               </select>
@@ -120,18 +120,18 @@ export default function Marketplace() {
 
             {/* Category */}
             <div>
-              <label className="block text-sm font-medium text-gray-900 mb-2">
-                Category
+              <label className="block text-sm font-semibold text-gray-900 mb-3">
+                Catégorie
               </label>
               <select
                 value={category}
                 onChange={(e) => handleFilterChange('category', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white transition-all hover:border-gray-400"
               >
-                <option value="">All Categories</option>
+                <option value="">Toutes les catégories</option>
                 {categories.map(cat => (
                   <option key={cat} value={cat}>
-                    {cat}
+                    {cat === 'MODERN' ? 'Moderne' : cat === 'ELEGANT' ? 'Élégant' : cat === 'ROMANTIC' ? 'Romantique' : cat === 'RUSTIC' ? 'Rustique' : 'Minimaliste'}
                   </option>
                 ))}
               </select>
@@ -142,17 +142,29 @@ export default function Marketplace() {
 
       {/* Content */}
       {isLoading ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500">Loading templates...</p>
+        <div className="flex flex-col items-center justify-center py-20">
+          <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+          <p className="text-gray-600 font-medium">Chargement des templates...</p>
         </div>
       ) : error ? (
-        <div className="text-center py-12">
-          <p className="text-red-500">Error loading templates</p>
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-12 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
+            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <p className="text-red-700 font-semibold text-lg">Erreur lors du chargement</p>
+          <p className="text-red-600 mt-2">Veuillez réessayer plus tard</p>
         </div>
       ) : templates.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg">
-          <p className="text-gray-500 text-lg">No templates found</p>
-          <p className="text-gray-400 text-sm mt-2">Try adjusting your filters</p>
+        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-16 text-center border border-indigo-100">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-indigo-100 mb-6">
+            <svg className="w-10 h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 015.646 5.646M9 9h.01M15 15h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5-4h.01" />
+            </svg>
+          </div>
+          <p className="text-gray-900 font-bold text-xl mb-2">Aucun template trouvé</p>
+          <p className="text-gray-600 text-lg max-w-md mx-auto">Essayez d'ajuster vos filtres ou consultez tous les templates disponibles</p>
         </div>
       ) : (
         <>
@@ -168,13 +180,13 @@ export default function Marketplace() {
 
           {/* Pagination */}
           {pagination.totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-2 pt-8">
               {pagination.page > 1 && (
                 <button
                   onClick={() => handlePageChange(pagination.page - 1)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="px-5 py-2 border border-gray-300 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 text-gray-700 font-medium transition-all duration-200"
                 >
-                  Previous
+                  ← Précédent
                 </button>
               )}
 
@@ -183,10 +195,10 @@ export default function Marketplace() {
                   <button
                     key={p}
                     onClick={() => handlePageChange(p)}
-                    className={`px-3 py-2 rounded-lg ${
+                    className={`px-3.5 py-2 rounded-xl font-medium transition-all duration-200 ${
                       p === pagination.page
-                        ? 'bg-primary-600 text-white'
-                        : 'border border-gray-300 hover:bg-gray-50'
+                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                        : 'border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-indigo-300'
                     }`}
                   >
                     {p}
@@ -197,9 +209,9 @@ export default function Marketplace() {
               {pagination.page < pagination.totalPages && (
                 <button
                   onClick={() => handlePageChange(pagination.page + 1)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="px-5 py-2 border border-gray-300 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 text-gray-700 font-medium transition-all duration-200"
                 >
-                  Next
+                  Suivant →
                 </button>
               )}
             </div>

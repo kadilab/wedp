@@ -90,65 +90,81 @@ export default function AdminMarketplaceApprovals() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-serif font-bold text-gray-900">Marketplace</h1>
-          <p className="text-gray-600 mt-1">Approuvez ou rejetez les templates créateurs</p>
+      {/* Header with Background */}
+      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-8 border border-indigo-100">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-serif font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              Marketplace
+            </h1>
+            <p className="text-gray-600 mt-2 text-lg">Approuvez ou rejetez les templates créateurs</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-gray-600">Total soumissions</p>
+            <p className="text-3xl font-bold text-indigo-600">{pagination.total || 0}</p>
+          </div>
         </div>
       </div>
 
       {/* View Mode Tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
-        <button
-          onClick={() => {
-            setViewMode('submissions')
-            setPage(1)
-          }}
-          className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-            viewMode === 'submissions'
-              ? 'border-primary-600 text-primary-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          📋 Soumissions
-        </button>
-        <button
-          onClick={() => {
-            setViewMode('by-creator')
-            setPage(1)
-          }}
-          className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-            viewMode === 'by-creator'
-              ? 'border-primary-600 text-primary-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          👥 Par Créateur
-        </button>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-1">
+        <div className="flex gap-1">
+          <button
+            onClick={() => {
+              setViewMode('submissions')
+              setPage(1)
+            }}
+            className={`flex-1 px-4 py-3 font-medium rounded-lg transition-all duration-200 ${
+              viewMode === 'submissions'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            📋 Soumissions
+          </button>
+          <button
+            onClick={() => {
+              setViewMode('by-creator')
+              setPage(1)
+            }}
+            className={`flex-1 px-4 py-3 font-medium rounded-lg transition-all duration-200 ${
+              viewMode === 'by-creator'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            👥 Par Créateur
+          </button>
+        </div>
       </div>
 
       {/* Status Filter Tabs - Only show in submissions view */}
       {viewMode === 'submissions' && (
-        <div className="flex gap-2 border-b border-gray-200 bg-gray-50 px-4">
-          {['PENDING_REVIEW', 'APPROVED', 'REJECTED'].map((status) => (
-            <button
-              key={status}
-              onClick={() => {
-                setStatusFilter(status)
-                setPage(1)
-              }}
-              className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-                statusFilter === status
-                  ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              {status === 'PENDING_REVIEW' && '⏳ En attente'}
-              {status === 'APPROVED' && '✅ Approuvés'}
-              {status === 'REJECTED' && '❌ Rejetés'}
-            </button>
-          ))}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-1">
+          <div className="flex gap-1">
+            {['PENDING_REVIEW', 'APPROVED', 'REJECTED'].map((status) => (
+              <button
+                key={status}
+                onClick={() => {
+                  setStatusFilter(status)
+                  setPage(1)
+                }}
+                className={`flex-1 px-4 py-2 font-medium rounded-lg transition-all duration-200 text-sm ${
+                  statusFilter === status
+                    ? status === 'PENDING_REVIEW'
+                      ? 'bg-amber-500 text-white shadow-md'
+                      : status === 'APPROVED'
+                      ? 'bg-green-500 text-white shadow-md'
+                      : 'bg-red-500 text-white shadow-md'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                {status === 'PENDING_REVIEW' && '⏳ En attente'}
+                {status === 'APPROVED' && '✅ Approuvés'}
+                {status === 'REJECTED' && '❌ Rejetés'}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -164,12 +180,14 @@ export default function AdminMarketplaceApprovals() {
       ) : viewMode === 'submissions' ? (
         // SUBMISSIONS VIEW
         submissions.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-            <SparklesIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl shadow-sm border border-indigo-100 p-16 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-indigo-100 mb-6">
+              <SparklesIcon className="h-10 w-10 text-indigo-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">
               Aucune soumission {statusFilter === 'PENDING_REVIEW' ? 'en attente' : statusFilter === 'APPROVED' ? 'approuvée' : 'rejetée'}
             </h3>
-            <p className="text-gray-500">
+            <p className="text-gray-600 text-lg max-w-md mx-auto">
               {statusFilter === 'PENDING_REVIEW'
                 ? 'Les créateurs pourront soumettre leurs templates pour approbation'
                 : 'Aucun template trouvé'}
@@ -182,59 +200,62 @@ export default function AdminMarketplaceApprovals() {
               {submissions.map((submission) => (
                 <div
                   key={submission.id}
-                  className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow"
+                  className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:border-indigo-200 transition-all duration-300 group"
                 >
                   {/* Template Preview */}
-                  <div className="aspect-[3/4] bg-gray-100 overflow-hidden group">
+                  <div className="aspect-[3/4] bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden relative">
                     <TemplatePreview
                       template={{ config: submission.template.config || {} }}
-                      className="group-hover:scale-105 transition-transform duration-300"
+                      className="group-hover:scale-110 transition-transform duration-300"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </div>
 
                   {/* Info */}
-                  <div className="p-4 space-y-3">
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{submission.templateName}</h3>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        Catégorie: <span className="font-medium text-gray-700">{submission.category}</span>
-                      </p>
+                  <div className="p-5 space-y-4">
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-gray-900 text-lg">{submission.templateName}</h3>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
+                          {submission.category}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Creator Info */}
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 flex items-center gap-3">
+                    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-3 flex items-center gap-3 border border-indigo-100">
                       {submission.creator.profileImage && (
                         <img
                           src={submission.creator.profileImage}
                           alt={submission.creator.displayName}
-                          className="w-8 h-8 rounded-full object-cover"
+                          className="w-10 h-10 rounded-full object-cover ring-2 ring-white"
                         />
                       )}
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
                           {submission.creator.displayName}
                         </p>
                         {submission.creator.verified && (
-                          <p className="text-xs text-green-600">✓ Vérifié</p>
+                          <p className="text-xs text-green-600 font-medium">✓ Vérifié</p>
                         )}
                       </div>
                     </div>
 
                     {/* Pricing Info */}
-                    <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Prix:</span>
-                        <span className="font-semibold text-gray-900">${submission.priceUSD.toFixed(2)}</span>
+                    <div className="grid grid-cols-2 gap-3 bg-gray-50 rounded-xl p-4 border border-gray-200">
+                      <div>
+                        <p className="text-xs text-gray-600 font-medium mb-1">Prix</p>
+                        <p className="text-lg font-bold text-gray-900">${submission.priceUSD.toFixed(2)}</p>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Commission créateur:</span>
-                        <span className="font-semibold text-gray-900">{submission.commissionPercentage}%</span>
+                      <div>
+                        <p className="text-xs text-gray-600 font-medium mb-1">Commission</p>
+                        <p className="text-lg font-bold text-indigo-600">{submission.commissionPercentage}%</p>
                       </div>
                     </div>
 
                     {/* Status Badge */}
-                    <div className="text-center py-2 px-3 rounded-lg bg-gradient-to-r from-blue-100 to-indigo-100">
-                      <p className="text-sm font-medium text-blue-900">
+                    <div className="text-center py-2 px-3 rounded-lg bg-gradient-to-r from-gray-100 to-gray-50 border border-gray-200">
+                      <p className="text-xs text-gray-600 font-medium">
                         Soumis le {new Date(submission.submittedAt).toLocaleDateString('fr-FR')}
                       </p>
                     </div>
@@ -244,7 +265,7 @@ export default function AdminMarketplaceApprovals() {
                       <div className="flex gap-2 pt-2">
                         <button
                           onClick={() => openReviewModal(submission, 'APPROVED')}
-                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50"
                           disabled={reviewMutation.isLoading}
                         >
                           <CheckIcon className="w-4 h-4" />
@@ -252,7 +273,7 @@ export default function AdminMarketplaceApprovals() {
                         </button>
                         <button
                           onClick={() => openReviewModal(submission, 'REJECTED')}
-                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2.5 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50"
                           disabled={reviewMutation.isLoading}
                         >
                           <XMarkIcon className="w-4 h-4" />
@@ -267,13 +288,13 @@ export default function AdminMarketplaceApprovals() {
 
             {/* Pagination */}
             {pagination.totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-8">
+              <div className="flex items-center justify-center gap-2 mt-10">
                 {pagination.page > 1 && (
                   <button
                     onClick={() => setPage(pagination.page - 1)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="px-5 py-2 border border-gray-300 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 text-gray-700 font-medium transition-all duration-200"
                   >
-                    Précédent
+                    ← Précédent
                   </button>
                 )}
 
@@ -282,10 +303,10 @@ export default function AdminMarketplaceApprovals() {
                     <button
                       key={p}
                       onClick={() => setPage(p)}
-                      className={`px-3 py-2 rounded-lg ${
+                      className={`px-3.5 py-2 rounded-xl font-medium transition-all duration-200 ${
                         p === pagination.page
-                          ? 'bg-primary-600 text-white'
-                          : 'border border-gray-300 hover:bg-gray-50'
+                          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                          : 'border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-indigo-300'
                       }`}
                     >
                       {p}
@@ -296,9 +317,9 @@ export default function AdminMarketplaceApprovals() {
                 {pagination.page < pagination.totalPages && (
                   <button
                     onClick={() => setPage(pagination.page + 1)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="px-5 py-2 border border-gray-300 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 text-gray-700 font-medium transition-all duration-200"
                   >
-                    Suivant
+                    Suivant →
                   </button>
                 )}
               </div>
@@ -308,37 +329,39 @@ export default function AdminMarketplaceApprovals() {
       ) : (
         // BY-CREATOR VIEW
         Object.keys(submissionsByCreator).length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-            <SparklesIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Aucun template approuvé</h3>
-            <p className="text-gray-500">Les templates approuvés apparaîtront ici</p>
+          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl shadow-sm border border-purple-100 p-16 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-purple-100 mb-6">
+              <SparklesIcon className="h-10 w-10 text-purple-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Aucun template approuvé</h3>
+            <p className="text-gray-600 text-lg max-w-md mx-auto">Les templates approuvés apparaîtront ici</p>
           </div>
         ) : (
           <div className="space-y-8">
             {Object.values(submissionsByCreator).map((group) => (
-              <div key={group.creator.id} className="space-y-4">
+              <div key={group.creator.id} className="space-y-5">
                 {/* Creator Header */}
-                <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-100">
-                  <div className="flex items-center gap-4">
+                <div className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 rounded-2xl p-8 border border-purple-100 shadow-sm">
+                  <div className="flex items-center gap-6">
                     {group.creator.profileImage && (
                       <img
                         src={group.creator.profileImage}
                         alt={group.creator.displayName}
-                        className="w-16 h-16 rounded-full object-cover"
+                        className="w-20 h-20 rounded-full object-cover ring-4 ring-white shadow-md"
                       />
                     )}
                     <div className="flex-1">
-                      <h3 className="text-lg font-bold text-gray-900">
+                      <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
                         {group.creator.displayName}
                       </h3>
-                      <div className="flex items-center gap-3 mt-2">
+                      <div className="flex items-center gap-4 mt-3 flex-wrap">
                         {group.creator.verified && (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 rounded-full text-xs font-semibold border border-green-200">
                             ✓ Vérifié
                           </span>
                         )}
-                        <span className="text-sm text-gray-600">
-                          {group.templates.length} template{group.templates.length !== 1 ? 's' : ''}
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold border border-indigo-200">
+                          📊 {group.templates.length} template{group.templates.length !== 1 ? 's' : ''}
                         </span>
                       </div>
                     </div>
@@ -346,34 +369,35 @@ export default function AdminMarketplaceApprovals() {
                 </div>
 
                 {/* Creator's Templates Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                   {group.templates.map((submission) => (
                     <div
                       key={submission.id}
-                      className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow"
+                      className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl hover:border-indigo-200 transition-all duration-300 group"
                     >
                       {/* Template Preview */}
-                      <div className="aspect-[3/4] bg-gray-100 overflow-hidden group">
+                      <div className="aspect-[3/4] bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden relative">
                         <TemplatePreview
                           template={{ config: submission.template.config || {} }}
-                          className="group-hover:scale-105 transition-transform duration-300"
+                          className="group-hover:scale-110 transition-transform duration-300"
                         />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                       </div>
 
                       {/* Info */}
-                      <div className="p-3 space-y-2">
-                        <h4 className="font-semibold text-gray-900 text-sm">{submission.templateName}</h4>
-                        <div className="bg-gray-50 rounded p-2 space-y-1">
+                      <div className="p-4 space-y-3">
+                        <h4 className="font-bold text-gray-900">{submission.templateName}</h4>
+                        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-3 space-y-2 border border-indigo-100">
                           <div className="flex justify-between text-xs">
-                            <span className="text-gray-600">Prix:</span>
-                            <span className="font-semibold">${submission.priceUSD.toFixed(2)}</span>
+                            <span className="text-gray-600 font-medium">Prix:</span>
+                            <span className="font-bold text-gray-900">${submission.priceUSD.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between text-xs">
-                            <span className="text-gray-600">Commission:</span>
-                            <span className="font-semibold">{submission.commissionPercentage}%</span>
+                            <span className="text-gray-600 font-medium">Commission:</span>
+                            <span className="font-bold text-indigo-600">{submission.commissionPercentage}%</span>
                           </div>
                         </div>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 font-medium">
                           Approuvé le {new Date(submission.submittedAt).toLocaleDateString('fr-FR')}
                         </p>
                       </div>
@@ -388,23 +412,23 @@ export default function AdminMarketplaceApprovals() {
 
       {/* Review Modal */}
       {showReviewModal && selectedSubmission && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center gap-3 mb-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-md">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in duration-300">
+            <div className="flex items-center gap-4 mb-8">
               {reviewData.status === 'APPROVED' ? (
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                  <CheckIcon className="w-6 h-6 text-green-600" />
+                <div className="w-14 h-14 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center">
+                  <CheckIcon className="w-7 h-7 text-green-600" />
                 </div>
               ) : (
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                  <XMarkIcon className="w-6 h-6 text-red-600" />
+                <div className="w-14 h-14 bg-gradient-to-br from-red-100 to-rose-100 rounded-full flex items-center justify-center">
+                  <XMarkIcon className="w-7 h-7 text-red-600" />
                 </div>
               )}
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">
-                  {reviewData.status === 'APPROVED' ? 'Approuver le template' : 'Rejeter le template'}
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-gray-900">
+                  {reviewData.status === 'APPROVED' ? 'Approuver' : 'Rejeter'}
                 </h3>
-                <p className="text-sm text-gray-600">{selectedSubmission.templateName}</p>
+                <p className="text-sm text-gray-600 truncate">{selectedSubmission.templateName}</p>
               </div>
             </div>
 
@@ -413,12 +437,12 @@ export default function AdminMarketplaceApprovals() {
                 e.preventDefault()
                 handleReview()
               }}
-              className="space-y-4"
+              className="space-y-6"
             >
               {reviewData.status === 'REJECTED' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Raison du rejet (optionnel)
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    Raison du rejet <span className="text-gray-500 font-normal">(optionnel)</span>
                   </label>
                   <textarea
                     value={reviewData.adminNote}
@@ -427,14 +451,14 @@ export default function AdminMarketplaceApprovals() {
                     }
                     placeholder="Expliquez pourquoi ce template n'est pas approuvé..."
                     rows="3"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition resize-none"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition resize-none bg-gray-50 hover:bg-white"
                   />
                 </div>
               )}
 
               {reviewData.status === 'APPROVED' && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <p className="text-sm text-green-800">
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5">
+                  <p className="text-sm font-medium text-green-900">
                     ✓ Ce template sera visible dans la marketplace et les créateurs pourront gagner des commissions.
                   </p>
                 </div>
@@ -444,17 +468,17 @@ export default function AdminMarketplaceApprovals() {
                 <button
                   type="button"
                   onClick={() => setShowReviewModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-all duration-200"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={reviewMutation.isLoading}
-                  className={`flex-1 px-4 py-2 rounded-lg text-white font-medium transition-colors disabled:opacity-50 ${
+                  className={`flex-1 px-4 py-3 rounded-xl text-white font-semibold transition-all duration-200 disabled:opacity-50 shadow-sm hover:shadow-md ${
                     reviewData.status === 'APPROVED'
-                      ? 'bg-green-600 hover:bg-green-700'
-                      : 'bg-red-600 hover:bg-red-700'
+                      ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
+                      : 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
                   }`}
                 >
                   {reviewMutation.isLoading
