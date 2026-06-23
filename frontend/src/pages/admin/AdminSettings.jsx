@@ -482,14 +482,20 @@ export default function AdminSettings() {
             {/* Payment Tab */}
             {activeTab === 'payment' && (
               <div className="space-y-6">
-                
+                <h2 className="text-xl font-serif font-bold text-gray-900 pb-4 border-b">
+                  Numéros Mobile Money
+                </h2>
+                <p className="text-gray-500 text-sm -mt-4">
+                  Ces numéros seront affichés aux utilisateurs pour les paiements
+                </p>
+
                 <div>
                   <label htmlFor="orangeMoney" className="block text-sm font-medium text-gray-700 mb-1">
                     Orange Money
                   </label>
                   <input
                     id="orangeMoney"
-                    type="hidden"
+                    type="tel"
                     className="input"
                     placeholder="+221 77 XXX XX XX"
                     value={formData.mobileMoney.orangeMoney}
@@ -503,7 +509,7 @@ export default function AdminSettings() {
                   </label>
                   <input
                     id="mtnMoney"
-                    type="hidden"
+                    type="tel"
                     className="input"
                     placeholder="+237 6XX XXX XXX"
                     value={formData.mobileMoney.mtn}
@@ -517,7 +523,7 @@ export default function AdminSettings() {
                   </label>
                   <input
                     id="waveMoney"
-                    type="hidden"
+                    type="tel"
                     className="input"
                     placeholder="+221 7X XXX XX XX"
                     value={formData.mobileMoney.wave}
@@ -637,132 +643,6 @@ export default function AdminSettings() {
                       ))}
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* Marketplace Tab */}
-            {activeTab === 'marketplace' && (
-              <div className="space-y-6">
-                <h2 className="text-xl font-serif font-bold text-gray-900 pb-4 border-b">
-                  Configuration Marketplace
-                </h2>
-
-                <div className="bg-primary-50 border border-primary-200 rounded-lg p-4 mb-6">
-                  <p className="text-sm text-gray-700">
-                    Configurez les tarifs et commissions pour la marketplace des templates premium créés par des créateurs tiers.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Invitation Price */}
-                  <div>
-                    <label htmlFor="invitationPricePerUnit" className="block text-sm font-medium text-gray-700 mb-1">
-                      Prix unitaire par invitation ($)
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-3 text-gray-500">$</span>
-                      <input
-                        id="invitationPricePerUnit"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        className="input pl-7"
-                        placeholder="0.30"
-                        value={formData.invitationPricePerUnit}
-                        onChange={(e) => updateField('invitationPricePerUnit', e.target.value)}
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Prix facturé au client pour chaque invitation basée sur un template premium d'un créateur.
-                    </p>
-                  </div>
-
-                  {/* Creator Commission */}
-                  <div>
-                    <label htmlFor="creatorCommissionPercentage" className="block text-sm font-medium text-gray-700 mb-1">
-                      Commission créateur (%)
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="creatorCommissionPercentage"
-                        type="number"
-                        step="1"
-                        min="0"
-                        max="100"
-                        className="input pr-7"
-                        placeholder="10"
-                        value={formData.creatorCommissionPercentage}
-                        onChange={(e) => updateField('creatorCommissionPercentage', e.target.value)}
-                      />
-                      <span className="absolute right-3 top-3 text-gray-500">%</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Pourcentage du prix de l'invitation reversé au créateur.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Preview Calculation */}
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900 mb-4">Aperçu de la rémunération</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-lg p-3 border border-gray-200">
-                      <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">
-                        Prix au client
-                      </p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        ${parseFloat(formData.invitationPricePerUnit || 0).toFixed(2)}
-                      </p>
-                    </div>
-
-                    <div className="bg-white rounded-lg p-3 border border-gray-200">
-                      <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">
-                        Commission créateur
-                      </p>
-                      <p className="text-2xl font-bold text-primary-600">
-                        {formData.creatorCommissionPercentage}%
-                      </p>
-                    </div>
-
-                    <div className="bg-primary-50 rounded-lg p-3 border border-primary-200">
-                      <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">
-                        Gain par invitation
-                      </p>
-                      <p className="text-2xl font-bold text-primary-700">
-                        ${(parseFloat(formData.invitationPricePerUnit || 0) * parseFloat(formData.creatorCommissionPercentage || 0) / 100).toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-900">
-                      <strong>Exemple :</strong> Si un client passe une commande de 100 invitations, le créateur gagnera{' '}
-                      <strong>${(parseFloat(formData.invitationPricePerUnit || 0) * parseFloat(formData.creatorCommissionPercentage || 0) / 100 * 100).toFixed(2)}</strong>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900 mb-2">À propos de la Marketplace</h3>
-                  <ul className="space-y-2 text-sm text-gray-700">
-                    <li className="flex gap-2">
-                      <span className="text-primary-600">✓</span>
-                      <span>Les créateurs peuvent publier leurs templates personnalisés sur la marketplace</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-primary-600">✓</span>
-                      <span>Les clients voient les templates premium disponibles et paient le prix configuré ci-dessus</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-primary-600">✓</span>
-                      <span>Les gains du créateur sont automatiquement calculés basé sur le pourcentage de commission</span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-primary-600">✓</span>
-                      <span>Les créateurs peuvent voir leurs gains et demander des retraits dans leur tableau de bord</span>
-                    </li>
-                  </ul>
                 </div>
               </div>
             )}
