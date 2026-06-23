@@ -4,6 +4,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import { templateAPI } from '../../services/api';
+import CreatorOnboarding from '../../components/CreatorOnboarding';
 import {
   SparklesIcon,
   ChartBarIcon,
@@ -15,13 +16,15 @@ import {
 
 export default function CreatorDashboard() {
   const navigate = useNavigate();
-  const { user, refreshUser } = useAuthStore();
+  const { user, refreshUser, updateUser } = useAuthStore();
   const [activeTab, setActiveTab] = useState('overview');
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const {
     creatorProfile,
     earnings,
     statistics,
     loading,
+    error: creatorError,
     fetchCreatorProfile
   } = useCreatorStore();
 
@@ -40,6 +43,12 @@ export default function CreatorDashboard() {
     }
     fetchCreatorProfile();
   }, [isCreator, navigate, fetchCreatorProfile]);
+
+  const handleOnboardingSuccess = () => {
+    updateUser({ isCreator: true });
+    fetchCreatorProfile();
+    setShowOnboarding(false);
+  };
 
   if (!isCreator) {
     return (
@@ -73,10 +82,37 @@ export default function CreatorDashboard() {
     );
   }
 
-  if (!creatorProfile) {
+  if (!creatorProfile && !loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-gray-600">Profil créateur non trouvé</p>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-primary-50 to-white">
+        <div className="text-center space-y-4 max-w-md">
+          <SparklesIcon className="w-12 h-12 text-primary-600 mx-auto" />
+          <h2 className="text-2xl font-bold text-gray-900">Complétez votre profil créateur</h2>
+          <p className="text-gray-600">
+            Créez votre profil créateur pour commencer à partager vos templates et gagner des commissions.
+          </p>
+          <div className="space-y-2">
+            <button
+              onClick={() => setShowOnboarding(true)}
+              className="w-full px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
+            >
+              Créer mon profil créateur
+            </button>
+            <button
+              onClick={() => refreshUser()}
+              className="w-full px-6 py-3 border border-primary-300 text-primary-600 hover:bg-primary-50 rounded-lg font-medium transition-colors"
+            >
+              Rafraîchir le profil
+            </button>
+          </div>
+        </div>
+
+        {/* Creator Onboarding Modal */}
+        <CreatorOnboarding
+          isOpen={showOnboarding}
+          onClose={() => setShowOnboarding(false)}
+          onSuccess={handleOnboardingSuccess}
+        />
       </div>
     );
   }
@@ -363,6 +399,13 @@ export default function CreatorDashboard() {
           </div>
         </div>
       )}
+
+      {/* Creator Onboarding Modal */}
+      <CreatorOnboarding
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onSuccess={handleOnboardingSuccess}
+      />
       </div>
     </div>
   );

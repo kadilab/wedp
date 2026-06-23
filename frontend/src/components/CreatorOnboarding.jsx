@@ -43,7 +43,7 @@ export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
         onClose?.();
       }, 500);
     } catch (err) {
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to create creator profile';
+      const errorMessage = err.response?.data?.message || err.message || 'Erreur lors de la création du profil créateur';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -61,7 +61,7 @@ export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-serif font-bold text-gray-900">
-              ✨ Become a Creator
+              ✨ Devenez créateur
             </h2>
             <button
               onClick={onClose}
@@ -84,29 +84,29 @@ export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Display Name *
+                Nom du créateur *
               </label>
               <input
                 type="text"
                 value={formData.displayName}
                 onChange={(e) => handleInputChange('displayName', e.target.value)}
-                placeholder="Your creator name"
+                placeholder="Votre nom de créateur"
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
               />
               <p className="mt-1 text-xs text-gray-500">
-                This is how creators appear on the marketplace
+                C'est votre nom public sur la marketplace
               </p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Bio
+                Biographie
               </label>
               <textarea
                 value={formData.bio}
                 onChange={(e) => handleInputChange('bio', e.target.value)}
-                placeholder="Tell the world about yourself..."
+                placeholder="Parlez-nous de vous..."
                 rows="4"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition resize-none"
               />
@@ -118,7 +118,7 @@ export default function CreatorOnboarding({ isOpen, onClose, onSuccess }) {
               disabled={!isValid || loading}
               className="w-full px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition font-medium mt-6"
             >
-              {loading ? 'Creating Profile...' : 'Create Profile'}
+              {loading ? 'Création du profil...' : 'Créer mon profil'}
             </button>
           </form>
         </div>
