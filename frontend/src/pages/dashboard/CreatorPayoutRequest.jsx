@@ -19,11 +19,11 @@ export default function CreatorPayoutRequest() {
     }
   );
 
-  // Fetch earnings details for available balance
-  const { data: earningsData, isLoading: earningsLoading } = useQuery(
+  // Fetch earnings summary for the available balance
+  const { data: earningsData } = useQuery(
     ['creator-earnings', { status: 'APPROVED' }],
     async () => {
-      const params = new URLSearchParams({ status: 'APPROVED', limit: 1000 });
+      const params = new URLSearchParams({ status: 'APPROVED', limit: 1 });
       const response = await api.get(`/creators/me/earnings-details?${params}`);
       return response.data;
     }
@@ -51,9 +51,7 @@ export default function CreatorPayoutRequest() {
   );
 
   const bankAccounts = bankAccountsData?.bankAccounts || [];
-  const earnings = earningsData?.earnings || [];
-
-  const availableAmount = earnings.reduce((sum, e) => sum + parseFloat(e.commissionAmount), 0);
+  const availableAmount = earningsData?.summary?.available || 0;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -91,7 +89,7 @@ export default function CreatorPayoutRequest() {
             <h3 className="font-medium text-gray-700">Disponible pour Retrait</h3>
           </div>
           <p className="text-3xl font-bold text-green-600">${availableAmount.toFixed(2)}</p>
-          <p className="text-xs text-gray-600 mt-2">Provenant de {earnings.length} transactions</p>
+          <p className="text-xs text-gray-600 mt-2">Gains approuvés non encore retirés</p>
         </div>
 
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow p-6 border border-blue-200">

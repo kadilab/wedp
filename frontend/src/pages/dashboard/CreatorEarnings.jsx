@@ -27,6 +27,7 @@ export default function CreatorEarnings() {
   const earnings = data?.earnings || [];
   const revenueByDate = data?.revenueByDate || {};
   const pagination = data?.pagination || {};
+  const summary = data?.summary || { pending: 0, approved: 0, paid: 0, available: 0 };
 
   // Prepare chart data
   const chartData = Object.entries(revenueByDate)
@@ -50,18 +51,10 @@ export default function CreatorEarnings() {
     { name: 'Paid', value: statusCounts.PAID, color: '#10B981' }
   ];
 
-  // Calculate totals
-  const totalPending = earnings
-    .filter(e => e.status === 'PENDING')
-    .reduce((sum, e) => sum + e.commissionAmount, 0);
-
-  const totalApproved = earnings
-    .filter(e => e.status === 'APPROVED')
-    .reduce((sum, e) => sum + e.commissionAmount, 0);
-
-  const totalPaid = earnings
-    .filter(e => e.status === 'PAID')
-    .reduce((sum, e) => sum + e.commissionAmount, 0);
+  // Totals come from the server-side summary (all transactions, not just this page)
+  const totalPending = summary.pending;
+  const totalApproved = summary.approved;
+  const totalPaid = summary.paid;
 
   return (
     <div className="space-y-8">
@@ -87,8 +80,8 @@ export default function CreatorEarnings() {
             <h3 className="font-medium text-gray-600">Available to Withdraw</h3>
             <CheckCircleIcon className="w-5 h-5 text-blue-500" />
           </div>
-          <p className="text-3xl font-bold text-blue-600">${totalApproved.toFixed(2)}</p>
-          <p className="text-xs text-gray-500 mt-1">{statusCounts.APPROVED} transactions</p>
+          <p className="text-3xl font-bold text-blue-600">${(summary.available || 0).toFixed(2)}</p>
+          <p className="text-xs text-gray-500 mt-1">approuvé non retiré</p>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">

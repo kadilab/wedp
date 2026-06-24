@@ -7,6 +7,7 @@ const { uploadSingle, handleUploadError } = require('../middleware/upload.middle
 const { generateWeddingSlug, paginate, buildPaginationMeta, daysUntilWedding } = require('../utils/helpers');
 const { generateQRCode } = require('../utils/qrcode');
 const { safeDeleteUploads } = require('../utils/fileCleanup');
+const { recordTemplateUsage } = require('../utils/marketplace');
 const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
@@ -190,6 +191,13 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
         details: { eventType: wedding.eventType, brideName, groomName, eventTitle }
       }
     });
+
+    // If the chosen template is an approved marketplace template, record a
+    // pending creator commission (approved once the wedding is activated).
+    if (templateId) {
+      await recordTemplateUsage({ templateId, weddingId: wedding.id, userId: req.user.id })
+        .catch(err => logger.error('recordTemplateUsage failed on wedding create:', err));
+    }
 
     // If print service is requested, create a print order
     if (wantsPrintService && printQuantity && printQuantity >= 10) {

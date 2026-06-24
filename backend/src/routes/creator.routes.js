@@ -194,17 +194,26 @@ router.get('/me/earnings-details', authenticate, isCreator, async (req, res) => 
       prisma.templateUsageTrack.count({ where })
     ]);
 
-    // Revenue grouped by day across all of the creator's transactions
-    // (the frontend slices the last 30 days for its chart).
+    // Aggregate across ALL of the creator's transactions (not just this page)
+    // for the revenue chart and the earnings summary.
     const allTracks = await prisma.templateUsageTrack.findMany({
       where: { creatorId: creatorProfile.id },
-      select: { usedAt: true, commissionAmount: true }
+      select: { usedAt: true, commissionAmount: true, status: true, payoutId: true }
     });
 
     const revenueByDate = {};
+    const summary = { pending: 0, approved: 0, paid: 0, available: 0, total: 0 };
     allTracks.forEach(t => {
+      const amount = parseFloat(t.commissionAmount || 0);
       const date = t.usedAt.toISOString().split('T')[0];
-      revenueByDate[date] = (revenueByDate[date] || 0) + parseFloat(t.commissionAmount || 0);
+      revenueByDate[date] = (revenueByDate[date] || 0) + amount;
+      summary.total += amount;
+      if (t.status === 'PENDING') summary.pending += amount;
+      if (t.status === 'APPROVED') {
+        summary.approved += amount;
+        if (!t.payoutId) summary.available += amount; // not yet attached to a payout
+      }
+      if (t.status === 'PAID') summary.paid += amount;
     });
 
     res.json({
@@ -216,8 +225,10 @@ router.get('/me/earnings-details', authenticate, isCreator, async (req, res) => 
         commissionAmount: parseFloat(t.commissionAmount),
         status: t.status,
         usedAt: t.usedAt,
-        approvedAt: t.approvedAt
+        approvedAt: t.approvedAt,
+        inPayout: !!t.payoutId
       })),
+      summary,
       revenueByDate,
       pagination: {
         page,
@@ -636,6 +647,163 @@ router.delete('/me/bank-accounts/:accountId', authenticate, isCreator, async (re
   } catch (error) {
     logger.error('Error deleting bank account:', error);
     res.status(500).json({ message: 'Error deleting bank account', error: error.message });
+  }
+});
+
+// ==================== PAYOUT ENDPOINTS ====================
+
+/**
+ * @route   POST /api/creators/me/request-payout
+ * @desc    Request a payout of the creator's approved (withdrawable) earnings
+ * @access  Private (creators only)
+ */
+router.post('/me/request-payout', authenticate, isCreator, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { bankAccountId, amount, note } = req.body;
+
+    if (!bankAccountId || !amount) {
+      return res.status(400).json({ message: 'Missing required fields: bankAccountId, amount' });
+    }
+
+    const creatorProfile = await prisma.creatorProfile.findUnique({ where: { userId } });
+    if (!creatorProfile) {
+      return res.status(404).json({ message: 'Creator profile not found' });
+    }
+
+    const bankAccount = await prisma.creatorBankAccount.findUnique({ where: { id: bankAccountId } });
+    if (!bankAccount || bankAccount.creatorId !== creatorProfile.id) {
+      return res.status(403).json({ message: 'Invalid bank account' });
+    }
+    if (!bankAccount.isVerified) {
+      return res.status(400).json({ message: 'Bank account must be verified before requesting a payout' });
+    }
+
+    const requested = parseFloat(amount);
+    if (Number.isNaN(requested) || requested < 10) {
+      return res.status(400).json({ message: 'Minimum payout amount is $10' });
+    }
+
+    // Available balance = APPROVED earnings not yet attached to a payout
+    const approvedEarnings = await prisma.templateUsageTrack.findMany({
+      where: { creatorId: creatorProfile.id, status: 'APPROVED', payoutId: null },
+      orderBy: { usedAt: 'asc' }
+    });
+
+    const availableAmount = approvedEarnings.reduce((sum, t) => sum + parseFloat(t.commissionAmount), 0);
+    if (requested > availableAmount) {
+      return res.status(400).json({ message: 'Payout amount exceeds available balance', availableAmount });
+    }
+
+    // Select the oldest tracks that fit within the requested amount
+    const selected = approvedEarnings.reduce((acc, t) => {
+      if (acc.total + parseFloat(t.commissionAmount) <= requested) {
+        acc.ids.push(t.id);
+        acc.total += parseFloat(t.commissionAmount);
+      }
+      return acc;
+    }, { ids: [], total: 0 });
+
+    const payout = await prisma.creatorPayout.create({
+      data: {
+        creatorId: creatorProfile.id,
+        userId,
+        totalAmount: selected.total,
+        currency: bankAccount.currency || 'USD',
+        status: 'PENDING',
+        paymentMethod: 'bank_transfer',
+        paymentDetails: {
+          bankAccountId,
+          bankName: bankAccount.bankName,
+          accountHolderName: bankAccount.accountHolderName
+        },
+        adminNote: note || '',
+        usageTracksIncluded: selected.ids
+      }
+    });
+
+    await prisma.templateUsageTrack.updateMany({
+      where: { id: { in: selected.ids } },
+      data: { payoutId: payout.id }
+    });
+
+    // Notify admins
+    const admins = await prisma.user.findMany({
+      where: { role: { in: ['SUPER_ADMIN', 'ADMIN'] } },
+      select: { id: true }
+    });
+    await Promise.all(admins.map(a =>
+      prisma.notification.create({
+        data: {
+          userId: a.id,
+          type: 'PAYOUT_REQUEST',
+          title: 'Nouvelle demande de retrait',
+          message: `${creatorProfile.displayName} a demandé un retrait de $${selected.total.toFixed(2)}.`,
+          data: { payoutId: payout.id }
+        }
+      }).catch(err => logger.error('Payout notification failed:', err))
+    ));
+
+    logger.info(`Payout request ${payout.id} created for creator ${creatorProfile.id} ($${selected.total})`);
+
+    res.status(201).json({
+      message: 'Payout request submitted',
+      payout: {
+        id: payout.id,
+        totalAmount: parseFloat(payout.totalAmount),
+        status: payout.status,
+        requestedAt: payout.requestedAt
+      }
+    });
+  } catch (error) {
+    logger.error('Error requesting payout:', error);
+    res.status(500).json({ message: 'Error requesting payout', error: error.message });
+  }
+});
+
+/**
+ * @route   GET /api/creators/me/payouts
+ * @desc    Creator's payout history
+ * @access  Private (creators only)
+ */
+router.get('/me/payouts', authenticate, isCreator, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const creatorProfile = await prisma.creatorProfile.findUnique({ where: { userId } });
+    if (!creatorProfile) {
+      return res.status(404).json({ message: 'Creator profile not found' });
+    }
+
+    const [payouts, total] = await Promise.all([
+      prisma.creatorPayout.findMany({
+        where: { creatorId: creatorProfile.id },
+        skip,
+        take: limit,
+        orderBy: { requestedAt: 'desc' }
+      }),
+      prisma.creatorPayout.count({ where: { creatorId: creatorProfile.id } })
+    ]);
+
+    res.json({
+      payouts: payouts.map(p => ({
+        id: p.id,
+        totalAmount: parseFloat(p.totalAmount),
+        currency: p.currency,
+        status: p.status,
+        requestedAt: p.requestedAt,
+        processedAt: p.processedAt,
+        adminNote: p.adminNote,
+        transactionId: p.transactionId
+      })),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    });
+  } catch (error) {
+    logger.error('Error fetching payout history:', error);
+    res.status(500).json({ message: 'Error fetching payout history', error: error.message });
   }
 });
 

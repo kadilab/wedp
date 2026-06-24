@@ -81,7 +81,12 @@ export default function WeddingCreate() {
   const [serverErrors, setServerErrors] = useState([])
   const navigate = useNavigate()
   const location = useLocation()
-  const preselectedTemplateId = location.state?.templateId
+  // Template can be preselected via router state or a ?templateId= query param
+  // (the marketplace "Use This Template" CTA navigates with a query param).
+  const preselectedTemplateId =
+    location.state?.templateId ||
+    new URLSearchParams(location.search).get('templateId') ||
+    ''
 
   const {
     register,
@@ -224,20 +229,12 @@ export default function WeddingCreate() {
   const createMutation = useMutation(
     (data) => weddingAPI.create(data),
     {
-      onSuccess: async (response, submittedData) => {
+      onSuccess: async (response) => {
         setServerErrors([])
         const newWeddingId = response.data.wedding.id
 
-        // Track marketplace template usage if applicable
-        if (submittedData.templateId) {
-          try {
-            await api.post(`/marketplace/${submittedData.templateId}/use`, {
-              weddingId: newWeddingId
-            })
-          } catch (e) {
-            // Not a marketplace template or error, silently continue
-          }
-        }
+        // Marketplace template usage is recorded server-side on wedding
+        // creation (see wedding.routes), so no extra client call is needed.
 
         if (couplePhotoFile) {
           try {

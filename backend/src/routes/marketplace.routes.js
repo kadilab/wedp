@@ -4,6 +4,7 @@ const { PrismaClient } = require('@prisma/client');
 const { authenticate, isAdmin, optionalAuth } = require('../middleware/auth.middleware');
 const { paginationValidation } = require('../middleware/validation.middleware');
 const { paginate, buildPaginationMeta } = require('../utils/helpers');
+const { recordTemplateUsage } = require('../utils/marketplace');
 const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
@@ -18,18 +19,17 @@ router.get('/templates', optionalAuth, paginationValidation, async (req, res) =>
     const { skip, take, page, limit } = paginate(req.query.page, req.query.limit);
     const { category, eventType, creatorId, sort, featured } = req.query;
 
-    // Build where clause - only show approved templates
+    // Build where clause - approval status is the single source of truth
     const where = {
       marketplace: {
-        status: 'APPROVED',
-        isPublished: true
+        is: { status: 'APPROVED' }
       },
       isActive: true
     };
 
     if (category) where.category = category;
     if (eventType) where.eventType = eventType;
-    if (creatorId) where.marketplace = { ...where.marketplace, creatorId };
+    if (creatorId) where.marketplace = { is: { status: 'APPROVED', creatorId } };
 
     // Build order by based on sort parameter
     let orderBy = { marketplace: { publishedAt: 'desc' } };
@@ -132,6 +132,7 @@ router.get('/templates/:templateId', async (req, res) => {
         marketplace: {
           select: {
             id: true,
+            status: true,
             priceUSD: true,
             commissionPercentage: true,
             usageCount: true,
@@ -578,48 +579,11 @@ router.post('/:templateId/use', authenticate, async (req, res) => {
     const { weddingId } = req.body;
     const userId = req.user.id;
 
-    // Get template with marketplace info
-    const template = await prisma.template.findUnique({
-      where: { id: templateId },
-      include: {
-        marketplace: {
-          where: { status: 'APPROVED', isPublished: true }
-        }
-      }
-    });
+    const usageTrack = await recordTemplateUsage({ templateId, weddingId, userId });
 
-    if (!template || !template.marketplace || template.marketplace.length === 0) {
-      return res.status(404).json({ message: 'Marketplace template not found or not published' });
+    if (!usageTrack) {
+      return res.status(404).json({ message: 'Marketplace template not found or not approved' });
     }
-
-    const marketplace = template.marketplace[0];
-
-    // Create usage track
-    const commissionAmount = (parseFloat(marketplace.priceUSD) * parseFloat(marketplace.commissionPercentage)) / 100;
-
-    const usageTrack = await prisma.templateUsageTrack.create({
-      data: {
-        templateMarketplaceId: marketplace.id,
-        weddingId,
-        userId,
-        creatorId: marketplace.creatorId,
-        templateId,
-        commissionAmount,
-        commissionPercentage: marketplace.commissionPercentage,
-        status: 'PENDING'
-      }
-    });
-
-    // Update marketplace usage count
-    await prisma.templateMarketplace.update({
-      where: { id: marketplace.id },
-      data: {
-        usageCount: { increment: 1 },
-        popularityScore: { increment: 0.1 }
-      }
-    });
-
-    logger.info(`Template usage tracked: ${templateId} by user ${userId} for wedding ${weddingId}`);
 
     res.status(201).json({
       message: 'Template usage recorded',
@@ -635,277 +599,5 @@ router.post('/:templateId/use', authenticate, async (req, res) => {
   }
 });
 
-/**
- * @route   GET /api/creators/me/earnings-details
- * @desc    Get detailed earnings/commissions history
- * @access  Private (creator)
- */
-router.get('/creators/me/earnings-details', authenticate, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { skip, take, page, limit } = paginate(req.query.page || 1, req.query.limit || 20);
-    const { status, templateId } = req.query;
-
-    // Get creator profile
-    const creatorProfile = await prisma.creatorProfile.findUnique({
-      where: { userId }
-    });
-
-    if (!creatorProfile) {
-      return res.status(404).json({ message: 'Creator profile not found' });
-    }
-
-    // Build where clause
-    const where = { creatorId: creatorProfile.id };
-    if (status) where.status = status;
-    if (templateId) where.templateId = templateId;
-
-    const [usageTracks, total] = await Promise.all([
-      prisma.templateUsageTrack.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { usedAt: 'desc' },
-        include: {
-          template: { select: { name: true, id: true } },
-          wedding: { select: { slug: true, status: true } }
-        }
-      }),
-      prisma.templateUsageTrack.count({ where })
-    ]);
-
-    // Group by date for revenue chart
-    const revenueByDate = {};
-    usageTracks.forEach(track => {
-      const date = new Date(track.usedAt).toLocaleDateString();
-      if (!revenueByDate[date]) revenueByDate[date] = 0;
-      if (track.status !== 'PENDING') {
-        revenueByDate[date] += parseFloat(track.commissionAmount);
-      }
-    });
-
-    res.json({
-      earnings: usageTracks.map(t => ({
-        id: t.id,
-        templateName: t.template.name,
-        templateId: t.template.id,
-        weddingSlug: t.wedding?.slug,
-        weddingStatus: t.wedding?.status,
-        commissionAmount: parseFloat(t.commissionAmount),
-        commissionPercentage: parseFloat(t.commissionPercentage),
-        status: t.status,
-        usedAt: t.usedAt
-      })),
-      revenueByDate,
-      pagination: buildPaginationMeta(page, limit, total)
-    });
-  } catch (error) {
-    logger.error('Error fetching earnings details:', error);
-    res.status(500).json({ message: 'Error fetching earnings', error: error.message });
-  }
-});
-
-/**
- * @route   PUT /api/marketplace/weddings/:weddingId/approve-earnings
- * @desc    Approve earnings for a wedding (PENDING -> APPROVED)
- * @access  Private (wedding creator)
- */
-router.put('/weddings/:weddingId/approve-earnings', authenticate, async (req, res) => {
-  try {
-    const { weddingId } = req.params;
-    const userId = req.user.id;
-
-    // Verify user owns the wedding
-    const wedding = await prisma.wedding.findUnique({
-      where: { id: weddingId }
-    });
-
-    if (!wedding) {
-      return res.status(404).json({ message: 'Wedding not found' });
-    }
-
-    if (wedding.userId !== userId) {
-      return res.status(403).json({ message: 'Unauthorized: Wedding does not belong to you' });
-    }
-
-    // Update all PENDING template usages for this wedding to APPROVED
-    const result = await prisma.templateUsageTrack.updateMany({
-      where: {
-        weddingId,
-        status: 'PENDING'
-      },
-      data: {
-        status: 'APPROVED',
-        approvedAt: new Date()
-      }
-    });
-
-    logger.info(`Wedding ${weddingId} earnings approved: ${result.count} records updated`);
-
-    res.json({
-      message: 'Earnings approved',
-      updatedCount: result.count
-    });
-  } catch (error) {
-    logger.error('Error approving earnings:', error);
-    res.status(500).json({ message: 'Error approving earnings', error: error.message });
-  }
-});
-
-// ==================== PAYOUT ENDPOINTS ====================
-
-/**
- * @route   POST /api/creators/me/request-payout
- * @desc    Request a payout of approved earnings
- * @access  Private (creators only)
- */
-router.post('/creators/me/request-payout', authenticate, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { bankAccountId, amount, note } = req.body;
-
-    if (!bankAccountId || !amount) {
-      return res.status(400).json({ message: 'Missing required fields: bankAccountId, amount' });
-    }
-
-    const creatorProfile = await prisma.creatorProfile.findUnique({
-      where: { userId }
-    });
-
-    if (!creatorProfile) {
-      return res.status(404).json({ message: 'Creator profile not found' });
-    }
-
-    // Verify bank account belongs to creator and is verified
-    const bankAccount = await prisma.creatorBankAccount.findUnique({
-      where: { id: bankAccountId }
-    });
-
-    if (!bankAccount || bankAccount.creatorId !== creatorProfile.id) {
-      return res.status(403).json({ message: 'Invalid bank account' });
-    }
-
-    if (!bankAccount.isVerified) {
-      return res.status(400).json({ message: 'Bank account must be verified before requesting payout' });
-    }
-
-    // Calculate available balance
-    const approvedEarnings = await prisma.templateUsageTrack.findMany({
-      where: {
-        creatorId: creatorProfile.id,
-        status: 'APPROVED'
-      }
-    });
-
-    const availableAmount = approvedEarnings.reduce((sum, track) => sum + parseFloat(track.commissionAmount), 0);
-
-    if (parseFloat(amount) > availableAmount) {
-      return res.status(400).json({
-        message: 'Payout amount exceeds available balance',
-        availableAmount
-      });
-    }
-
-    if (parseFloat(amount) < 10) {
-      return res.status(400).json({ message: 'Minimum payout amount is $10' });
-    }
-
-    // Create payout request
-    const usageTracksToInclude = approvedEarnings
-      .sort((a, b) => new Date(a.usedAt) - new Date(b.usedAt))
-      .reduce((sum, track) => {
-        if (sum.total + parseFloat(track.commissionAmount) <= parseFloat(amount)) {
-          sum.ids.push(track.id);
-          sum.total += parseFloat(track.commissionAmount);
-        }
-        return sum;
-      }, { ids: [], total: 0 });
-
-    const payout = await prisma.creatorPayout.create({
-      data: {
-        creatorId: creatorProfile.id,
-        userId,
-        totalAmount: parseFloat(amount),
-        currency: 'USD',
-        status: 'PENDING',
-        paymentMethod: 'bank_transfer',
-        paymentDetails: {
-          bankAccountId,
-          bankName: bankAccount.bankName,
-          accountHolderName: bankAccount.accountHolderName
-        },
-        adminNote: note || '',
-        usageTracksIncluded: usageTracksToInclude.ids
-      }
-    });
-
-    // Update usage tracks to link to payout
-    await prisma.templateUsageTrack.updateMany({
-      where: { id: { in: usageTracksToInclude.ids } },
-      data: { payoutId: payout.id }
-    });
-
-    logger.info(`Payout request created: ${payout.id} for creator ${creatorProfile.id}`);
-
-    res.status(201).json({
-      message: 'Payout request submitted',
-      payout: {
-        id: payout.id,
-        totalAmount: parseFloat(payout.totalAmount),
-        status: payout.status,
-        requestedAt: payout.requestedAt
-      }
-    });
-  } catch (error) {
-    logger.error('Error requesting payout:', error);
-    res.status(500).json({ message: 'Error requesting payout', error: error.message });
-  }
-});
-
-/**
- * @route   GET /api/creators/me/payouts
- * @desc    Get creator's payout history
- * @access  Private (creators only)
- */
-router.get('/creators/me/payouts', authenticate, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { skip, take, page, limit } = paginate(req.query.page || 1, req.query.limit || 20);
-
-    const creatorProfile = await prisma.creatorProfile.findUnique({
-      where: { userId }
-    });
-
-    if (!creatorProfile) {
-      return res.status(404).json({ message: 'Creator profile not found' });
-    }
-
-    const [payouts, total] = await Promise.all([
-      prisma.creatorPayout.findMany({
-        where: { creatorId: creatorProfile.id },
-        skip,
-        take,
-        orderBy: { requestedAt: 'desc' }
-      }),
-      prisma.creatorPayout.count({ where: { creatorId: creatorProfile.id } })
-    ]);
-
-    res.json({
-      payouts: payouts.map(p => ({
-        id: p.id,
-        totalAmount: parseFloat(p.totalAmount),
-        currency: p.currency,
-        status: p.status,
-        requestedAt: p.requestedAt,
-        processedAt: p.processedAt,
-        adminNote: p.adminNote
-      })),
-      pagination: buildPaginationMeta(page, limit, total)
-    });
-  } catch (error) {
-    logger.error('Error fetching payout history:', error);
-    res.status(500).json({ message: 'Error fetching payout history', error: error.message });
-  }
-});
 
 module.exports = router;

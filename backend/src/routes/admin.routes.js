@@ -11,6 +11,7 @@ const axios = require('axios');
 const { generatePrintLayoutPDF, calculateImposition, PRINT_SIZES_MM } = require('../utils/pdf');
 const { uploadSingle, handleUploadError } = require('../middleware/upload.middleware');
 const { safeDeleteUploads } = require('../utils/fileCleanup');
+const { approveWeddingUsage } = require('../utils/marketplace');
 
 const prisma = new PrismaClient();
 
@@ -691,6 +692,12 @@ router.put('/weddings/:id/activate', authenticate, isAdmin, async (req, res) => 
         publishedAt: new Date()
       }
     });
+
+    // The wedding is now live (client paid) → make any creator commission
+    // tied to its template withdrawable.
+    await approveWeddingUsage(req.params.id).catch(err =>
+      logger.error('approveWeddingUsage failed on activation:', err)
+    );
 
     // Log activation
     await prisma.log.create({
@@ -1896,6 +1903,8 @@ router.put('/marketplace/templates/:marketplaceId/review', authenticate, isAdmin
 
       reviewData.priceUSD = price;
       reviewData.commissionPercentage = commission;
+      reviewData.isPublished = true;
+      reviewData.publishedAt = new Date();
     }
 
     // Update marketplace listing
