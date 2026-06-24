@@ -127,6 +127,13 @@ export default function CreatorTemplates() {
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-semibold text-gray-900 truncate">{template.name}</h3>
                     {(() => {
+                      if (template.sourceTemplateId) {
+                        return (
+                          <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700">
+                            Clone
+                          </span>
+                        )
+                      }
                       const status = template.marketplace?.status
                       const badges = {
                         PENDING_REVIEW: { label: 'En attente', cls: 'bg-amber-100 text-amber-800' },
@@ -166,10 +173,23 @@ export default function CreatorTemplates() {
                       <PencilIcon className="w-3.5 h-3.5" />
                       Designer
                     </button>
-                    {template.marketplace?.status === 'PENDING_REVIEW' ? (
+                    {template.sourceTemplateId ? (
+                      <span
+                        title="Les clones ne peuvent pas être publiés : le créateur original conserve la commission."
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 border border-gray-200 bg-gray-50 text-gray-400 rounded-lg text-xs font-medium cursor-not-allowed"
+                      >
+                        <SparklesIcon className="w-3.5 h-3.5" />
+                        Non publiable
+                      </span>
+                    ) : template.marketplace?.status === 'PENDING_REVIEW' ? (
                       <span className="flex-1 flex items-center justify-center gap-1 px-3 py-2 border border-amber-200 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium">
                         <SparklesIcon className="w-3.5 h-3.5" />
                         En revue
+                      </span>
+                    ) : template.marketplace?.status === 'APPROVED' ? (
+                      <span className="flex-1 flex items-center justify-center gap-1 px-3 py-2 border border-green-200 bg-green-50 text-green-700 rounded-lg text-xs font-medium">
+                        <SparklesIcon className="w-3.5 h-3.5" />
+                        Publié
                       </span>
                     ) : (
                       <button

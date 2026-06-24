@@ -372,7 +372,7 @@ router.get('/creators/:creatorId', paginationValidation, async (req, res) => {
 router.post('/:templateId/publish', authenticate, async (req, res) => {
   try {
     const { templateId } = req.params;
-    const { priceUSD, commissionPercentage, description } = req.body;
+    const { description, name, eventType, category } = req.body;
     const userId = req.user.id;
 
     // Get user's creator profile
@@ -399,6 +399,24 @@ router.post('/:templateId/publish', authenticate, async (req, res) => {
 
     if (!template.isCustom) {
       return res.status(400).json({ message: 'Only custom templates can be published to marketplace' });
+    }
+
+    // Clones of a marketplace template cannot be re-published: the original
+    // already exists in the marketplace and its creator keeps the commission.
+    if (template.sourceTemplateId) {
+      return res.status(400).json({ message: "Ce template est un clone : seul l'original peut être publié dans la marketplace" });
+    }
+
+    // Allow the creator to set the displayed name, event type and design
+    // category at publish time.
+    const VALID_EVENT_TYPES = ['WEDDING', 'BIRTHDAY', 'DOT', 'CEREMONY', 'CONFERENCE', 'OTHER'];
+    const templateUpdate = {};
+    if (name && name.trim()) templateUpdate.name = name.trim();
+    if (description !== undefined) templateUpdate.description = description?.trim() || null;
+    if (eventType && VALID_EVENT_TYPES.includes(eventType)) templateUpdate.eventType = eventType;
+    if (category && category.trim()) templateUpdate.category = category.trim();
+    if (Object.keys(templateUpdate).length > 0) {
+      await prisma.template.update({ where: { id: templateId }, data: templateUpdate });
     }
 
     // Check existing listing. A rejected (or draft) listing can be

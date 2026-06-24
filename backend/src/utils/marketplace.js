@@ -18,17 +18,28 @@ const prisma = new PrismaClient();
 async function recordTemplateUsage({ templateId, weddingId, userId }) {
   if (!templateId || !weddingId || !userId) return null;
 
+  // Resolve the marketplace listing that should earn the commission. If the
+  // chosen template is a clone of a marketplace template, follow its lineage so
+  // the ORIGINAL creator is credited (not the cloner).
+  const template = await prisma.template.findUnique({
+    where: { id: templateId },
+    select: { id: true, sourceTemplateId: true }
+  });
+  if (!template) return null;
+
+  const marketplaceTemplateId = template.sourceTemplateId || template.id;
+
   const marketplace = await prisma.templateMarketplace.findUnique({
-    where: { templateId }
+    where: { templateId: marketplaceTemplateId }
   });
 
   if (!marketplace || marketplace.status !== 'APPROVED') {
     return null;
   }
 
-  // Idempotency: one commission per wedding + template.
+  // Idempotency: one commission per wedding + marketplace template.
   const existing = await prisma.templateUsageTrack.findFirst({
-    where: { weddingId, templateId }
+    where: { weddingId, templateId: marketplaceTemplateId }
   });
   if (existing) return existing;
 
@@ -42,7 +53,7 @@ async function recordTemplateUsage({ templateId, weddingId, userId }) {
       weddingId,
       userId,
       creatorId: marketplace.creatorId,
-      templateId,
+      templateId: marketplaceTemplateId,
       commissionAmount,
       commissionPercentage,
       status: 'PENDING'

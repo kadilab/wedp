@@ -99,6 +99,8 @@ router.get('/mine', authenticate, async (req, res) => {
         canvasHeight: true,
         updatedAt: true,
         marketplaceStatus: true,
+        sourceTemplateId: true,
+        description: true,
         marketplace: {
           select: {
             status: true,
@@ -169,6 +171,7 @@ router.get('/:id', async (req, res) => {
         userId: true,
         isCustom: true,
         marketplaceStatus: true,
+        sourceTemplateId: true,
         previewImages: true
       }
     });
@@ -390,6 +393,26 @@ router.post('/:id/fork', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Template non trouvé' });
     }
 
+    // Fork rules:
+    // - Admin base templates (not custom): anyone can fork (normal flow).
+    // - Approved marketplace templates: anyone can fork to customize, but the
+    //   clone keeps a pointer to the original so the original creator earns the
+    //   commission (and the clone cannot be re-published).
+    // - Another user's private custom template: forbidden.
+    const isOwner = source.userId === req.user.id;
+    const isApprovedMarketplace = source.marketplaceStatus === 'APPROVED';
+
+    if (source.isCustom && !isOwner && !isApprovedMarketplace) {
+      return res.status(403).json({ error: "Vous ne pouvez pas cloner le template d'un autre utilisateur" });
+    }
+
+    // Lineage points to the original marketplace template. Propagate it so a
+    // clone-of-a-clone still resolves to the original creator.
+    let sourceTemplateId = source.sourceTemplateId || null;
+    if (!sourceTemplateId && isApprovedMarketplace && !isOwner) {
+      sourceTemplateId = source.id;
+    }
+
     const slug = `${source.slug}-user-${req.user.id.slice(0, 8)}-${Date.now()}`;
 
     const forked = await prisma.template.create({
@@ -413,7 +436,8 @@ router.post('/:id/fork', authenticate, async (req, res) => {
         canvasWidth: source.canvasWidth,
         canvasHeight: source.canvasHeight,
         userId: req.user.id,
-        isCustom: true
+        isCustom: true,
+        sourceTemplateId
       }
     });
 

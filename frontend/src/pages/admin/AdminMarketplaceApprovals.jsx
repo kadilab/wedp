@@ -13,6 +13,15 @@ import {
 } from '@heroicons/react/24/outline'
 import TemplatePreview from '../../components/templates/TemplatePreview'
 
+const EVENT_TYPE_LABELS = {
+  WEDDING: 'Mariage',
+  DOT: 'Dot / Fiançailles',
+  BIRTHDAY: 'Anniversaire',
+  CEREMONY: 'Cérémonie',
+  CONFERENCE: 'Conférence',
+  OTHER: 'Autre'
+}
+
 export default function AdminMarketplaceApprovals() {
   const queryClient = useQueryClient()
   const [viewMode, setViewMode] = useState('submissions') // 'submissions' or 'by-creator'
@@ -259,7 +268,10 @@ export default function AdminMarketplaceApprovals() {
                   <div className="p-5 space-y-4">
                     <div className="space-y-1">
                       <h3 className="font-bold text-gray-900 text-lg">{submission.templateName}</h3>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary-100 text-primary-800">
+                          {EVENT_TYPE_LABELS[submission.eventType] || submission.eventType}
+                        </span>
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gold-100 text-gold-800">
                           {submission.category}
                         </span>
@@ -297,10 +309,26 @@ export default function AdminMarketplaceApprovals() {
                       </div>
                     </div>
 
+                    {/* Real usage data (approved templates) */}
+                    {submission.status === 'APPROVED' && (
+                      <div className="grid grid-cols-2 gap-3 bg-green-50 rounded-xl p-4 border border-green-200">
+                        <div>
+                          <p className="text-xs text-gray-600 font-medium mb-1">Utilisations</p>
+                          <p className="text-lg font-bold text-gray-900">{submission.usageCount ?? 0}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600 font-medium mb-1">Revenu généré</p>
+                          <p className="text-lg font-bold text-green-700">${(submission.revenueGenerated ?? 0).toFixed(2)}</p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Status Badge */}
                     <div className="text-center py-2 px-3 rounded-lg bg-gradient-to-r from-gray-100 to-gray-50 border border-gray-200">
                       <p className="text-xs text-gray-600 font-medium">
-                        Soumis le {new Date(submission.submittedAt).toLocaleDateString('fr-FR')}
+                        {submission.status === 'APPROVED' && submission.reviewedAt
+                          ? `Approuvé le ${new Date(submission.reviewedAt).toLocaleDateString('fr-FR')}`
+                          : `Soumis le ${new Date(submission.submittedAt).toLocaleDateString('fr-FR')}`}
                       </p>
                     </div>
 

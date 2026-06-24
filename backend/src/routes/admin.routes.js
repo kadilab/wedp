@@ -693,12 +693,6 @@ router.put('/weddings/:id/activate', authenticate, isAdmin, async (req, res) => 
       }
     });
 
-    // The wedding is now live (client paid) → make any creator commission
-    // tied to its template withdrawable.
-    await approveWeddingUsage(req.params.id).catch(err =>
-      logger.error('approveWeddingUsage failed on activation:', err)
-    );
-
     // Log activation
     await prisma.log.create({
       data: {
@@ -1187,6 +1181,12 @@ router.put('/invitation-orders/:id/approve', authenticate, isAdmin, async (req, 
 
     // No side effect on the wedding itself (unlike plan payments) — quota is derived
     // automatically from approved orders by getWeddingQuota().
+
+    // The client has now paid for invitations → release the creator commission
+    // tied to this wedding's template (PENDING -> APPROVED / withdrawable).
+    await approveWeddingUsage(order.weddingId).catch(err =>
+      logger.error('approveWeddingUsage failed on invitation order approval:', err)
+    );
 
     // Record coupon usage only once the order is actually approved (same rule as Payment)
     if (order.couponId) {
@@ -1782,6 +1782,8 @@ router.get('/marketplace/submissions', authenticate, isAdmin, paginationValidati
           verified: s.creator.verificationStatus === 'VERIFIED',
           bankAccountVerified: s.creator.bankAccountVerified
         },
+        usageCount: s.usageCount,
+        revenueGenerated: parseFloat(s.revenueGenerated),
         submittedAt: s.createdAt,
         reviewedAt: s.reviewedAt
       })),

@@ -206,6 +206,10 @@ model Template {
   marketplaceId     String?     @map("marketplace_id")
   creatorId         String?     @map("creator_id")
   marketplaceStatus String      @default("NONE") @map("marketplace_status")
+  // When a marketplace template is cloned for customization, the clone keeps a
+  // pointer to the original marketplace template so the original creator still
+  // earns the commission (and so the clone cannot be re-published).
+  sourceTemplateId  String?     @map("source_template_id")
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
 
