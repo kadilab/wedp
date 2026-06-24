@@ -34,6 +34,11 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
       RUN_SEED: ${RUN_SEED:-false}
+      # K-PAY (Mobile Money) — https://kpay.site/documentation
+      KPAY_BASE_URL: ${KPAY_BASE_URL:-https://admin.kpay.site}
+      KPAY_API_KEY: ${KPAY_API_KEY:-}
+      KPAY_SECRET_KEY: ${KPAY_SECRET_KEY:-}
+      KPAY_WEBHOOK_SECRET: ${KPAY_WEBHOOK_SECRET:-}
     volumes:
       - backend_uploads:/app/uploads
       - backend_logs:/app/logs
