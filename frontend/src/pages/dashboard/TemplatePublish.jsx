@@ -22,7 +22,7 @@ export default function TemplatePublish() {
   const { data: templateData, isLoading: templateLoading } = useQuery(
     ['template', templateId],
     async () => {
-      const response = await api.get(`/api/templates/${templateId}`);
+      const response = await api.get(`/templates/${templateId}`);
       return response.data;
     }
   );
