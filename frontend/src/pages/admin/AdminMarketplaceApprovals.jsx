@@ -19,7 +19,7 @@ export default function AdminMarketplaceApprovals() {
   const [statusFilter, setStatusFilter] = useState('PENDING_REVIEW')
   const [selectedSubmission, setSelectedSubmission] = useState(null)
   const [showReviewModal, setShowReviewModal] = useState(false)
-  const [reviewData, setReviewData] = useState({ status: 'APPROVED', adminNote: '' })
+  const [reviewData, setReviewData] = useState({ status: 'APPROVED', adminNote: '', priceUSD: '', commissionPercentage: '30' })
   const [page, setPage] = useState(1)
 
   const { data, isLoading, error } = useQuery(
@@ -62,15 +62,15 @@ export default function AdminMarketplaceApprovals() {
     : {}
 
   const reviewMutation = useMutation(
-    ({ submissionId, status, adminNote }) =>
-      adminAPI.reviewMarketplaceTemplate(submissionId, { status, adminNote }),
+    ({ submissionId, ...payload }) =>
+      adminAPI.reviewMarketplaceTemplate(submissionId, payload),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('marketplace-submissions')
         toast.success('Template review submitted')
         setShowReviewModal(false)
         setSelectedSubmission(null)
-        setReviewData({ status: 'APPROVED', adminNote: '' })
+        setReviewData({ status: 'APPROVED', adminNote: '', priceUSD: '', commissionPercentage: '30' })
       },
       onError: (err) =>
         toast.error(err.response?.data?.message || 'Error reviewing template')
@@ -79,16 +79,38 @@ export default function AdminMarketplaceApprovals() {
 
   const handleReview = () => {
     if (!selectedSubmission) return
-    reviewMutation.mutate({
+
+    const payload = {
       submissionId: selectedSubmission.id,
       status: reviewData.status,
       adminNote: reviewData.adminNote
-    })
+    }
+
+    if (reviewData.status === 'APPROVED') {
+      payload.priceUSD = parseFloat(reviewData.priceUSD)
+      payload.commissionPercentage = parseFloat(reviewData.commissionPercentage)
+
+      if (Number.isNaN(payload.priceUSD) || payload.priceUSD < 0) {
+        toast.error('Veuillez saisir un prix de vente valide')
+        return
+      }
+      if (Number.isNaN(payload.commissionPercentage) || payload.commissionPercentage < 0 || payload.commissionPercentage > 100) {
+        toast.error('Veuillez saisir une commission valide (0-100%)')
+        return
+      }
+    }
+
+    reviewMutation.mutate(payload)
   }
 
   const openReviewModal = (submission, status) => {
     setSelectedSubmission(submission)
-    setReviewData({ status, adminNote: '' })
+    setReviewData({
+      status,
+      adminNote: '',
+      priceUSD: submission.priceUSD ? String(submission.priceUSD) : '',
+      commissionPercentage: submission.commissionPercentage ? String(submission.commissionPercentage) : '30'
+    })
     setShowReviewModal(true)
   }
 
@@ -479,10 +501,56 @@ export default function AdminMarketplaceApprovals() {
               )}
 
               {reviewData.status === 'APPROVED' && (
-                <div className="bg-green-50 border border-green-200 rounded-xl p-5">
-                  <p className="text-sm font-medium text-green-900">
-                    ✓ Ce template sera visible dans la marketplace et les créateurs pourront gagner des commissions.
-                  </p>
+                <div className="space-y-5">
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                    <p className="text-sm font-medium text-green-900">
+                      ✓ Définissez le prix de vente et la commission du créateur. Le template sera ensuite
+                      visible dans la marketplace.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Prix de vente (USD)
+                    </label>
+                    <div className="flex">
+                      <span className="inline-flex items-center px-3 bg-gray-200 text-gray-700 text-sm rounded-l-xl">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={reviewData.priceUSD}
+                        onChange={(e) => setReviewData({ ...reviewData, priceUSD: e.target.value })}
+                        placeholder="0.00"
+                        className="flex-1 px-4 py-3 border border-gray-300 rounded-r-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition bg-gray-50 hover:bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Commission créateur (%)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={reviewData.commissionPercentage}
+                      onChange={(e) => setReviewData({ ...reviewData, commissionPercentage: e.target.value })}
+                      placeholder="30"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition bg-gray-50 hover:bg-white"
+                    />
+                  </div>
+
+                  <div className="bg-primary-50 border border-primary-200 rounded-xl p-4">
+                    <p className="text-xs text-gray-600 mb-1">Gain du créateur par utilisation</p>
+                    <p className="text-2xl font-bold text-primary-600">
+                      ${(((parseFloat(reviewData.priceUSD) || 0) * (parseFloat(reviewData.commissionPercentage) || 0)) / 100).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      ${reviewData.priceUSD || '0'} × {reviewData.commissionPercentage || '0'}%
+                    </p>
+                  </div>
                 </div>
               )}
 

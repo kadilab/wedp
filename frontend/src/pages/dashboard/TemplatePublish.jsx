@@ -13,8 +13,6 @@ export default function TemplatePublish() {
   const [error, setError] = useState('');
 
   const [formData, setFormData] = useState({
-    priceUSD: 0,
-    commissionPercentage: 30,
     description: ''
   });
 
@@ -79,6 +77,22 @@ export default function TemplatePublish() {
     );
   }
 
+  // Resolve the best available preview image. Custom templates store their
+  // rendered preview in previewImage / config.previewImage (data URLs), with
+  // thumbnail / backgroundUrl as relative-path fallbacks served by the API.
+  const apiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || '';
+  const rawPreview =
+    template.previewImage ||
+    template.config?.previewImage ||
+    template.thumbnail ||
+    template.backgroundUrl ||
+    '';
+  const previewSrc = rawPreview
+    ? (rawPreview.startsWith('data:') || rawPreview.startsWith('http')
+        ? rawPreview
+        : `${apiBase}${rawPreview}`)
+    : '';
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -92,9 +106,9 @@ export default function TemplatePublish() {
     setLoading(true);
 
     try {
-      const response = await api.post(`/marketplace/${templateId}/publish`, {
-        priceUSD: parseFloat(formData.priceUSD) || 0,
-        commissionPercentage: Math.min(Math.max(parseInt(formData.commissionPercentage), 10), 50),
+      // Pricing and commission are set by the admin during review.
+      // The creator only submits the template (and an optional description).
+      await api.post(`/marketplace/${templateId}/publish`, {
         description: formData.description.trim()
       });
 
@@ -106,17 +120,15 @@ export default function TemplatePublish() {
     }
   };
 
-  const estimatedCreatorEarning = (parseFloat(formData.priceUSD) || 0) * (parseFloat(formData.commissionPercentage) || 30) / 100;
-
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-serif font-bold text-gray-900">
-          Publish to Marketplace
+          Publier dans la Marketplace
         </h1>
         <p className="text-gray-600 mt-1">
-          Share your template and earn commissions
+          Partagez votre template et gagnez des commissions
         </p>
       </div>
 
@@ -145,89 +157,68 @@ export default function TemplatePublish() {
           {/* Template Preview */}
           {step === 1 && (
             <div>
-              <h2 className="text-xl font-serif font-bold mb-4">Review Your Template</h2>
-              <div className="aspect-video bg-gray-200 rounded-lg overflow-hidden mb-4">
-                {template.thumbnail && (
-                  <img src={template.thumbnail} alt={template.name} className="w-full h-full object-cover" />
+              <h2 className="text-xl font-serif font-bold mb-4">Vérifiez votre template</h2>
+              <div className="aspect-[3/4] max-w-xs mx-auto bg-gray-100 rounded-lg overflow-hidden mb-4 flex items-center justify-center">
+                {previewSrc ? (
+                  <img src={previewSrc} alt={template.name} className="w-full h-full object-contain" />
+                ) : (
+                  <span className="text-sm text-gray-400">Aucun aperçu disponible</span>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">Template Name</p>
+                  <p className="text-sm text-gray-600">Nom du template</p>
                   <p className="font-medium">{template.name}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Category</p>
-                  <p className="font-medium">{template.category}</p>
+                  <p className="text-sm text-gray-600">Catégorie</p>
+                  <p className="font-medium">{template.category || '—'}</p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Pricing & Commission */}
+          {/* Commission Info & Description */}
           {step === 2 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-serif font-bold">Set Pricing & Commission</h2>
+              <h2 className="text-xl font-serif font-bold">Comment vous gagnez de l'argent</h2>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Commission Basis (USD)
-                </label>
-                <p className="text-xs text-gray-600 mb-2">
-                  This is the amount used to calculate creator commission
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                <p className="text-sm text-blue-900">
+                  Le <strong>prix de vente</strong> et votre <strong>pourcentage de commission</strong> sont
+                  définis par notre équipe lors de la validation, afin de garantir une tarification cohérente
+                  sur toute la marketplace.
                 </p>
-                <div className="flex">
-                  <span className="inline-flex items-center px-3 bg-gray-200 text-gray-700 text-sm rounded-l-lg">
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.priceUSD}
-                    onChange={(e) => handleInputChange('priceUSD', e.target.value)}
-                    className="flex-1 px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-primary-500 focus:border-transparent rounded-r-lg"
-                    placeholder="0.00"
-                  />
+                <p className="text-sm text-blue-900">
+                  À chaque fois qu'un client utilise votre template, vous gagnez votre commission
+                  (un pourcentage du prix de vente). Vos gains s'accumulent et sont versés depuis votre
+                  espace créateur.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <p className="text-2xl mb-1">📤</p>
+                  <p className="text-xs text-gray-600">Vous soumettez votre template</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <p className="text-2xl mb-1">✅</p>
+                  <p className="text-xs text-gray-600">L'admin fixe le prix et votre commission</p>
+                </div>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <p className="text-2xl mb-1">💰</p>
+                  <p className="text-xs text-gray-600">Vous gagnez à chaque utilisation</p>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Commission Percentage (%)
-                </label>
-                <p className="text-xs text-gray-600 mb-2">
-                  Creator earns this percentage of the commission basis when someone uses your template (10-50%)
-                </p>
-                <input
-                  type="number"
-                  min="10"
-                  max="50"
-                  value={formData.commissionPercentage}
-                  onChange={(e) => handleInputChange('commissionPercentage', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-primary-500 focus:border-transparent rounded-lg"
-                />
-              </div>
-
-              {/* Earning Preview */}
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-sm text-green-800 mb-1">Estimated Earning Per Use</p>
-                <p className="text-3xl font-bold text-green-600">
-                  ${estimatedCreatorEarning.toFixed(2)}
-                </p>
-                <p className="text-xs text-green-700 mt-2">
-                  Calculation: ${formData.priceUSD || '0'} × {formData.commissionPercentage || '0'}%
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Description (Optional)
+                  Description (optionnel)
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Describe your template design, style, and what makes it special..."
+                  placeholder="Décrivez le style de votre template et ce qui le rend unique..."
                   rows="4"
                   className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-primary-500 focus:border-transparent rounded-lg"
                 />
@@ -243,7 +234,7 @@ export default function TemplatePublish() {
                 disabled={loading}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50"
               >
-                Back
+                Retour
               </button>
             )}
 
@@ -252,7 +243,7 @@ export default function TemplatePublish() {
                 onClick={() => setStep(2)}
                 className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700"
               >
-                Continue
+                Continuer
               </button>
             ) : (
               <button
@@ -260,7 +251,7 @@ export default function TemplatePublish() {
                 disabled={loading}
                 className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50"
               >
-                {loading ? 'Publishing...' : 'Submit for Review'}
+                {loading ? 'Envoi...' : 'Soumettre pour validation'}
               </button>
             )}
           </div>
@@ -278,16 +269,18 @@ export default function TemplatePublish() {
 
           <div>
             <h2 className="text-2xl font-serif font-bold text-gray-900 mb-2">
-              Template Submitted!
+              Template soumis !
             </h2>
             <p className="text-gray-600">
-              Your template has been submitted for review. Our team will review it and notify you when it's approved.
+              Votre template a été soumis pour validation. Notre équipe va le vérifier, fixer le prix et
+              votre commission, puis vous notifier dès son approbation.
             </p>
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-900">
-              <strong>What happens next:</strong> Our team reviews all submissions within 24-48 hours. You'll receive an email notification when your template is approved or if we need any changes.
+              <strong>Et ensuite ?</strong> Notre équipe examine toutes les soumissions sous 24-48h.
+              Vous recevrez une notification dès que votre template est approuvé ou si une modification est nécessaire.
             </p>
           </div>
 
@@ -296,13 +289,13 @@ export default function TemplatePublish() {
               onClick={() => navigate('/creator-dashboard')}
               className="px-6 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700"
             >
-              Go to Dashboard
+              Aller au Dashboard
             </button>
             <button
               onClick={() => navigate('/templates')}
               className="px-6 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50"
             >
-              Browse Templates
+              Parcourir les Templates
             </button>
           </div>
         </div>

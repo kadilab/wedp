@@ -1729,6 +1729,8 @@ router.get('/marketplace/submissions', authenticate, isAdmin, paginationValidati
               name: true,
               slug: true,
               thumbnail: true,
+              previewImage: true,
+              config: true,
               category: true,
               eventType: true,
               userId: true
@@ -1755,6 +1757,12 @@ router.get('/marketplace/submissions', authenticate, isAdmin, paginationValidati
         templateName: s.template.name,
         templateSlug: s.template.slug,
         templateThumbnail: s.template.thumbnail,
+        template: {
+          id: s.template.id,
+          config: s.template.config,
+          previewImage: s.template.previewImage,
+          thumbnail: s.template.thumbnail
+        },
         category: s.template.category,
         eventType: s.template.eventType,
         status: s.status,
@@ -1846,7 +1854,7 @@ router.get('/marketplace/templates/:marketplaceId', authenticate, isAdmin, async
 router.put('/marketplace/templates/:marketplaceId/review', authenticate, isAdmin, async (req, res) => {
   try {
     const { marketplaceId } = req.params;
-    const { status, adminNote } = req.body;
+    const { status, adminNote, priceUSD, commissionPercentage } = req.body;
     const adminId = req.user.id;
 
     const validStatuses = ['APPROVED', 'REJECTED'];
@@ -1866,15 +1874,34 @@ router.put('/marketplace/templates/:marketplaceId/review', authenticate, isAdmin
       return res.status(404).json({ message: 'Submission not found' });
     }
 
+    // On approval, the admin defines the sale price and the creator's
+    // commission percentage (the creator never sets these themselves).
+    const reviewData = {
+      status,
+      adminNote,
+      reviewedBy: adminId,
+      reviewedAt: new Date()
+    };
+
+    if (status === 'APPROVED') {
+      const price = parseFloat(priceUSD);
+      const commission = parseFloat(commissionPercentage);
+
+      if (Number.isNaN(price) || price < 0) {
+        return res.status(400).json({ message: 'A valid sale price is required to approve a template' });
+      }
+      if (Number.isNaN(commission) || commission < 0 || commission > 100) {
+        return res.status(400).json({ message: 'A valid commission percentage (0-100) is required to approve a template' });
+      }
+
+      reviewData.priceUSD = price;
+      reviewData.commissionPercentage = commission;
+    }
+
     // Update marketplace listing
     const updated = await prisma.templateMarketplace.update({
       where: { id: marketplaceId },
-      data: {
-        status,
-        adminNote,
-        reviewedBy: adminId,
-        reviewedAt: new Date()
-      }
+      data: reviewData
     });
 
     // If approved, mark template as marketplace template
