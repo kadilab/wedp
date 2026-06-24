@@ -27,6 +27,8 @@ router.get('/dashboard', authenticate, isAdmin, async (req, res) => {
       totalWeddings,
       activeWeddings,
       pendingInvitationOrders,
+      pendingMarketplaceSubmissions,
+      pendingPayouts,
       totalInvitations,
       totalCheckIns,
       totalGuests,
@@ -39,6 +41,8 @@ router.get('/dashboard', authenticate, isAdmin, async (req, res) => {
       prisma.wedding.count(),
       prisma.wedding.count({ where: { status: 'ACTIVE' } }),
       prisma.invitationOrder.count({ where: { status: 'PENDING' } }),
+      prisma.templateMarketplace.count({ where: { status: 'PENDING_REVIEW' } }),
+      prisma.creatorPayout.count({ where: { status: 'PENDING' } }),
       prisma.invitation.count(),
       prisma.checkIn.count(),
       prisma.guest.count(),
@@ -150,6 +154,8 @@ router.get('/dashboard', authenticate, isAdmin, async (req, res) => {
         totalWeddings,
         activeWeddings,
         pendingInvitationOrders,
+        pendingMarketplaceSubmissions,
+        pendingPayouts,
         totalInvitations,
         totalCheckIns,
         totalGuests,
@@ -188,17 +194,23 @@ router.get('/users', authenticate, isAdmin, paginationValidation, async (req, re
     const { skip, take, page, limit } = paginate(req.query.page, req.query.limit);
     const { status, role, search } = req.query;
 
-    const where = {
-      ...(status && { status }),
-      ...(role && { role }),
-      ...(search && {
+    const where = { ...(status && { status }) };
+    const and = [];
+    // "Créateur" matches both an explicit CREATOR role and the additive
+    // isCreator flag (creators keep the CLIENT role to retain client features).
+    if (role) {
+      and.push(role === 'CREATOR' ? { OR: [{ role: 'CREATOR' }, { isCreator: true }] } : { role });
+    }
+    if (search) {
+      and.push({
         OR: [
           { email: { contains: search } },
           { firstName: { contains: search } },
           { lastName: { contains: search } }
         ]
-      })
-    };
+      });
+    }
+    if (and.length) where.AND = and;
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
@@ -213,6 +225,7 @@ router.get('/users', authenticate, isAdmin, paginationValidation, async (req, re
           lastName: true,
           phone: true,
           role: true,
+          isCreator: true,
           status: true,
           createdAt: true,
           _count: {
@@ -325,6 +338,7 @@ router.get('/users/:id', authenticate, isAdmin, async (req, res) => {
         lastName: true,
         phone: true,
         role: true,
+        isCreator: true,
         status: true,
         createdAt: true,
         weddings: {
@@ -1787,7 +1801,7 @@ router.get('/marketplace/submissions', authenticate, isAdmin, paginationValidati
         submittedAt: s.createdAt,
         reviewedAt: s.reviewedAt
       })),
-      pagination: buildPaginationMeta(page, limit, total)
+      pagination: buildPaginationMeta(total, page, limit)
     });
   } catch (error) {
     logger.error('Error fetching marketplace submissions:', error);
@@ -2011,7 +2025,7 @@ router.get('/marketplace/creators', authenticate, isAdmin, paginationValidation,
         },
         createdAt: c.createdAt
       })),
-      pagination: buildPaginationMeta(page, limit, total)
+      pagination: buildPaginationMeta(total, page, limit)
     });
   } catch (error) {
     logger.error('Error fetching creators:', error);
@@ -2128,7 +2142,7 @@ router.get('/payouts', authenticate, isAdmin, paginationValidation, async (req, 
         processedAt: p.processedAt,
         adminNote: p.adminNote
       })),
-      pagination: buildPaginationMeta(page, limit, total)
+      pagination: buildPaginationMeta(total, page, limit)
     });
   } catch (error) {
     logger.error('Error fetching payouts:', error);

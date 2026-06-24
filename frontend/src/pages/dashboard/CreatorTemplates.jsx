@@ -107,109 +107,115 @@ export default function CreatorTemplates() {
       {/* Mes Templates Section */}
       {myTemplates.length > 0 && (
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Mes Templates ({myTemplates.length})</h2>
+          <h2 className="text-2xl font-serif font-bold text-gray-900 mb-4">Mes Templates ({myTemplates.length})</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {myTemplates.map((template) => (
-              <div
-                key={template.id}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow"
-              >
-                {template.config?.previewImage && (
-                  <div className="aspect-[3/4] overflow-hidden bg-gray-100">
-                    <img
-                      src={template.config.previewImage}
-                      alt={template.name}
-                      className="w-full h-full object-cover"
+            {myTemplates.map((template) => {
+              const status = template.marketplace?.status
+              const statusBadge = template.sourceTemplateId
+                ? { label: 'Clone', cls: 'bg-purple-100 text-purple-700' }
+                : ({
+                    PENDING_REVIEW: { label: 'En attente', cls: 'bg-amber-100 text-amber-800' },
+                    APPROVED: { label: 'Approuvé', cls: 'bg-green-100 text-green-800' },
+                    REJECTED: { label: 'Rejeté', cls: 'bg-red-100 text-red-800' }
+                  }[status] || { label: 'Non publié', cls: 'bg-gray-100 text-gray-600' })
+
+              return (
+                <div
+                  key={template.id}
+                  className="group bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl hover:border-primary-200 hover:-translate-y-0.5 transition-all duration-300 flex flex-col"
+                >
+                  {/* Preview */}
+                  <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-secondary-50 to-primary-50">
+                    <TemplatePreview
+                      template={template}
+                      className="group-hover:scale-105 transition-transform duration-500"
                     />
+                    <span className={`absolute top-3 right-3 inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm backdrop-blur ${statusBadge.cls}`}>
+                      {statusBadge.label}
+                    </span>
+
+                    {/* Hover overlay → large preview */}
+                    <button
+                      onClick={() => setPreviewTemplate(template)}
+                      className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                      title="Aperçu en grand"
+                    >
+                      <span className="flex items-center gap-1.5 px-4 py-2 bg-white/95 text-gray-800 rounded-full text-xs font-semibold shadow-lg">
+                        <EyeIcon className="w-4 h-4" />
+                        Aperçu
+                      </span>
+                    </button>
                   </div>
-                )}
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold text-gray-900 truncate">{template.name}</h3>
-                    {(() => {
-                      if (template.sourceTemplateId) {
-                        return (
-                          <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700">
-                            Clone
-                          </span>
-                        )
-                      }
-                      const status = template.marketplace?.status
-                      const badges = {
-                        PENDING_REVIEW: { label: 'En attente', cls: 'bg-amber-100 text-amber-800' },
-                        APPROVED: { label: 'Approuvé', cls: 'bg-green-100 text-green-800' },
-                        REJECTED: { label: 'Rejeté', cls: 'bg-red-100 text-red-800' }
-                      }
-                      const badge = badges[status]
-                      return badge ? (
-                        <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${badge.cls}`}>
-                          {badge.label}
+
+                  {/* Body */}
+                  <div className="p-4 flex flex-col flex-1">
+                    <h3 className="font-serif font-bold text-gray-900 truncate">{template.name}</h3>
+                    {template.description && (
+                      <p className="text-xs text-gray-500 mt-1 line-clamp-1">{template.description}</p>
+                    )}
+
+                    {status === 'APPROVED' && (
+                      <p className="text-xs text-green-700 mt-2 font-medium">
+                        ${parseFloat(template.marketplace.priceUSD).toFixed(2)} · commission {parseFloat(template.marketplace.commissionPercentage)}%
+                      </p>
+                    )}
+                    {status === 'REJECTED' && template.marketplace.adminNote && (
+                      <p className="text-xs text-red-600 mt-2 line-clamp-2">
+                        Raison : {template.marketplace.adminNote}
+                      </p>
+                    )}
+
+                    {/* Actions */}
+                    <div className="mt-auto pt-4 space-y-2">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => navigate(`/templates/${template.id}/design?wedding=null`)}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-semibold transition-colors"
+                        >
+                          <PencilIcon className="w-3.5 h-3.5" />
+                          Designer
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTemplate(template.id)}
+                          title="Supprimer"
+                          className="px-3 py-2 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <TrashIcon className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {template.sourceTemplateId ? (
+                        <span
+                          title="Les clones ne peuvent pas être publiés : le créateur original conserve la commission."
+                          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-200 bg-gray-50 text-gray-400 rounded-lg text-xs font-medium cursor-not-allowed"
+                        >
+                          <SparklesIcon className="w-3.5 h-3.5" />
+                          Non publiable (clone)
+                        </span>
+                      ) : status === 'PENDING_REVIEW' ? (
+                        <span className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-amber-200 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium">
+                          <SparklesIcon className="w-3.5 h-3.5" />
+                          En attente d'approbation
+                        </span>
+                      ) : status === 'APPROVED' ? (
+                        <span className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-green-200 bg-green-50 text-green-700 rounded-lg text-xs font-medium">
+                          <SparklesIcon className="w-3.5 h-3.5" />
+                          Publié sur la marketplace
                         </span>
                       ) : (
-                        <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">
-                          Non publié
-                        </span>
-                      )
-                    })()}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-1">{template.description}</p>
-
-                  {template.marketplace?.status === 'APPROVED' && (
-                    <p className="text-xs text-green-700 mt-2 font-medium">
-                      ${parseFloat(template.marketplace.priceUSD).toFixed(2)} · commission {parseFloat(template.marketplace.commissionPercentage)}%
-                    </p>
-                  )}
-                  {template.marketplace?.status === 'REJECTED' && template.marketplace.adminNote && (
-                    <p className="text-xs text-red-600 mt-2 line-clamp-2">
-                      Raison : {template.marketplace.adminNote}
-                    </p>
-                  )}
-
-                  <div className="flex gap-2 mt-3">
-                    <button
-                      onClick={() => navigate(`/templates/${template.id}/design?wedding=null`)}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-medium transition-colors"
-                    >
-                      <PencilIcon className="w-3.5 h-3.5" />
-                      Designer
-                    </button>
-                    {template.sourceTemplateId ? (
-                      <span
-                        title="Les clones ne peuvent pas être publiés : le créateur original conserve la commission."
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 border border-gray-200 bg-gray-50 text-gray-400 rounded-lg text-xs font-medium cursor-not-allowed"
-                      >
-                        <SparklesIcon className="w-3.5 h-3.5" />
-                        Non publiable
-                      </span>
-                    ) : template.marketplace?.status === 'PENDING_REVIEW' ? (
-                      <span className="flex-1 flex items-center justify-center gap-1 px-3 py-2 border border-amber-200 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium">
-                        <SparklesIcon className="w-3.5 h-3.5" />
-                        En revue
-                      </span>
-                    ) : template.marketplace?.status === 'APPROVED' ? (
-                      <span className="flex-1 flex items-center justify-center gap-1 px-3 py-2 border border-green-200 bg-green-50 text-green-700 rounded-lg text-xs font-medium">
-                        <SparklesIcon className="w-3.5 h-3.5" />
-                        Publié
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => navigate(`/templates/${template.id}/publish`)}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 border border-primary-600 text-primary-600 hover:bg-primary-50 rounded-lg text-xs font-medium transition-colors"
-                      >
-                        <SparklesIcon className="w-3.5 h-3.5" />
-                        {template.marketplace?.status === 'REJECTED' ? 'Republier' : 'Publier'}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDeleteTemplate(template.id)}
-                      className="px-3 py-2 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <TrashIcon className="w-3.5 h-3.5" />
-                    </button>
+                        <button
+                          onClick={() => navigate(`/templates/${template.id}/publish`)}
+                          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-primary-600 text-primary-600 hover:bg-primary-50 rounded-lg text-xs font-semibold transition-colors"
+                        >
+                          <SparklesIcon className="w-3.5 h-3.5" />
+                          {status === 'REJECTED' ? 'Corriger et republier' : 'Publier'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -217,7 +223,7 @@ export default function CreatorTemplates() {
       {/* Galerie de Templates à Dupliquer */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-gray-900">Galerie de Templates</h2>
+          <h2 className="text-2xl font-serif font-bold text-gray-900">Galerie de Templates</h2>
           <p className="text-sm text-gray-600">Dupliquez un template pour démarrer</p>
         </div>
 

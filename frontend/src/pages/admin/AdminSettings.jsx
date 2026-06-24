@@ -168,7 +168,6 @@ export default function AdminSettings() {
     { id: 'general', label: 'Général', icon: Cog6ToothIcon },
     { id: 'email', label: 'Email', icon: EnvelopeIcon },
     { id: 'payment', label: 'Paiement', icon: CurrencyDollarIcon },
-    { id: 'marketplace', label: 'Marketplace', icon: ShoppingBagIcon },
     { id: 'notifications', label: 'Notifications', icon: BellIcon }
   ]
 

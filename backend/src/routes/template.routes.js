@@ -22,15 +22,25 @@ router.get('/', paginationValidation, async (req, res) => {
     const { skip, take, page, limit } = paginate(req.query.page, req.query.limit);
     const { category, eventType, premium, all } = req.query;
 
-    // If 'all' is set, show all templates including inactive (for admin)
-    // Never show user-custom (forked) templates in the global list
+    // Common filters
     const where = {
-      ...(all !== 'true' && { isActive: true }),
-      isCustom: false,
       ...(category && { category }),
       ...(eventType && { eventType }),
       ...(premium !== undefined && { isPremium: premium === 'true' })
     };
+
+    if (all === 'true') {
+      // Admin view: base templates only (incl. inactive). Marketplace
+      // (creator) templates are managed from the marketplace screens.
+      where.isCustom = false;
+    } else {
+      // Client gallery: active base templates + APPROVED marketplace templates.
+      where.isActive = true;
+      where.OR = [
+        { isCustom: false },
+        { isCustom: true, marketplace: { is: { status: 'APPROVED' } } }
+      ];
+    }
 
     const [templates, total] = await Promise.all([
       prisma.template.findMany({
@@ -58,6 +68,14 @@ router.get('/', paginationValidation, async (req, res) => {
           canvasHeight: true,
           createdAt: true,
           isActive: true,
+          isCustom: true,
+          marketplace: {
+            select: {
+              priceUSD: true,
+              commissionPercentage: true,
+              creator: { select: { displayName: true } }
+            }
+          },
           _count: {
             select: { weddings: true }
           }

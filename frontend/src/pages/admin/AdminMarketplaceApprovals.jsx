@@ -52,8 +52,8 @@ export default function AdminMarketplaceApprovals() {
     { keepPreviousData: true }
   )
 
-  const submissions = data?.submissions || []
-  const pagination = data?.pagination || {}
+  const submissions = data?.data?.submissions || []
+  const pagination = data?.data?.pagination || {}
 
   // Group submissions by creator for the by-creator view
   const submissionsByCreator = viewMode === 'by-creator'

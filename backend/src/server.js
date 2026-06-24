@@ -63,10 +63,12 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language']
 }));
 
-// Rate limiting
+// Rate limiting — generous for a SPA (react-query refetch + notification
+// polling). Effectively disabled in development to avoid 429s while working.
+const isProd = process.env.NODE_ENV === 'production';
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: isProd ? 2000 : 100000, // per IP per window
   message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false

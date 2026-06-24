@@ -23,7 +23,8 @@ import {
   PrinterIcon,
   ArrowsRightLeftIcon,
   ChevronDownIcon,
-  ShoppingBagIcon
+  ShoppingBagIcon,
+  BanknotesIcon
 
 } from '@heroicons/react/24/outline'
 
@@ -59,7 +60,8 @@ const adminNavSections = [
       { name: 'Événements', href: '/admin/weddings', icon: HeartIcon },
       { name: 'Achats invitations', href: '/admin/invitation-orders', icon: TicketIcon, badgeKey: 'pendingInvitationOrders' },
       { name: 'Impressions', href: '/admin/print-orders', icon: PrinterIcon },
-      {name : 'MarketPlace', href: '/admin/marketplace', icon: ShoppingBagIcon}
+      { name: 'Marketplace', href: '/admin/marketplace', icon: ShoppingBagIcon, badgeKey: 'pendingMarketplaceSubmissions' },
+      { name: 'Retraits', href: '/admin/payouts', icon: BanknotesIcon, badgeKey: 'pendingPayouts' }
     ]
   },
   {
@@ -94,7 +96,9 @@ export default function DashboardLayout({ isAdmin = false }) {
     { enabled: isAdmin, refetchInterval: 60000 }
   )
   const navBadges = {
-    pendingInvitationOrders: dashStatsData?.data?.stats?.pendingInvitationOrders || 0
+    pendingInvitationOrders: dashStatsData?.data?.stats?.pendingInvitationOrders || 0,
+    pendingMarketplaceSubmissions: dashStatsData?.data?.stats?.pendingMarketplaceSubmissions || 0,
+    pendingPayouts: dashStatsData?.data?.stats?.pendingPayouts || 0
   }
 
   const handleLogout = () => {

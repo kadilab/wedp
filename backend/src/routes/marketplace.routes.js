@@ -52,6 +52,7 @@ router.get('/templates', optionalAuth, paginationValidation, async (req, res) =>
           name: true,
           slug: true,
           thumbnail: true,
+          previewImage: true,
           category: true,
           eventType: true,
           marketplace: {
@@ -82,6 +83,7 @@ router.get('/templates', optionalAuth, paginationValidation, async (req, res) =>
       name: t.name,
       slug: t.slug,
       thumbnail: t.thumbnail,
+      previewImage: t.previewImage,
       category: t.category,
       eventType: t.eventType,
       marketplace: t.marketplace ? {
@@ -101,7 +103,7 @@ router.get('/templates', optionalAuth, paginationValidation, async (req, res) =>
 
     res.json({
       templates: formattedTemplates,
-      pagination: buildPaginationMeta(page, limit, total)
+      pagination: buildPaginationMeta(total, page, limit)
     });
   } catch (error) {
     logger.error('Error fetching marketplace templates:', error);
@@ -257,7 +259,7 @@ router.get('/creators', paginationValidation, async (req, res) => {
 
     res.json({
       creators: formattedCreators,
-      pagination: buildPaginationMeta(page, limit, total)
+      pagination: buildPaginationMeta(total, page, limit)
     });
   } catch (error) {
     logger.error('Error fetching creators:', error);
@@ -356,7 +358,7 @@ router.get('/creators/:creatorId', paginationValidation, async (req, res) => {
           usageCount: t.marketplace.usageCount
         }
       })),
-      pagination: buildPaginationMeta(page, limit, total)
+      pagination: buildPaginationMeta(total, page, limit)
     });
   } catch (error) {
     logger.error('Error fetching creator profile:', error);

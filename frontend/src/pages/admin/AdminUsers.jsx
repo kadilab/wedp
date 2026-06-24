@@ -111,15 +111,22 @@ export default function AdminUsers() {
     }
   }
 
-  const getRoleBadge = (role) => {
+  const getRoleBadge = (role, isCreator = false) => {
     if (role === 'SUPER_ADMIN') {
       return <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-medium flex items-center"><ShieldCheckIcon className="h-4 w-4 mr-1" />Super Admin</span>
     }
     if (role === 'ADMIN') {
       return <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs font-medium flex items-center"><ShieldCheckIcon className="h-4 w-4 mr-1" />Admin</span>
     }
-    if (role === 'CREATOR') {
-      return <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium flex items-center"><ShieldCheckIcon className="h-4 w-4 mr-1" />Créateur</span>
+    if (role === 'CREATOR' || isCreator) {
+      return (
+        <span className="inline-flex items-center gap-1.5">
+          <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium flex items-center"><ShieldCheckIcon className="h-4 w-4 mr-1" />Créateur</span>
+          {isCreator && role === 'CLIENT' && (
+            <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-[10px] font-medium">+ Client</span>
+          )}
+        </span>
+      )
     }
     return <span className="badge">Client</span>
   }
@@ -177,7 +184,7 @@ export default function AdminUsers() {
                       {userDetail.phone && <span className="flex items-center"><PhoneIcon className="h-4 w-4 mr-1" />{userDetail.phone}</span>}
                     </div>
                     <div className="flex items-center gap-3 mt-2">
-                      {getRoleBadge(userDetail.role)}
+                      {getRoleBadge(userDetail.role, userDetail.isCreator)}
                       {getStatusBadge(userDetail.status)}
                       <span className="text-xs text-gray-400">Inscrit le {format(new Date(userDetail.createdAt), 'd MMM yyyy', { locale: fr })}</span>
                     </div>
@@ -510,7 +517,7 @@ export default function AdminUsers() {
                         </div>
                       </div>
                     </td>
-                    <td>{getRoleBadge(user.role)}</td>
+                    <td>{getRoleBadge(user.role, user.isCreator)}</td>
                     <td><span className="badge">{user._count?.weddings || 0}</span></td>
                     <td>{getStatusBadge(user.status)}</td>
                     <td className="text-sm text-gray-500">
