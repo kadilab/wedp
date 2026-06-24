@@ -599,20 +599,13 @@ router.post('/:templateId/use', authenticate, async (req, res) => {
     const { weddingId } = req.body;
     const userId = req.user.id;
 
-    const usageTrack = await recordTemplateUsage({ templateId, weddingId, userId });
+    const marketplace = await recordTemplateUsage({ templateId, weddingId, userId });
 
-    if (!usageTrack) {
+    if (!marketplace) {
       return res.status(404).json({ message: 'Marketplace template not found or not approved' });
     }
 
-    res.status(201).json({
-      message: 'Template usage recorded',
-      usageTrack: {
-        id: usageTrack.id,
-        commissionAmount: parseFloat(usageTrack.commissionAmount),
-        status: usageTrack.status
-      }
-    });
+    res.status(201).json({ message: 'Template usage recorded' });
   } catch (error) {
     logger.error('Error tracking template usage:', error);
     res.status(500).json({ message: 'Error tracking usage', error: error.message });

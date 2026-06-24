@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { getClipPath } from '../../utils/imageShapes'
+import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT } from '../../utils/dateFormats'
 // Format date: JJ-MM-YYYY HH:mm
 import {
   CalendarIcon,
@@ -329,6 +330,13 @@ export default function InvitationView() {
   }
 
   const dataMap = hasDesignElements ? buildDataMap() : {}
+  const rawDateMap = {
+    wedding_date: wedding?.weddingDate || '',
+    rsvp_date: wedding?.rsvpDeadline || '',
+    commune_date: wedding?.communeDate || '',
+    eglise_date: wedding?.egliseDate || '',
+    reception_date: wedding?.receptionDate || ''
+  }
 
   // Render design-based template
   if (hasDesignElements) {
@@ -364,7 +372,16 @@ export default function InvitationView() {
             .filter(el => el.visible !== false)
             .map((el, idx) => {
               let content = el.content || ''
-              // Replace template variables
+              // Date variables first, using this element's chosen format.
+              DATE_VARIABLE_KEYS.forEach((key) => {
+                if (content.includes(`{{${key}}}`)) {
+                  content = content.replace(
+                    new RegExp(`\\{\\{${key}\\}\\}`, 'g'),
+                    formatEventDate(rawDateMap[key], el.dateFormat || DEFAULT_DATE_FORMAT)
+                  )
+                }
+              })
+              // Replace remaining template variables
               Object.entries(dataMap).forEach(([key, val]) => {
                 content = content.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val)
               })

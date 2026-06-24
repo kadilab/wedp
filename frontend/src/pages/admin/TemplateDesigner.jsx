@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { processImage } from '../../utils/imageProcessor'
 import { EVENT_TYPES, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
 import { PHOTO_SHAPES, getClipPath } from '../../utils/imageShapes'
+import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable } from '../../utils/dateFormats'
 import {
   ArrowLeftIcon,
   EyeIcon,
@@ -552,6 +553,7 @@ export default function TemplateDesigner({ clientMode = false }) {
   const [templateCategory, setTemplateCategory] = useState('MODERN')
   const [templateEventType, setTemplateEventType] = useState(initialEventType)
   const [isPremium, setIsPremium] = useState(false)
+  const [pricePerInvitation, setPricePerInvitation] = useState('0')
   const [previewImage, setPreviewImage] = useState('')
 
   // Design state
@@ -613,6 +615,7 @@ export default function TemplateDesigner({ clientMode = false }) {
       setTemplateCategory(t.category || 'MODERN')
       setTemplateEventType(t.eventType || 'WEDDING')
       setIsPremium(t.isPremium || false)
+      setPricePerInvitation(t.pricePerInvitation != null ? String(t.pricePerInvitation) : '0')
       setPreviewImage(t.previewImage || '')
       setBackgroundUrl(t.previewImage || t.backgroundUrl || t.config?.backgroundImage || '')
       setBackgroundOpacity(t.backgroundOpacity ?? t.config?.backgroundOpacity ?? 100)
@@ -1147,6 +1150,7 @@ export default function TemplateDesigner({ clientMode = false }) {
         textShadow: el.textShadow ?? 'none',
         shadowColor: el.shadowColor ?? '#000000',
         zIndex: el.zIndex ?? 0,
+        dateFormat: el.dateFormat || 'datetime',  // Per-element date variable format
         iconUrl: el.iconUrl || '',  // Preserve icon URLs for programme labels and decorative images
         // Photo/image element styling (border/opacity/radius/cadrage/forme)
         objectFit: el.objectFit || 'cover',
@@ -1177,6 +1181,7 @@ export default function TemplateDesigner({ clientMode = false }) {
         category: templateCategory,
         eventType: templateEventType,
         isPremium,
+        pricePerInvitation: parseFloat(pricePerInvitation) || 0,
         backgroundUrl,
         backgroundOpacity,
         previewImage: previewImage || backgroundUrl, // Use preview image or fallback to background
@@ -1996,6 +2001,22 @@ export default function TemplateDesigner({ clientMode = false }) {
                 </select>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Prix par invitation ($)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={pricePerInvitation}
+                  onChange={(e) => setPricePerInvitation(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">Montant facturé au client par invitation au-delà de la gratuite.</p>
+              </div>
+
               <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <input
                   type="checkbox"
@@ -2054,6 +2075,23 @@ export default function TemplateDesigner({ clientMode = false }) {
                         />
                       )}
                     </div>
+
+                    {/* Date format — only for text elements containing a date variable */}
+                    {!['qrcode', 'photo', 'image'].includes(selectedElement.type) && containsDateVariable(selectedElement.content) && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Format de date</label>
+                        <select
+                          value={selectedElement.dateFormat || DEFAULT_DATE_FORMAT}
+                          onChange={(e) => updateElement(selectedId, { dateFormat: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500"
+                        >
+                          {DATE_FORMAT_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label} — {opt.example}</option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-gray-400 mt-1">S'applique aux variables date (ex. {'{{wedding_date}}'}).</p>
+                      </div>
+                    )}
 
                     {/* Image Upload (decorative "image" elements) */}
                     {selectedElement.type === 'image' && (

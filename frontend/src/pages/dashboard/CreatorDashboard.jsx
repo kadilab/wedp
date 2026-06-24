@@ -331,6 +331,7 @@ export default function CreatorDashboard() {
                   <div className="aspect-[3/4] bg-gray-100 overflow-hidden">
                     <TemplatePreview
                       template={template}
+                      fit="cover"
                       className="group-hover:scale-105 transition-transform duration-300"
                     />
                   </div>

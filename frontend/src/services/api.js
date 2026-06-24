@@ -175,7 +175,7 @@ export const invitationAPI = {
 
 // Invitation Order API (manual / offline mobile-money quota purchase)
 export const invitationOrderAPI = {
-  getPricing: () => api.get('/invitation-orders/pricing'),
+  getPricing: (weddingId) => api.get('/invitation-orders/pricing', { params: weddingId ? { weddingId } : {} }),
   getMine: () => api.get('/invitation-orders/mine'),
   getQuota: (weddingId) => api.get(`/invitation-orders/${weddingId}/quota`),
   getMyOrders: (weddingId) => api.get(`/invitation-orders/${weddingId}/orders`),
@@ -206,7 +206,8 @@ export const templateAPI = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   saveDesign: (id, data) => api.put(`/templates/${id}/design`, data),
-  fork: (id) => api.post(`/templates/${id}/fork`)
+  fork: (id) => api.post(`/templates/${id}/fork`),
+  createBlank: (data) => api.post('/templates/blank', data)
 }
 
 // Payment API

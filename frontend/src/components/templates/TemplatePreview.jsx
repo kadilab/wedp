@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { HeartIcon, CalendarIcon, PhotoIcon } from '@heroicons/react/24/outline'
 import { getClipPath } from '../../utils/imageShapes'
+import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT } from '../../utils/dateFormats'
 
 const hexToRgba = (hex, alpha = 1) => {
   const h = (hex || '#FFFFFF').replace('#', '')
@@ -15,7 +16,7 @@ const hexToRgba = (hex, alpha = 1) => {
  * For canvas-based templates (designElements), renders the real canvas layout scaled to fit.
  * For legacy templates, falls back to a simple colour-matched card.
  */
-export default function TemplatePreview({ template, className = '', weddingData = null }) {
+export default function TemplatePreview({ template, className = '', weddingData = null, adaptive = false, fit = 'width' }) {
   const containerRef = useRef(null)
   const [scale, setScale] = useState(null)
 
@@ -34,14 +35,21 @@ export default function TemplatePreview({ template, className = '', weddingData 
   useEffect(() => {
     if (!hasDesignElements || !containerRef.current) return
     const update = () => {
-      const { width } = containerRef.current.getBoundingClientRect()
-      if (width > 0) setScale(width / canvasWidth)
+      const { width, height } = containerRef.current.getBoundingClientRect()
+      if (width > 0) {
+        // 'cover' fills the box (cropping overflow) → uniform thumbnails.
+        // 'width' fits to width (used with adaptive height → full preview).
+        const s = fit === 'cover' && height > 0
+          ? Math.max(width / canvasWidth, height / canvasHeight)
+          : width / canvasWidth
+        setScale(s)
+      }
     }
     update()
     const ro = new ResizeObserver(update)
     ro.observe(containerRef.current)
     return () => ro.disconnect()
-  }, [hasDesignElements, canvasWidth])
+  }, [hasDesignElements, canvasWidth, canvasHeight, fit])
 
   // Build variable replacement map (same keys as InvitationView)
   const buildDataMap = () => {
@@ -94,11 +102,23 @@ export default function TemplatePreview({ template, className = '', weddingData 
   // â”€â”€ Canvas-based rendering (TemplateDesigner-created templates) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (hasDesignElements) {
     const dataMap = buildDataMap()
+    // Raw (unformatted) date values so each element can render its own format.
+    const rawDateMap = {
+      wedding_date: weddingData?.weddingDate || '25-12-2026 00:00',
+      rsvp_date: weddingData?.rsvpDeadline || '',
+      commune_date: weddingData?.communeDate || '',
+      eglise_date: weddingData?.egliseDate || '',
+      reception_date: weddingData?.receptionDate || ''
+    }
     const mLeft = margins.left || 0
     const mTop = margins.top || 0
 
     return (
-      <div ref={containerRef} className={`w-full h-full overflow-hidden relative bg-white ${className}`}>
+      <div
+        ref={containerRef}
+        className={`w-full overflow-hidden relative bg-white ${adaptive ? '' : 'h-full'} ${className}`}
+        style={adaptive ? { aspectRatio: `${canvasWidth} / ${canvasHeight}` } : undefined}
+      >
         {/* Google Fonts â€” same list as InvitationView */}
         <link
           href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&family=Great+Vibes&family=Cormorant+Garamond:wght@400;500;600;700&family=Lora:wght@400;500;600;700&family=Dancing+Script:wght@400;500;600;700&family=Tangerine:wght@400;700&family=Montserrat:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&family=Raleway:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&family=Open+Sans:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700;900&family=Satisfy&family=Pacifico&family=Alex+Brush&family=Sacramento&display=swap"
@@ -108,12 +128,12 @@ export default function TemplatePreview({ template, className = '', weddingData 
           <div
             style={{
               position: 'absolute',
-              top: 0,
-              left: 0,
+              top: '50%',
+              left: '50%',
               width: canvasWidth,
               height: canvasHeight,
-              transform: `scale(${scale})`,
-              transformOrigin: 'top left',
+              transform: `translate(-50%, -50%) scale(${scale})`,
+              transformOrigin: 'center center',
             }}
           >
             {/* Background image */}
@@ -139,6 +159,15 @@ export default function TemplatePreview({ template, className = '', weddingData 
               .filter(el => el.visible !== false)
               .map((el, idx) => {
                 let content = el.content || ''
+                // Date variables first, using this element's chosen format.
+                DATE_VARIABLE_KEYS.forEach((key) => {
+                  if (content.includes(`{{${key}}}`)) {
+                    content = content.replace(
+                      new RegExp(`\\{\\{${key}\\}\\}`, 'g'),
+                      formatEventDate(rawDateMap[key], el.dateFormat || DEFAULT_DATE_FORMAT)
+                    )
+                  }
+                })
                 Object.entries(dataMap).forEach(([key, val]) => {
                   content = content.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val)
                 })
@@ -290,8 +319,8 @@ export default function TemplatePreview({ template, className = '', weddingData 
 
   return (
     <div
-      className={`w-full h-full overflow-hidden flex flex-col ${className}`}
-      style={{ background: bgColor, fontFamily: headingFont }}
+      className={`w-full overflow-hidden flex flex-col ${adaptive ? '' : 'h-full'} ${className}`}
+      style={{ background: bgColor, fontFamily: headingFont, ...(adaptive ? { aspectRatio: '3 / 4' } : {}) }}
     >
       {/* Header gradient */}
       <div

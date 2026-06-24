@@ -154,6 +154,8 @@ router.post('/login', loginValidation, async (req, res) => {
         phone: user.phone,
         avatar: user.avatar,
         role: user.role,
+        isCreator: user.isCreator,
+        creatorProfileId: user.creatorProfileId,
         preferredLanguage: user.preferredLanguage,
         darkMode: user.darkMode
       },
@@ -182,6 +184,8 @@ router.get('/me', authenticate, async (req, res) => {
         phone: true,
         avatar: true,
         role: true,
+        isCreator: true,
+        creatorProfileId: true,
         status: true,
         preferredLanguage: true,
         darkMode: true,

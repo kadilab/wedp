@@ -9,7 +9,10 @@ import {
   BookOpenIcon,
   UsersIcon,
   ClockIcon,
-  DocumentCheckIcon
+  DocumentCheckIcon,
+  EyeIcon,
+  ShoppingBagIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline'
 import TemplatePreview from '../../components/templates/TemplatePreview'
 
@@ -29,6 +32,7 @@ export default function AdminMarketplaceApprovals() {
   const [selectedSubmission, setSelectedSubmission] = useState(null)
   const [showReviewModal, setShowReviewModal] = useState(false)
   const [reviewData, setReviewData] = useState({ status: 'APPROVED', adminNote: '', priceUSD: '', commissionPercentage: '30' })
+  const [previewTemplate, setPreviewTemplate] = useState(null)
   const [page, setPage] = useState(1)
 
   const { data, isLoading, error } = useQuery(
@@ -125,99 +129,67 @@ export default function AdminMarketplaceApprovals() {
 
   return (
     <div className="space-y-6">
-      {/* Header with Background */}
-      <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-2xl p-8 border border-primary-100">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-serif font-bold text-primary-700">
-              Marketplace
-            </h1>
-            <p className="text-gray-600 mt-2 text-lg">Approuvez ou rejetez les templates créateurs</p>
+      {/* Header */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-600 via-primary-500 to-secondary-500 p-8 text-white shadow-lg">
+        <div className="absolute -top-10 -right-10 w-48 h-48 bg-white/10 rounded-full" />
+        <div className="absolute -bottom-16 -left-8 w-56 h-56 bg-white/5 rounded-full" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex w-14 h-14 rounded-2xl bg-white/20 backdrop-blur items-center justify-center">
+              <ShoppingBagIcon className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-serif font-bold">Marketplace</h1>
+              <p className="text-white/80 mt-1">Approuvez ou rejetez les templates des créateurs</p>
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-sm text-gray-600">Total soumissions</p>
-            <p className="text-3xl font-bold text-primary-600">{pagination.total || 0}</p>
+          <div className="flex items-center gap-3 rounded-2xl bg-white/15 backdrop-blur px-5 py-3">
+            <span className="text-4xl font-bold leading-none">{pagination.total || 0}</span>
+            <span className="text-sm text-white/80 leading-tight">Total<br />soumissions</span>
           </div>
         </div>
       </div>
 
-      {/* View Mode Tabs */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-1">
-        <div className="flex gap-1">
+      {/* View Mode Segmented Control */}
+      <div className="inline-flex w-full sm:w-auto rounded-full bg-gray-100 p-1.5 shadow-inner">
+        {[
+          { key: 'submissions', label: 'Soumissions', Icon: BookOpenIcon },
+          { key: 'by-creator', label: 'Par créateur', Icon: UsersIcon }
+        ].map(({ key, label, Icon }) => (
           <button
-            onClick={() => {
-              setViewMode('submissions')
-              setPage(1)
-            }}
-            className={`flex-1 px-4 py-3 font-medium rounded-lg transition-all duration-200 ${
-              viewMode === 'submissions'
-                ? 'bg-primary-600 text-white shadow-md'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            key={key}
+            onClick={() => { setViewMode(key); setPage(1) }}
+            className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 ${
+              viewMode === key
+                ? 'bg-white text-primary-700 shadow'
+                : 'text-gray-500 hover:text-gray-800'
             }`}
           >
-             <BookOpenIcon className="w-4 h-4" /> Soumissions
-            
+            <Icon className="w-4 h-4" />
+            {label}
           </button>
-          <button
-            onClick={() => {
-              setViewMode('by-creator')
-              setPage(1)
-            }}
-            className={`flex-1 px-4 py-3 font-medium rounded-lg transition-all duration-200 ${
-              viewMode === 'by-creator'
-                ? 'bg-primary-600 text-white shadow-md'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-            }`}
-          >
-           <UsersIcon className="w-4 h-4" /> Par Créateur
-          </button>
-        </div>
+        ))}
       </div>
 
-      {/* Status Filter Tabs - Only show in submissions view */}
+      {/* Status Filter Pills - Only show in submissions view */}
       {viewMode === 'submissions' && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-1">
-          <div className="flex gap-1">
-            {['PENDING_REVIEW', 'APPROVED', 'REJECTED'].map((status) => (
-              <button
-                key={status}
-                onClick={() => {
-                  setStatusFilter(status)
-                  setPage(1)
-                }}
-                className={`flex-1 px-4 py-2 font-medium rounded-lg transition-all duration-200 text-sm ${
-                  statusFilter === status
-                    ? status === 'PENDING_REVIEW'
-                      ? 'bg-gold-500 text-white shadow-md'
-                      : status === 'APPROVED'
-                      ? 'bg-green-600 text-white shadow-md'
-                      : 'bg-red-600 text-white shadow-md'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                {status === 'PENDING_REVIEW' && (
-                <>
-                  <ClockIcon className="w-4 h-4" />
-                  <span>En attente</span>
-                </>
-              )}
-
-              {status === 'APPROVED' && (
-                <>
-                  <DocumentCheckIcon className="w-4 h-4" />
-                  <span>Approuvés</span>
-                </>
-              )}
-
-              {status === 'REJECTED' && (
-                <>
-                  <XMarkIcon className="w-4 h-4" />
-                  <span>Rejetés</span>
-                </>
-              )}
-              </button>
-            ))}
-          </div>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { key: 'PENDING_REVIEW', label: 'En attente', Icon: ClockIcon, active: 'bg-gold-500 text-white border-gold-500 shadow-sm', idle: 'bg-white text-gold-700 border-gold-200 hover:bg-gold-50' },
+            { key: 'APPROVED', label: 'Approuvés', Icon: DocumentCheckIcon, active: 'bg-green-600 text-white border-green-600 shadow-sm', idle: 'bg-white text-green-700 border-green-200 hover:bg-green-50' },
+            { key: 'REJECTED', label: 'Rejetés', Icon: XMarkIcon, active: 'bg-red-600 text-white border-red-600 shadow-sm', idle: 'bg-white text-red-700 border-red-200 hover:bg-red-50' }
+          ].map(({ key, label, Icon, active, idle }) => (
+            <button
+              key={key}
+              onClick={() => { setStatusFilter(key); setPage(1) }}
+              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold border transition-all duration-200 ${
+                statusFilter === key ? active : idle
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </button>
+          ))}
         </div>
       )}
 
@@ -256,12 +228,17 @@ export default function AdminMarketplaceApprovals() {
                   className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:border-primary-200 transition-all duration-300 group"
                 >
                   {/* Template Preview */}
-                  <div className="aspect-[3/4] bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden relative">
+                  <div className="aspect-[3/4] bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden relative cursor-pointer" onClick={() => setPreviewTemplate(submission.template)}>
                     <TemplatePreview
                       template={{ config: submission.template.config || {} }}
+                      fit="cover"
                       className="group-hover:scale-110 transition-transform duration-300"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
+                      <span className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 px-3 py-1.5 bg-white/95 text-gray-800 rounded-full text-xs font-semibold shadow">
+                        <EyeIcon className="w-4 h-4" /> Aperçu
+                      </span>
+                    </div>
                   </div>
 
                   {/* Info */}
@@ -413,32 +390,52 @@ export default function AdminMarketplaceApprovals() {
             {Object.values(submissionsByCreator).map((group) => (
               <div key={group.creator.id} className="space-y-5">
                 {/* Creator Header */}
-                <div className="bg-gradient-to-r from-primary-50 via-secondary-50 to-gold-50 rounded-2xl p-8 border border-primary-100 shadow-sm">
-                  <div className="flex items-center gap-6">
-                    {group.creator.profileImage && (
-                      <img
-                        src={group.creator.profileImage}
-                        alt={group.creator.displayName}
-                        className="w-20 h-20 rounded-full object-cover ring-4 ring-white shadow-md"
-                      />
-                    )}
-                    <div className="flex-1">
-                      <h3 className="text-2xl font-bold text-primary-700">
-                        {group.creator.displayName}
-                      </h3>
-                      <div className="flex items-center gap-4 mt-3 flex-wrap">
-                        {group.creator.verified && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold border border-green-200">
-                            ✓ Vérifié
-                          </span>
+                {(() => {
+                  const tplCount = group.templates.length
+                  const totalValue = group.templates.reduce((s, t) => s + (t.priceUSD || 0), 0)
+                  const initials = (group.creator.displayName || '?')
+                    .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+                  return (
+                    <div className="relative overflow-hidden rounded-2xl border border-primary-100 bg-gradient-to-r from-primary-50 via-secondary-50 to-gold-50 p-6 shadow-sm">
+                      <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/30 rounded-full" />
+                      <div className="relative flex items-center gap-5">
+                        {group.creator.profileImage ? (
+                          <img
+                            src={group.creator.profileImage}
+                            alt={group.creator.displayName}
+                            className="w-16 h-16 rounded-2xl object-cover ring-4 ring-white shadow-md"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-secondary-500 text-white flex items-center justify-center text-xl font-bold ring-4 ring-white shadow-md">
+                            {initials}
+                          </div>
                         )}
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gold-100 text-gold-800 rounded-full text-xs font-semibold border border-gold-200">
-                          📊 {group.templates.length} template{group.templates.length !== 1 ? 's' : ''}
-                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-2xl font-serif font-bold text-primary-700 truncate">
+                              {group.creator.displayName}
+                            </h3>
+                            {group.creator.verified && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold border border-green-200">
+                                <CheckIcon className="w-3.5 h-3.5" /> Vérifié
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-3 flex-wrap">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/70 text-gray-700 rounded-full text-xs font-semibold border border-gray-200">
+                              <DocumentCheckIcon className="w-4 h-4 text-primary-600" />
+                              {tplCount} template{tplCount !== 1 ? 's' : ''}
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/70 text-gray-700 rounded-full text-xs font-semibold border border-gray-200">
+                              <BanknotesIcon className="w-4 h-4 text-green-600" />
+                              ${totalValue.toFixed(2)} valeur catalogue
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
+                  )
+                })()}
 
                 {/* Creator's Templates Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
@@ -448,28 +445,43 @@ export default function AdminMarketplaceApprovals() {
                       className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl hover:border-primary-200 transition-all duration-300 group"
                     >
                       {/* Template Preview */}
-                      <div className="aspect-[3/4] bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden relative">
+                      <div className="aspect-[3/4] bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden relative cursor-pointer" onClick={() => setPreviewTemplate(submission.template)}>
                         <TemplatePreview
                           template={{ config: submission.template.config || {} }}
+                          fit="cover"
                           className="group-hover:scale-110 transition-transform duration-300"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
+                          <span className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 px-3 py-1.5 bg-white/95 text-gray-800 rounded-full text-xs font-semibold shadow">
+                            <EyeIcon className="w-4 h-4" /> Aperçu
+                          </span>
+                        </div>
                       </div>
 
                       {/* Info */}
                       <div className="p-4 space-y-3">
-                        <h4 className="font-bold text-gray-900">{submission.templateName}</h4>
-                        <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-lg p-3 space-y-2 border border-primary-100">
-                          <div className="flex justify-between text-xs">
-                            <span className="text-gray-600 font-medium">Prix:</span>
-                            <span className="font-bold text-gray-900">${submission.priceUSD.toFixed(2)}</span>
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="font-serif font-bold text-gray-900 truncate">{submission.templateName}</h4>
+                          <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[10px] font-semibold">
+                            <CheckIcon className="w-3 h-3" /> Approuvé
+                          </span>
+                        </div>
+                        {submission.category && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gold-100 text-gold-800">
+                            {submission.category}
+                          </span>
+                        )}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
+                            <p className="text-[10px] text-gray-500 font-medium">Prix</p>
+                            <p className="text-sm font-bold text-gray-900">${submission.priceUSD.toFixed(2)}</p>
                           </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="text-gray-600 font-medium">Commission:</span>
-                            <span className="font-bold text-primary-600">{submission.commissionPercentage}%</span>
+                          <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
+                            <p className="text-[10px] text-gray-500 font-medium">Commission</p>
+                            <p className="text-sm font-bold text-primary-600">{submission.commissionPercentage}%</p>
                           </div>
                         </div>
-                        <p className="text-xs text-gray-500 font-medium">
+                        <p className="text-xs text-gray-400">
                           Approuvé le {new Date(submission.submittedAt).toLocaleDateString('fr-FR')}
                         </p>
                       </div>
@@ -532,14 +544,15 @@ export default function AdminMarketplaceApprovals() {
                 <div className="space-y-5">
                   <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                     <p className="text-sm font-medium text-green-900">
-                      ✓ Définissez le prix de vente et la commission du créateur. Le template sera ensuite
-                      visible dans la marketplace.
+                      ✓ Le créateur gagne sa <strong>commission</strong> sur chaque achat d'invitations
+                      effectué par les clients qui utilisent ce template. Le prix ci-dessous est seulement
+                      le prix affiché dans la marketplace.
                     </p>
                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Prix de vente (USD)
+                      Prix affiché dans la marketplace (USD)
                     </label>
                     <div className="flex">
                       <span className="inline-flex items-center px-3 bg-gray-200 text-gray-700 text-sm rounded-l-xl">$</span>
@@ -571,12 +584,12 @@ export default function AdminMarketplaceApprovals() {
                   </div>
 
                   <div className="bg-primary-50 border border-primary-200 rounded-xl p-4">
-                    <p className="text-xs text-gray-600 mb-1">Gain du créateur par utilisation</p>
+                    <p className="text-xs text-gray-600 mb-1">Exemple : sur une commande d'invitations de $100</p>
                     <p className="text-2xl font-bold text-primary-600">
-                      ${(((parseFloat(reviewData.priceUSD) || 0) * (parseFloat(reviewData.commissionPercentage) || 0)) / 100).toFixed(2)}
+                      ${(100 * (parseFloat(reviewData.commissionPercentage) || 0) / 100).toFixed(2)} <span className="text-sm font-medium text-gray-500">pour le créateur</span>
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      ${reviewData.priceUSD || '0'} × {reviewData.commissionPercentage || '0'}%
+                      Commission = {reviewData.commissionPercentage || '0'}% du montant payé par le client
                     </p>
                   </div>
                 </div>
@@ -607,6 +620,29 @@ export default function AdminMarketplaceApprovals() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Large preview modal */}
+      {previewTemplate && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
+          onClick={() => setPreviewTemplate(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white p-4 border-b flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">Aperçu du template</h3>
+              <button onClick={() => setPreviewTemplate(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="p-6 flex justify-center">
+              <div className="w-full max-w-sm bg-white shadow-lg rounded-lg overflow-hidden">
+                <TemplatePreview template={{ config: previewTemplate.config || {} }} adaptive />
+              </div>
+            </div>
           </div>
         </div>
       )}

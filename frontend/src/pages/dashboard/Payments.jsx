@@ -131,7 +131,7 @@ export default function Payments() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center gap-3">
           <div className="p-2.5 bg-green-50 rounded-lg"><WalletIcon className="h-5 w-5 text-green-600" /></div>
           <div>
-            <p className="text-xl font-bold text-gray-900">{pricing.unitPrice} $</p>
+            <p className="text-xl font-bold text-gray-900">Selon le design</p>
             <p className="text-xs text-gray-500">Prix par invitation</p>
           </div>
         </div>
@@ -142,7 +142,8 @@ export default function Payments() {
         <GiftIcon className="h-5 w-5 text-primary-600 mt-0.5 shrink-0" />
         <div className="text-sm text-primary-900">
           <p>
-            <strong>1 invitation gratuite</strong> par événement, puis <strong>{pricing.unitPrice} $</strong> par invitation supplémentaire.
+            <strong>1 invitation gratuite</strong> par événement. Au-delà, le prix par invitation
+            <strong> dépend du design choisi</strong> pour votre événement.
           </p>
           {pricing.paymentMethods?.length > 0 ? (
             <div className="mt-1 text-primary-700">

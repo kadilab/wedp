@@ -24,9 +24,21 @@ import {
   ArrowsRightLeftIcon,
   ChevronDownIcon,
   ShoppingBagIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  SparklesIcon
 
 } from '@heroicons/react/24/outline'
+
+const creatorNavSection = {
+  label: 'Espace créateur',
+  items: [
+    { name: 'Dashboard créateur', href: '/creator-dashboard', icon: SparklesIcon },
+    { name: 'Mes templates', href: '/creator-templates', icon: SwatchIcon },
+    { name: 'Mes gains', href: '/creator-earnings', icon: BanknotesIcon },
+    { name: 'Comptes bancaires', href: '/creator-bank-accounts', icon: CreditCardIcon },
+    { name: 'Demander un retrait', href: '/creator-request-payout', icon: ArrowsRightLeftIcon },
+  ]
+}
 
 const clientNavSections = [
   {
@@ -88,7 +100,11 @@ export default function DashboardLayout({ isAdmin = false }) {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const navSections = isAdmin ? adminNavSections : clientNavSections
+  const navSections = isAdmin
+    ? adminNavSections
+    : (user?.isCreator || user?.role === 'CREATOR')
+      ? [...clientNavSections, creatorNavSection]
+      : clientNavSections
 
   const { data: dashStatsData } = useQuery(
     'admin-stats',

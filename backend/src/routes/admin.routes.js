@@ -11,7 +11,7 @@ const axios = require('axios');
 const { generatePrintLayoutPDF, calculateImposition, PRINT_SIZES_MM } = require('../utils/pdf');
 const { uploadSingle, handleUploadError } = require('../middleware/upload.middleware');
 const { safeDeleteUploads } = require('../utils/fileCleanup');
-const { approveWeddingUsage } = require('../utils/marketplace');
+const { recordOrderCommission } = require('../utils/marketplace');
 
 const prisma = new PrismaClient();
 
@@ -1196,10 +1196,10 @@ router.put('/invitation-orders/:id/approve', authenticate, isAdmin, async (req, 
     // No side effect on the wedding itself (unlike plan payments) — quota is derived
     // automatically from approved orders by getWeddingQuota().
 
-    // The client has now paid for invitations → release the creator commission
-    // tied to this wedding's template (PENDING -> APPROVED / withdrawable).
-    await approveWeddingUsage(order.weddingId).catch(err =>
-      logger.error('approveWeddingUsage failed on invitation order approval:', err)
+    // The client has paid for invitations → credit the creator a commission
+    // equal to a percentage of this order's amount.
+    await recordOrderCommission({ order }).catch(err =>
+      logger.error('recordOrderCommission failed on invitation order approval:', err)
     );
 
     // Record coupon usage only once the order is actually approved (same rule as Payment)
@@ -1929,11 +1929,15 @@ router.put('/marketplace/templates/:marketplaceId/review', authenticate, isAdmin
       data: reviewData
     });
 
-    // If approved, mark template as marketplace template
+    // If approved, mark template as marketplace template and set its
+    // per-invitation price (the price the admin just defined).
     if (status === 'APPROVED') {
       await prisma.template.update({
         where: { id: submission.templateId },
-        data: { marketplaceStatus: 'APPROVED' }
+        data: {
+          marketplaceStatus: 'APPROVED',
+          pricePerInvitation: reviewData.priceUSD
+        }
       });
     }
 

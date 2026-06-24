@@ -35,9 +35,9 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
   const [couponError, setCouponError] = useState('')
 
   const { data: pricingData } = useQuery(
-    'invitation-pricing',
-    () => invitationOrderAPI.getPricing(),
-    { enabled: isOpen }
+    ['invitation-pricing', weddingId],
+    () => invitationOrderAPI.getPricing(weddingId),
+    { enabled: isOpen && !!weddingId }
   )
   const { data: ordersData } = useQuery(
     ['invitation-orders', weddingId],

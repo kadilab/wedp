@@ -41,13 +41,27 @@ async function findOwnedWedding(weddingId, user) {
  */
 router.get('/pricing', authenticate, async (req, res) => {
   try {
-    const [unitPriceRaw, paymentMethods] = await Promise.all([
-      getSettingValue('invitationUnitPrice'),
-      getSettingValue('invitationPaymentMethods')
-    ]);
+    const paymentMethods = await getSettingValue('invitationPaymentMethods');
+
+    // Unit price is per-design: resolved from the wedding's chosen template.
+    let unitPrice = 0;
+    let templateName = null;
+    const { weddingId } = req.query;
+    if (weddingId) {
+      const wedding = await findOwnedWedding(weddingId, req.user);
+      if (wedding?.templateId) {
+        const tpl = await prisma.template.findUnique({
+          where: { id: wedding.templateId },
+          select: { pricePerInvitation: true, name: true }
+        });
+        unitPrice = parseFloat(tpl?.pricePerInvitation) || 0;
+        templateName = tpl?.name || null;
+      }
+    }
 
     res.json({
-      unitPrice: parseFloat(unitPriceRaw) || 0,
+      unitPrice,
+      templateName,
       currency: 'USD',
       paymentMethods: Array.isArray(paymentMethods) ? paymentMethods : []
     });
@@ -144,8 +158,16 @@ router.post('/:weddingId', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
-    const unitPriceRaw = await getSettingValue('invitationUnitPrice');
-    const unitPrice = parseFloat(unitPriceRaw) || 0;
+    // Price per invitation now comes from the chosen design (template), not a
+    // global setting.
+    let unitPrice = 0;
+    if (wedding.templateId) {
+      const tpl = await prisma.template.findUnique({
+        where: { id: wedding.templateId },
+        select: { pricePerInvitation: true }
+      });
+      unitPrice = parseFloat(tpl?.pricePerInvitation) || 0;
+    }
     let totalAmount = Math.round(qty * unitPrice * 100) / 100;
 
     let couponId = null;

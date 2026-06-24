@@ -155,7 +155,7 @@ export default function Templates() {
               return (
                 <div key={tpl.id} className="group bg-white rounded-xl shadow-sm border border-primary-100 overflow-hidden hover:shadow-lg hover:border-primary-300 transition-all duration-300">
                   <div className="relative aspect-[3/4] overflow-hidden bg-gray-100">
-                    <TemplatePreview template={tpl} className="group-hover:scale-105 transition-transform duration-500" />
+                    <TemplatePreview template={tpl} fit="cover" className="group-hover:scale-105 transition-transform duration-500" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-end pb-4 gap-2">
                       <button
                         onClick={() => navigate(`/templates/${tpl.id}/design${linkedWedding ? `?wedding=${linkedWedding.id}` : ''}`)}
@@ -240,6 +240,7 @@ export default function Templates() {
               <div className="relative aspect-[3/4] overflow-hidden bg-gray-100">
                 <TemplatePreview
                   template={template}
+                  fit="cover"
                   className="group-hover:scale-105 transition-transform duration-500"
                 />
 

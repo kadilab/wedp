@@ -59,6 +59,7 @@ router.get('/', paginationValidation, async (req, res) => {
           backgroundOpacity: true,
           category: true,
           eventType: true,
+          pricePerInvitation: true,
           isPremium: true,
           allowBackgroundChange: true,
           colorScheme: true,
@@ -112,6 +113,7 @@ router.get('/mine', authenticate, async (req, res) => {
         backgroundOpacity: true,
         category: true,
         eventType: true,
+        pricePerInvitation: true,
         config: true,
         canvasWidth: true,
         canvasHeight: true,
@@ -178,6 +180,7 @@ router.get('/:id', async (req, res) => {
         config: true,
         category: true,
         eventType: true,
+        pricePerInvitation: true,
         isPremium: true,
         isActive: true,
         allowBackgroundChange: true,
@@ -298,7 +301,7 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       backgroundUrl, backgroundOpacity,
       designElements, canvasWidth, canvasHeight,
       allowBackgroundChange, previewImage,
-      margins, selectedFormat
+      margins, selectedFormat, pricePerInvitation
     } = req.body;
 
     if (!name || !name.trim()) {
@@ -338,6 +341,7 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       textShadow: el.textShadow ?? 'none',
       shadowColor: el.shadowColor ?? '#000000',
       zIndex: el.zIndex ?? 0,
+      dateFormat: el.dateFormat || 'datetime',
       iconUrl: el.iconUrl || '',
       // Photo element styling (border/opacity/radius/cadrage)
       objectFit: el.objectFit || 'cover',
@@ -372,6 +376,7 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
         allowBackgroundChange: allowBackgroundChange !== undefined ? allowBackgroundChange : true,
         canvasWidth: canvasWidth || CANVAS_WIDTH_DEFAULT,
         canvasHeight: canvasHeight || CANVAS_HEIGHT_DEFAULT,
+        pricePerInvitation: parseFloat(pricePerInvitation) || 0,
         config
       }
     });
@@ -467,6 +472,42 @@ router.post('/:id/fork', authenticate, async (req, res) => {
 });
 
 /**
+ * @route   POST /api/templates/blank
+ * @desc    Create an empty custom template owned by the current user
+ * @access  Private
+ */
+router.post('/blank', authenticate, async (req, res) => {
+  try {
+    const { name, eventType } = req.body || {};
+    const baseName = (name && name.trim()) || 'Nouveau template';
+    const slug = `${generateSlug(baseName)}-${req.user.id.slice(0, 8)}-${Date.now()}`;
+
+    const template = await prisma.template.create({
+      data: {
+        name: baseName,
+        slug,
+        description: '',
+        category: 'MODERN',
+        eventType: eventType || 'WEDDING',
+        config: { designElements: [], canvasWidth: CANVAS_WIDTH_DEFAULT, canvasHeight: CANVAS_HEIGHT_DEFAULT },
+        canvasWidth: CANVAS_WIDTH_DEFAULT,
+        canvasHeight: CANVAS_HEIGHT_DEFAULT,
+        isPremium: false,
+        isActive: true,
+        allowBackgroundChange: true,
+        userId: req.user.id,
+        isCustom: true
+      }
+    });
+
+    res.status(201).json({ message: 'Template vierge créé', template });
+  } catch (error) {
+    logger.error('Create blank template error:', error);
+    res.status(500).json({ error: 'Erreur lors de la création du template' });
+  }
+});
+
+/**
  * @route   PUT /api/templates/:id/design
  * @desc    Save template design configuration (background, element positions, styles)
  * @access  Private (Admin or template owner)
@@ -518,6 +559,7 @@ router.put('/:id/design', authenticate, async (req, res) => {
       textShadow: el.textShadow ?? 'none',
       shadowColor: el.shadowColor ?? '#000000',
       zIndex: el.zIndex ?? 0,
+      dateFormat: el.dateFormat || 'datetime',
       iconUrl: el.iconUrl || '',
       // Photo element styling (border/opacity/radius/cadrage)
       objectFit: el.objectFit || 'cover',
@@ -597,7 +639,7 @@ router.put('/:id', authenticate, isAdmin, async (req, res) => {
       name, description, htmlContent, cssContent, category, eventType,
       isPremium, colorScheme, isActive, config, previewImage,
       allowBackgroundChange, backgroundUrl, backgroundOpacity,
-      canvasWidth, canvasHeight
+      canvasWidth, canvasHeight, pricePerInvitation
     } = req.body;
 
     const template = await prisma.template.update({
@@ -618,7 +660,8 @@ router.put('/:id', authenticate, isAdmin, async (req, res) => {
         ...(colorScheme && { colorScheme }),
         ...(config !== undefined && { config }),
         ...(isActive !== undefined && { isActive }),
-        ...(allowBackgroundChange !== undefined && { allowBackgroundChange })
+        ...(allowBackgroundChange !== undefined && { allowBackgroundChange }),
+        ...(pricePerInvitation !== undefined && { pricePerInvitation: parseFloat(pricePerInvitation) || 0 })
       }
     });
 
@@ -780,27 +823,49 @@ router.post('/:id/preview-images', authenticate, isAdmin, uploadMultiple('previe
  * @desc    Delete template (Admin only)
  * @access  Private/Admin
  */
-router.delete('/:id', authenticate, isAdmin, async (req, res) => {
+router.delete('/:id', authenticate, async (req, res) => {
   try {
-    // Check if template is in use
+    const template = await prisma.template.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, isCustom: true, userId: true }
+    });
+
+    if (!template) {
+      return res.status(404).json({ error: 'Template non trouvé' });
+    }
+
+    // Admins can delete any template; a creator/client can delete only their
+    // own custom templates.
+    const isAdminUser = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
+    const isOwner = template.isCustom && template.userId === req.user.id;
+    if (!isAdminUser && !isOwner) {
+      return res.status(403).json({ error: "Vous ne pouvez supprimer que vos propres templates" });
+    }
+
+    // A template used in one or more events cannot be removed (it would break
+    // those invitations). Admins still soft-disable base templates instead.
     const weddingsUsingTemplate = await prisma.wedding.count({
       where: { templateId: req.params.id }
     });
 
     if (weddingsUsingTemplate > 0) {
-      // Soft delete instead
-      await prisma.template.update({
-        where: { id: req.params.id },
-        data: { isActive: false }
+      if (isAdminUser && !template.isCustom) {
+        await prisma.template.update({
+          where: { id: req.params.id },
+          data: { isActive: false }
+        });
+        return res.json({ message: 'Template désactivé (utilisé par des événements existants)' });
+      }
+      return res.status(400).json({
+        error: `Ce template est utilisé dans ${weddingsUsingTemplate} événement(s) et ne peut pas être supprimé.`
       });
-      return res.json({ message: 'Template désactivé (utilisé par des mariages existants)' });
     }
 
+    // Deleting the template cascades its marketplace listing (and usage tracks).
     await prisma.template.delete({
       where: { id: req.params.id }
     });
 
-    // Log deletion
     await prisma.log.create({
       data: {
         userId: req.user.id,

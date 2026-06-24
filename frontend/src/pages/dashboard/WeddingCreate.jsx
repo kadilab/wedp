@@ -79,6 +79,7 @@ const TEMPLATE_CATEGORIES = {
 export default function WeddingCreate() {
   const [step, setStep] = useState(0)
   const [serverErrors, setServerErrors] = useState([])
+  const [previewTmpl, setPreviewTmpl] = useState(null)
   const navigate = useNavigate()
   const location = useLocation()
   // Template can be preselected via router state or a ?templateId= query param
@@ -752,10 +753,22 @@ export default function WeddingCreate() {
                                   <span className="absolute top-2 left-2 bg-primary-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
                                     <UserIcon className="h-2.5 w-2.5" /> Mon template
                                   </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewTmpl(tmpl) }}
+                                    className="absolute bottom-2 right-2 inline-flex items-center gap-1 bg-white/90 hover:bg-white text-gray-800 text-[10px] font-semibold px-2 py-1 rounded-full shadow"
+                                  >
+                                    <EyeIcon className="h-3 w-3" /> Aperçu
+                                  </button>
                                 </div>
                                 <div className="p-2">
                                   <p className="font-medium text-sm text-gray-900 truncate">{tmpl.name}</p>
-                                  <p className="text-xs text-primary-500">Personnalisé</p>
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-xs text-primary-500">Personnalisé</p>
+                                    <p className="text-xs font-bold text-primary-600">
+                                      {parseFloat(tmpl.pricePerInvitation) > 0 ? `${parseFloat(tmpl.pricePerInvitation).toFixed(2)}$/inv.` : 'Gratuit'}
+                                    </p>
+                                  </div>
                                 </div>
                               </label>
                             ))}
@@ -781,10 +794,22 @@ export default function WeddingCreate() {
                               {tmpl.isPremium && (
                                 <span className="absolute top-2 right-2 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">Premium</span>
                               )}
+                              <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewTmpl(tmpl) }}
+                                className="absolute bottom-2 right-2 inline-flex items-center gap-1 bg-white/90 hover:bg-white text-gray-800 text-[10px] font-semibold px-2 py-1 rounded-full shadow"
+                              >
+                                <EyeIcon className="h-3 w-3" /> Aperçu
+                              </button>
                             </div>
                             <div className="p-2">
                               <p className="font-medium text-sm text-gray-900 truncate">{tmpl.name}</p>
-                              <p className="text-xs text-gray-500">{TEMPLATE_CATEGORIES[tmpl.category] || tmpl.category}</p>
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-gray-500">{TEMPLATE_CATEGORIES[tmpl.category] || tmpl.category}</p>
+                                <p className="text-xs font-bold text-primary-600">
+                                  {parseFloat(tmpl.pricePerInvitation) > 0 ? `${parseFloat(tmpl.pricePerInvitation).toFixed(2)}$/inv.` : 'Gratuit'}
+                                </p>
+                              </div>
                             </div>
                           </label>
                         ))}
@@ -1171,6 +1196,39 @@ export default function WeddingCreate() {
           </div>
         </div>
       </form>
+
+      {/* Large template preview modal */}
+      {previewTmpl && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
+          onClick={() => setPreviewTmpl(null)}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[92vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white p-4 border-b flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-serif font-bold text-gray-900">{previewTmpl.name}</h3>
+                <p className="text-xs font-semibold text-primary-600">
+                  {parseFloat(previewTmpl.pricePerInvitation) > 0 ? `${parseFloat(previewTmpl.pricePerInvitation).toFixed(2)} $ / invitation` : 'Gratuit'}
+                </p>
+              </div>
+              <button onClick={() => setPreviewTmpl(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+            </div>
+            <div className="p-6 flex justify-center">
+              <div className="w-full max-w-sm bg-white shadow-lg rounded-lg overflow-hidden">
+                <TemplatePreview template={previewTmpl} adaptive weddingData={previewWeddingData} />
+              </div>
+            </div>
+            <div className="p-4 border-t flex justify-center">
+              <button
+                onClick={() => { setValue('templateId', previewTmpl.id); setPreviewTmpl(null) }}
+                className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Choisir ce template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

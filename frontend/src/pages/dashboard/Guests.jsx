@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { guestAPI, weddingAPI, invitationOrderAPI } from '../../services/api'
@@ -28,6 +28,7 @@ export default function Guests() {
 
   const { data: weddingData } = useQuery(['wedding', weddingId], () => weddingAPI.getOne(weddingId))
   const wedding = weddingData?.data?.wedding
+  const eventType = wedding?.eventType || 'WEDDING'
   const usesTables = eventUsesTables(wedding?.eventType)
   const usesPlusOnes = eventUsesPlusOnes(wedding?.eventType)
 
@@ -70,6 +71,49 @@ export default function Guests() {
     }
   }
 
+  const fileInputRef = useRef(null)
+  const [importing, setImporting] = useState(false)
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file
+    if (!file) return
+    setImporting(true)
+    try {
+      const res = await guestAPI.import(weddingId, file)
+      const r = res.data?.results || {}
+      queryClient.invalidateQueries(['guests', weddingId])
+      toast.success(`Import terminé : ${r.created || 0} ajouté(s)${r.skipped ? `, ${r.skipped} ignoré(s)` : ''}`)
+    } catch (error) {
+      toast.error(error.response?.data?.error || "Erreur lors de l'import")
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  // Downloadable CSV template, with columns adapted to the event type.
+  const downloadTemplate = () => {
+    const categories = getGuestCategoryOptions(eventType)
+    const headers = ['Prénom', 'Nom', 'Email', 'Téléphone', 'Catégorie']
+    if (eventUsesTables(eventType)) headers.push('Table')
+    if (eventUsesPlusOnes(eventType)) headers.push('Accompagnants')
+    headers.push('Notes')
+
+    const example = ['Jean', 'Dupont', 'jean@email.com', '+221770000000', categories[0] || 'Amis']
+    if (eventUsesTables(eventType)) example.push('1')
+    if (eventUsesPlusOnes(eventType)) example.push('1')
+    example.push('Invité VIP')
+
+    const csv = '﻿' + [headers.join(','), example.join(',')].join('\n')
+    const url = window.URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `modele-invites-${(eventType || 'evenement').toLowerCase()}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  }
+
   const getRsvpBadge = (status) => {
     switch (status) {
       case 'CONFIRMED': return <span className="badge-success">Confirmé</span>
@@ -98,7 +142,27 @@ export default function Guests() {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center flex-wrap gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            onChange={handleImportFile}
+            className="hidden"
+          />
+          <button onClick={downloadTemplate} className="btn-secondary btn-sm" title="Télécharger un modèle CSV adapté à votre événement">
+            <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
+            Modèle
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            className="btn-secondary btn-sm disabled:opacity-50"
+            title="Importer des invités depuis un fichier CSV ou Excel"
+          >
+            <ArrowUpTrayIcon className="h-4 w-4 mr-1" />
+            {importing ? 'Import...' : 'Importer'}
+          </button>
           <button onClick={() => exportGuests('csv')} className="btn-secondary btn-sm">
             <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
             CSV

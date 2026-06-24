@@ -543,20 +543,12 @@ export default function AdminSettings() {
                     d'invitations payé manuellement via les moyens de paiement définis ci-dessous.
                   </p>
 
-                  <div className="mb-6">
-                    <label htmlFor="invitationUnitPrice" className="block text-sm font-medium text-gray-700 mb-1">
-                      Prix unitaire par invitation ($)
-                    </label>
-                    <input
-                      id="invitationUnitPrice"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="input max-w-xs"
-                      placeholder="0.3"
-                      value={formData.invitationUnitPrice}
-                      onChange={(e) => updateField('invitationUnitPrice', e.target.value)}
-                    />
+                  <div className="mb-6 rounded-lg border border-blue-100 bg-blue-50 p-4">
+                    <p className="text-sm text-blue-900">
+                      💡 Le <strong>prix par invitation est désormais défini par design</strong> (sur chaque
+                      template), et non plus globalement. Modifiez le prix d'un template dans le catalogue,
+                      ou lors de la validation d'un template créateur dans la marketplace.
+                    </p>
                   </div>
 
                   <div>

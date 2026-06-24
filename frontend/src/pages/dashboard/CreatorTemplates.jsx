@@ -58,18 +58,12 @@ export default function CreatorTemplates() {
 
   const handleCreateBlank = async () => {
     try {
-      // Find the simplest template to fork as a base
-      const firstTemplate = allTemplates[0]
-      if (!firstTemplate) {
-        toast.error('Aucun template disponible pour créer un nouveau')
-        return
-      }
-      const response = await templateAPI.fork(firstTemplate.id)
-      const forkedId = response.data.template.id
+      const response = await templateAPI.createBlank({ name: 'Nouveau template' })
+      const newId = response.data.template.id
       queryClient.invalidateQueries('my-templates')
-      toast.success('Nouveau template créé')
+      toast.success('Template vierge créé')
       // Rediriger vers l'éditeur
-      navigate(`/templates/${forkedId}/design?wedding=null`)
+      navigate(`/templates/${newId}/design?wedding=null`)
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erreur lors de la création')
     }
@@ -83,7 +77,7 @@ export default function CreatorTemplates() {
       queryClient.invalidateQueries('my-templates')
       toast.success('Template supprimé')
     } catch (err) {
-      toast.error('Erreur lors de la suppression')
+      toast.error(err.response?.data?.error || 'Erreur lors de la suppression')
     }
   }
 
@@ -128,6 +122,7 @@ export default function CreatorTemplates() {
                   <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-secondary-50 to-primary-50">
                     <TemplatePreview
                       template={template}
+                      fit="cover"
                       className="group-hover:scale-105 transition-transform duration-500"
                     />
                     <span className={`absolute top-3 right-3 inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm backdrop-blur ${statusBadge.cls}`}>
@@ -267,6 +262,7 @@ export default function CreatorTemplates() {
                 <div className="relative aspect-[3/4] overflow-hidden bg-gray-100">
                   <TemplatePreview
                     template={template}
+                    fit="cover"
                     className="group-hover:scale-105 transition-transform duration-500"
                   />
 
@@ -321,8 +317,8 @@ export default function CreatorTemplates() {
             </div>
 
             <div className="p-6 flex justify-center">
-              <div className="aspect-[3/4] w-full max-w-sm bg-white shadow-lg rounded-lg overflow-hidden">
-                <TemplatePreview template={previewTemplate} />
+              <div className="w-full max-w-sm bg-white shadow-lg rounded-lg overflow-hidden">
+                <TemplatePreview template={previewTemplate} adaptive />
               </div>
             </div>
 

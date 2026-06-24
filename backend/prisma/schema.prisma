@@ -190,6 +190,9 @@ model Template {
   cssContent        String?     @db.LongText @map("css_content")
   config            Json?       // Visual editor configuration: designElements positions, fonts, colors, etc.
   category          String      @default("MODERN")
+  // Price charged per invitation when a client uses this design (replaces the
+  // old global unit price). Set by the admin per design / at marketplace review.
+  pricePerInvitation Decimal    @default(0) @db.Decimal(10, 2) @map("price_per_invitation")
   // Which event type this template is designed for (drives gallery filtering
   // during event creation, so a Mariage event isn't offered a Conférence layout)
   eventType         EventType   @default(WEDDING) @map("event_type")

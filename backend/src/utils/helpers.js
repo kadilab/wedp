@@ -122,6 +122,7 @@ function mapCSVToGuest(row) {
     phone: row['téléphone'] || row['telephone'] || row['phone'] || row['tel'] || '',
     tableNumber: row['table'] || row['table_number'] || row['numéro_table'] || '',
     plusOnes: parseInt(row['accompagnants'] || row['plus_ones'] || row['guests'] || '0') || 0,
+    category: row['catégorie'] || row['categorie'] || row['category'] || row['type'] || '',
     dietaryRestrictions: row['régime'] || row['dietary'] || row['restrictions'] || '',
     notes: row['notes'] || row['remarques'] || row['comments'] || ''
   };

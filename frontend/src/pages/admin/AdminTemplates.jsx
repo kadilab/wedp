@@ -236,6 +236,7 @@ export default function AdminTemplates() {
                       <div className="relative aspect-[3/4] bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
                         <TemplatePreview
                           template={template}
+                          fit="cover"
                           className="group-hover:scale-105 transition-transform duration-500"
                         />
 
