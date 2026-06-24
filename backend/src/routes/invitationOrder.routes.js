@@ -5,6 +5,7 @@ const { authenticate } = require('../middleware/auth.middleware');
 const { getWeddingQuota } = require('../utils/invitationQuota');
 const { sendTelegramNotification } = require('../utils/telegram');
 const { notifyAdmins, NotificationTemplates } = require('../utils/notifications');
+const kpay = require('../utils/kpay');
 const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
@@ -234,6 +235,76 @@ router.post('/:weddingId', authenticate, async (req, res) => {
   } catch (error) {
     logger.error('Create invitation order error:', error);
     res.status(500).json({ error: 'Erreur lors de la création de la commande' });
+  }
+});
+
+/**
+ * @route   POST /api/invitation-orders/:weddingId/orders/:orderId/kpay
+ * @desc    Initiate automatic Mobile Money payment (K-PAY) for a pending order.
+ *          GATEWAY mode by default (returns a gatewayUrl to redirect the client);
+ *          pass { provider, phoneNumber } for direct USSD mode.
+ * @access  Private (owner)
+ */
+router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) => {
+  try {
+    if (!kpay.isConfigured()) {
+      return res.status(503).json({ error: 'Paiement automatique non configuré' });
+    }
+
+    const wedding = await findOwnedWedding(req.params.weddingId, req.user);
+    if (!wedding) return res.status(404).json({ error: 'Mariage non trouvé' });
+
+    const order = await prisma.invitationOrder.findFirst({
+      where: { id: req.params.orderId, weddingId: wedding.id }
+    });
+    if (!order) return res.status(404).json({ error: 'Commande non trouvée' });
+    if (order.status !== 'PENDING') {
+      return res.status(400).json({ error: 'Cette commande a déjà été traitée' });
+    }
+
+    const amount = Math.round(parseFloat(order.totalAmount));
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: 'Montant de la commande invalide' });
+    }
+
+    const { provider, phoneNumber } = req.body || {};
+    const frontendUrl = process.env.FRONTEND_URL || '';
+    const payload = {
+      amount,
+      externalId: `inv_${order.id}`,
+      description: `Invitations (${order.quantity}) — ${wedding.slug}`,
+      metadata: { orderId: order.id, weddingId: wedding.id }
+    };
+
+    if (provider && phoneNumber) {
+      // USSD (direct) mode
+      payload.provider = provider;
+      payload.phoneNumber = phoneNumber;
+    } else {
+      // GATEWAY (hosted) mode
+      payload.returnUrl = `${frontendUrl}/weddings/${wedding.id}/invitations?kpay=return&order=${order.id}`;
+      payload.cancelUrl = `${frontendUrl}/weddings/${wedding.id}/invitations?kpay=cancel&order=${order.id}`;
+    }
+
+    const result = await kpay.initPayment(payload);
+
+    // Remember the K-PAY payment reference on the order.
+    await prisma.invitationOrder.update({
+      where: { id: order.id },
+      data: { paymentProvider: 'KPAY', transactionId: result.id || result.reference }
+    });
+
+    res.status(201).json({
+      message: 'Paiement initié',
+      paymentId: result.id,
+      reference: result.reference,
+      status: result.status,
+      gatewayUrl: result.gatewayUrl || null
+    });
+  } catch (error) {
+    const apiErr = error.response?.data;
+    logger.error('K-PAY init payment error:', apiErr || error.message);
+    res.status(502).json({ error: apiErr?.message || 'Erreur lors de l\'initiation du paiement' });
   }
 });
 

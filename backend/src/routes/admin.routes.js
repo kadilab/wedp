@@ -12,6 +12,8 @@ const { generatePrintLayoutPDF, calculateImposition, PRINT_SIZES_MM } = require(
 const { uploadSingle, handleUploadError } = require('../middleware/upload.middleware');
 const { safeDeleteUploads } = require('../utils/fileCleanup');
 const { recordOrderCommission } = require('../utils/marketplace');
+const { approveInvitationOrder } = require('../utils/invitationOrders');
+const kpay = require('../utils/kpay');
 
 const prisma = new PrismaClient();
 
@@ -1171,70 +1173,20 @@ router.get('/invitation-orders', authenticate, isAdmin, paginationValidation, as
  */
 router.put('/invitation-orders/:id/approve', authenticate, isAdmin, async (req, res) => {
   try {
-    const order = await prisma.invitationOrder.findUnique({
-      where: { id: req.params.id },
-      include: { wedding: true, user: true }
-    });
-
-    if (!order) {
+    const existing = await prisma.invitationOrder.findUnique({ where: { id: req.params.id } });
+    if (!existing) {
       return res.status(404).json({ error: 'Commande non trouvée' });
     }
-
-    if (order.status !== 'PENDING') {
+    if (existing.status !== 'PENDING') {
       return res.status(400).json({ error: 'Cette commande a déjà été traitée' });
     }
 
-    const updatedOrder = await prisma.invitationOrder.update({
-      where: { id: req.params.id },
-      data: {
-        status: 'APPROVED',
-        processedAt: new Date(),
-        processedBy: req.user.id
-      }
-    });
-
-    // No side effect on the wedding itself (unlike plan payments) — quota is derived
-    // automatically from approved orders by getWeddingQuota().
-
-    // The client has paid for invitations → credit the creator a commission
-    // equal to a percentage of this order's amount.
-    await recordOrderCommission({ order }).catch(err =>
-      logger.error('recordOrderCommission failed on invitation order approval:', err)
-    );
-
-    // Record coupon usage only once the order is actually approved (same rule as Payment)
-    if (order.couponId) {
-      await prisma.coupon.update({
-        where: { id: order.couponId },
-        data: { usedCount: { increment: 1 } }
-      });
-      await prisma.couponUsage.create({
-        data: { couponId: order.couponId, userId: order.userId }
-      });
-    }
-
-    await prisma.log.create({
-      data: {
-        userId: req.user.id,
-        action: 'PAYMENT',
-        entity: 'invitation_order',
-        entityId: req.params.id,
-        details: { status: 'APPROVED', quantity: order.quantity, totalAmount: order.totalAmount }
-      }
-    });
-
-    const approveNotif = NotificationTemplates.invitationOrderApproved(order.quantity);
-    createNotification({
-      userId: order.userId,
-      ...approveNotif,
-      data: { link: `/weddings/${order.weddingId}/invitations`, orderId: order.id },
+    const { order } = await approveInvitationOrder(req.params.id, {
+      processedBy: req.user.id,
       io: req.app.get('io')
-    }).catch(err => logger.error('Invitation order approve notification failed:', err));
-
-    res.json({
-      message: 'Commande approuvée avec succès',
-      order: updatedOrder
     });
+
+    res.json({ message: 'Commande approuvée avec succès', order });
   } catch (error) {
     logger.error('Approve invitation order error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -2218,6 +2170,61 @@ router.get('/payouts/:payoutId', authenticate, isAdmin, async (req, res) => {
   } catch (error) {
     logger.error('Error fetching payout detail:', error);
     res.status(500).json({ message: 'Error fetching payout', error: error.message });
+  }
+});
+
+/**
+ * @route   POST /api/admin/payouts/:payoutId/kpay
+ * @desc    Send the payout automatically via K-PAY Mobile Money withdrawal.
+ *          Body: { provider, phoneNumber } (creator's Mobile Money account).
+ *          The payout is marked PAID when the K-PAY payout webhook arrives.
+ * @access  Private/Admin
+ */
+router.post('/payouts/:payoutId/kpay', authenticate, isAdmin, async (req, res) => {
+  try {
+    if (!kpay.isConfigured()) {
+      return res.status(503).json({ message: 'K-PAY non configuré' });
+    }
+    const { provider, phoneNumber } = req.body || {};
+    if (!provider || !phoneNumber) {
+      return res.status(400).json({ message: 'provider et phoneNumber requis' });
+    }
+
+    const payout = await prisma.creatorPayout.findUnique({ where: { id: req.params.payoutId } });
+    if (!payout) return res.status(404).json({ message: 'Payout not found' });
+    if (payout.status === 'PAID') return res.status(400).json({ message: 'Payout déjà payé' });
+
+    const amount = Math.round(parseFloat(payout.totalAmount));
+    const result = await kpay.withdraw({
+      amount,
+      provider,
+      phoneNumber,
+      externalId: `payout_${payout.id}`,
+      description: `Commission créateur ${payout.creatorId}`,
+      metadata: { payoutId: payout.id }
+    });
+
+    await prisma.creatorPayout.update({
+      where: { id: payout.id },
+      data: {
+        status: 'PROCESSING',
+        paymentMethod: 'kpay_momo',
+        transactionId: result.id || result.reference,
+        processedBy: req.user.id,
+        paymentDetails: { ...(payout.paymentDetails || {}), provider, phoneNumber }
+      }
+    });
+
+    res.json({
+      message: 'Reversement initié via K-PAY',
+      withdrawId: result.id,
+      reference: result.reference,
+      status: result.status
+    });
+  } catch (error) {
+    const apiErr = error.response?.data;
+    logger.error('K-PAY withdraw error:', apiErr || error.message);
+    res.status(502).json({ message: apiErr?.message || 'Erreur lors du reversement K-PAY' });
   }
 });
 

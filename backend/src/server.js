@@ -84,8 +84,12 @@ const authLimiter = rateLimit({
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
-// Body parsing
-app.use(express.json({ limit: '10mb' }));
+// Body parsing — keep the raw body around so webhook signatures (K-PAY) can be
+// verified against the exact bytes received.
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, _res, buf) => { req.rawBody = buf; }
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Compression
@@ -145,6 +149,7 @@ app.use('/api/print-orders', printOrderRoutes);
 app.use('/api/creators', creatorRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/public', publicRoutes); // Public invitation routes
+app.use('/api/webhooks', require('./routes/webhook.routes')); // K-PAY callbacks
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
