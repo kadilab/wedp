@@ -400,41 +400,47 @@ router.post('/:templateId/publish', authenticate, async (req, res) => {
       return res.status(400).json({ message: 'Only custom templates can be published to marketplace' });
     }
 
-    // Check if already published
+    // Check existing listing. A rejected (or draft) listing can be
+    // re-submitted; pending/approved listings cannot be submitted again.
     const existingMarketplace = await prisma.templateMarketplace.findUnique({
       where: { templateId }
     });
 
     if (existingMarketplace) {
-      return res.status(400).json({ message: 'Template is already published to marketplace' });
+      if (existingMarketplace.status === 'PENDING_REVIEW') {
+        return res.status(400).json({ message: 'Template is already submitted and pending review' });
+      }
+      if (existingMarketplace.status === 'APPROVED') {
+        return res.status(400).json({ message: 'Template is already approved and live on the marketplace' });
+      }
     }
 
-    // Validate inputs
-    const price = parseFloat(priceUSD) || 0;
-    const commission = Math.min(Math.max(parseFloat(commissionPercentage) || 30, 10), 50); // 10-50% range
+    const includeRefs = {
+      creator: { select: { displayName: true } },
+      template: { select: { name: true } }
+    };
 
-    // Create marketplace listing
-    const marketplace = await prisma.templateMarketplace.create({
-      data: {
-        templateId,
-        creatorId: creatorProfile.id,
-        priceUSD: price,
-        commissionPercentage: commission,
-        status: 'PENDING_REVIEW'
-      },
-      include: {
-        creator: {
-          select: {
-            displayName: true
-          }
-        },
-        template: {
-          select: {
-            name: true
-          }
-        }
-      }
-    });
+    // Price and commission are decided by the admin at review time, so the
+    // initial listing keeps the schema defaults (priceUSD 0, commission 30).
+    const marketplace = existingMarketplace
+      ? await prisma.templateMarketplace.update({
+          where: { templateId },
+          data: {
+            status: 'PENDING_REVIEW',
+            adminNote: null,
+            reviewedBy: null,
+            reviewedAt: null
+          },
+          include: includeRefs
+        })
+      : await prisma.templateMarketplace.create({
+          data: {
+            templateId,
+            creatorId: creatorProfile.id,
+            status: 'PENDING_REVIEW'
+          },
+          include: includeRefs
+        });
 
     // Update template
     await prisma.template.update({

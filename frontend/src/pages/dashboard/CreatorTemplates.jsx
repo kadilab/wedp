@@ -124,8 +124,39 @@ export default function CreatorTemplates() {
                   </div>
                 )}
                 <div className="p-4">
-                  <h3 className="font-semibold text-gray-900 truncate">{template.name}</h3>
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-semibold text-gray-900 truncate">{template.name}</h3>
+                    {(() => {
+                      const status = template.marketplace?.status
+                      const badges = {
+                        PENDING_REVIEW: { label: 'En attente', cls: 'bg-amber-100 text-amber-800' },
+                        APPROVED: { label: 'Approuvé', cls: 'bg-green-100 text-green-800' },
+                        REJECTED: { label: 'Rejeté', cls: 'bg-red-100 text-red-800' }
+                      }
+                      const badge = badges[status]
+                      return badge ? (
+                        <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${badge.cls}`}>
+                          {badge.label}
+                        </span>
+                      ) : (
+                        <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">
+                          Non publié
+                        </span>
+                      )
+                    })()}
+                  </div>
                   <p className="text-xs text-gray-500 mt-1 line-clamp-1">{template.description}</p>
+
+                  {template.marketplace?.status === 'APPROVED' && (
+                    <p className="text-xs text-green-700 mt-2 font-medium">
+                      ${parseFloat(template.marketplace.priceUSD).toFixed(2)} · commission {parseFloat(template.marketplace.commissionPercentage)}%
+                    </p>
+                  )}
+                  {template.marketplace?.status === 'REJECTED' && template.marketplace.adminNote && (
+                    <p className="text-xs text-red-600 mt-2 line-clamp-2">
+                      Raison : {template.marketplace.adminNote}
+                    </p>
+                  )}
 
                   <div className="flex gap-2 mt-3">
                     <button
@@ -135,13 +166,20 @@ export default function CreatorTemplates() {
                       <PencilIcon className="w-3.5 h-3.5" />
                       Designer
                     </button>
-                    <button
-                      onClick={() => navigate(`/templates/${template.id}/publish`)}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 border border-primary-600 text-primary-600 hover:bg-primary-50 rounded-lg text-xs font-medium transition-colors"
-                    >
-                      <SparklesIcon className="w-3.5 h-3.5" />
-                      Publier
-                    </button>
+                    {template.marketplace?.status === 'PENDING_REVIEW' ? (
+                      <span className="flex-1 flex items-center justify-center gap-1 px-3 py-2 border border-amber-200 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium">
+                        <SparklesIcon className="w-3.5 h-3.5" />
+                        En revue
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => navigate(`/templates/${template.id}/publish`)}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 border border-primary-600 text-primary-600 hover:bg-primary-50 rounded-lg text-xs font-medium transition-colors"
+                      >
+                        <SparklesIcon className="w-3.5 h-3.5" />
+                        {template.marketplace?.status === 'REJECTED' ? 'Republier' : 'Publier'}
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDeleteTemplate(template.id)}
                       className="px-3 py-2 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg transition-colors"

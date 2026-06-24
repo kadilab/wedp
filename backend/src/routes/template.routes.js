@@ -98,6 +98,15 @@ router.get('/mine', authenticate, async (req, res) => {
         canvasWidth: true,
         canvasHeight: true,
         updatedAt: true,
+        marketplaceStatus: true,
+        marketplace: {
+          select: {
+            status: true,
+            priceUSD: true,
+            commissionPercentage: true,
+            adminNote: true
+          }
+        },
         weddings: {
           select: { id: true, brideName: true, groomName: true }
         }

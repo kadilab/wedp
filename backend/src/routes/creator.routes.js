@@ -154,6 +154,85 @@ router.get('/me', authenticate, isCreator, async (req, res) => {
 });
 
 /**
+ * @route   GET /api/creators/me/earnings-details
+ * @desc    Paginated list of the creator's commission transactions + revenue chart data
+ * @access  Private (creators only)
+ */
+router.get('/me/earnings-details', authenticate, isCreator, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const creatorProfile = await prisma.creatorProfile.findUnique({
+      where: { userId }
+    });
+
+    if (!creatorProfile) {
+      return res.status(404).json({ message: 'Creator profile not found' });
+    }
+
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
+    const skip = (page - 1) * limit;
+    const { status, templateId } = req.query;
+
+    const where = { creatorId: creatorProfile.id };
+    if (status) where.status = status;
+    if (templateId) where.templateId = templateId;
+
+    const [tracks, total] = await Promise.all([
+      prisma.templateUsageTrack.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { usedAt: 'desc' },
+        include: {
+          marketplace: {
+            include: { template: { select: { name: true } } }
+          }
+        }
+      }),
+      prisma.templateUsageTrack.count({ where })
+    ]);
+
+    // Revenue grouped by day across all of the creator's transactions
+    // (the frontend slices the last 30 days for its chart).
+    const allTracks = await prisma.templateUsageTrack.findMany({
+      where: { creatorId: creatorProfile.id },
+      select: { usedAt: true, commissionAmount: true }
+    });
+
+    const revenueByDate = {};
+    allTracks.forEach(t => {
+      const date = t.usedAt.toISOString().split('T')[0];
+      revenueByDate[date] = (revenueByDate[date] || 0) + parseFloat(t.commissionAmount || 0);
+    });
+
+    res.json({
+      earnings: tracks.map(t => ({
+        id: t.id,
+        templateName: t.marketplace?.template?.name || 'Template',
+        templateId: t.templateId,
+        commissionPercentage: parseFloat(t.commissionPercentage),
+        commissionAmount: parseFloat(t.commissionAmount),
+        status: t.status,
+        usedAt: t.usedAt,
+        approvedAt: t.approvedAt
+      })),
+      revenueByDate,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching creator earnings details:', error);
+    res.status(500).json({ message: 'Error fetching earnings details', error: error.message });
+  }
+});
+
+/**
  * @route   PUT /api/creators/me
  * @desc    Update current user's creator profile
  * @access  Private (creators only)
