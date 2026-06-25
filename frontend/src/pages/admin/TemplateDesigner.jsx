@@ -9,6 +9,7 @@ import { PHOTO_SHAPES, getClipPath, getImageStyle, DEFAULT_CUSTOM_CLIP_PATH, OBJ
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
 import AutoFitText from '../../components/templates/AutoFitText'
 import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable } from '../../utils/dateFormats'
+import { searchIcons, iconPreviewUrl, fetchIconDataUrl, ICON_SUGGESTIONS, EMOJI_GROUPS } from '../../utils/elementLibrary'
 import {
   ArrowLeftIcon,
   EyeIcon,
@@ -16,6 +17,8 @@ import {
   TrashIcon,
   PlusIcon,
   PhotoIcon,
+  MagnifyingGlassIcon,
+  FaceSmileIcon,
   ArrowUpTrayIcon,
   LockClosedIcon,
   LockOpenIcon,
@@ -574,6 +577,13 @@ export default function TemplateDesigner({ clientMode = false }) {
   const [saving, setSaving] = useState(false)
   const [activePanel, setActivePanel] = useState('format') // format, background, elements, properties, settings
   const [panelCollapsed, setPanelCollapsed] = useState(false) // collapse the left tools sidebar for a bigger canvas
+  // Element library (icons via Iconify + emojis)
+  const [libTab, setLibTab] = useState('icons') // 'icons' | 'emoji'
+  const [iconQuery, setIconQuery] = useState('')
+  const [iconResults, setIconResults] = useState([])
+  const [iconLoading, setIconLoading] = useState(false)
+  const [iconColor, setIconColor] = useState('#000000')
+  const [iconAdding, setIconAdding] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [canvasWidth, setCanvasWidth] = useState(DEFAULT_CANVAS_WIDTH)
   const [canvasHeight, setCanvasHeight] = useState(DEFAULT_CANVAS_HEIGHT)
@@ -904,6 +914,63 @@ export default function TemplateDesigner({ clientMode = false }) {
       x: Math.round((canvasWidth - w) / 2), y: Math.round(canvasHeight * 0.1), width: w, height: h,
       visible: true, locked: false, shape: 'rect',
       objectFit: 'contain', borderWidth: 0, borderColor: '#FFFFFF', borderOpacity: 100, borderRadius: 0
+    }
+    setElements(prev => [...prev, newElement])
+    setSelectedId(id)
+    setActivePanel('properties')
+  }
+
+  // ---- Element library: icon search (Iconify) + emoji insertion ----
+  const runIconSearch = async (q) => {
+    const query = (q ?? iconQuery).trim()
+    if (!query) { setIconResults([]); return }
+    setIconLoading(true)
+    try {
+      const icons = await searchIcons(query, 60)
+      setIconResults(icons)
+      if (icons.length === 0) toast('Aucune icône trouvée', { icon: '🔍' })
+    } catch {
+      toast.error("Recherche d'icônes indisponible (vérifiez votre connexion)")
+    } finally {
+      setIconLoading(false)
+    }
+  }
+
+  // Adds a library icon as a decorative "image" element (SVG embedded as a
+  // data URL, recolored to the chosen color).
+  const addIconElement = async (iconName) => {
+    setIconAdding(iconName)
+    try {
+      const dataUrl = await fetchIconDataUrl(iconName, iconColor)
+      const id = `image_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const w = Math.min(160, Math.round(canvasWidth * 0.2))
+      const newElement = {
+        id, type: 'image', label: `Icône ${iconName}`, content: '', iconUrl: dataUrl,
+        x: Math.round((canvasWidth - w) / 2), y: Math.round(canvasHeight * 0.15), width: w, height: w,
+        visible: true, locked: false, shape: 'rect',
+        objectFit: 'contain', objectPosition: 'center', imageScale: 100, rotation: 0, opacity: 100,
+        borderWidth: 0, borderColor: '#FFFFFF', borderOpacity: 100, borderRadius: 0
+      }
+      setElements(prev => [...prev, newElement])
+      setSelectedId(id)
+      setActivePanel('properties')
+    } catch {
+      toast.error("Impossible d'ajouter cette icône")
+    } finally {
+      setIconAdding(null)
+    }
+  }
+
+  // Adds an emoji as a (resizable) text element.
+  const addEmojiElement = (emoji) => {
+    const id = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const w = Math.min(120, Math.round(canvasWidth * 0.15))
+    const newElement = {
+      id, type: 'custom', label: `Emoji ${emoji}`, content: emoji,
+      x: Math.round((canvasWidth - w) / 2), y: Math.round(canvasHeight * 0.15), width: w, height: w,
+      fontSize: 64, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
+      color: '#000000', textAlign: 'center', verticalAlign: 'middle',
+      letterSpacing: 0, textTransform: 'none', lineHeight: 1, visible: true, locked: false
     }
     setElements(prev => [...prev, newElement])
     setSelectedId(id)
@@ -1834,6 +1901,117 @@ export default function TemplateDesigner({ clientMode = false }) {
               <p className="text-xs text-gray-400 mb-3">
                 Cliquez sur un élément pour le sélectionner. Utilisez Ctrl+Clic pour la sélection multiple.
               </p>
+
+              {/* ===== Element library: icons (Iconify) + emojis ===== */}
+              <div className="border border-gray-200 rounded-lg p-2.5 mb-3 bg-gradient-to-br from-primary-50/40 to-white">
+                <div className="flex items-center gap-1 mb-2">
+                  <SparklesIcon className="h-4 w-4 text-primary-500" />
+                  <h4 className="text-xs font-semibold text-gray-700">Bibliothèque d'éléments</h4>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-1 mb-2">
+                  <button
+                    onClick={() => setLibTab('icons')}
+                    className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs rounded-lg font-medium transition-colors ${
+                      libTab === 'icons' ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    <MagnifyingGlassIcon className="h-3.5 w-3.5" /> Icônes
+                  </button>
+                  <button
+                    onClick={() => setLibTab('emoji')}
+                    className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs rounded-lg font-medium transition-colors ${
+                      libTab === 'emoji' ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    <FaceSmileIcon className="h-3.5 w-3.5" /> Emojis
+                  </button>
+                </div>
+
+                {libTab === 'icons' && (
+                  <div>
+                    {/* Search + color */}
+                    <form onSubmit={(e) => { e.preventDefault(); runIconSearch() }} className="flex items-center gap-1.5 mb-2">
+                      <input
+                        type="text"
+                        value={iconQuery}
+                        onChange={(e) => setIconQuery(e.target.value)}
+                        placeholder="ex: coeur, fleur, anneau…"
+                        className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:border-primary-400 focus:ring-1 focus:ring-primary-200"
+                      />
+                      <input
+                        type="color"
+                        value={iconColor}
+                        onChange={(e) => setIconColor(e.target.value)}
+                        title="Couleur de l'icône"
+                        className="w-8 h-8 flex-shrink-0 rounded cursor-pointer border border-gray-200"
+                      />
+                      <button type="submit" className="flex-shrink-0 px-2.5 py-1.5 text-xs bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium">
+                        OK
+                      </button>
+                    </form>
+
+                    {/* Suggestion chips */}
+                    {iconResults.length === 0 && !iconLoading && (
+                      <div className="flex flex-wrap gap-1 mb-1">
+                        {ICON_SUGGESTIONS.slice(0, 12).map(s => (
+                          <button
+                            key={s}
+                            onClick={() => { setIconQuery(s); runIconSearch(s) }}
+                            className="px-2 py-0.5 text-[11px] border border-gray-200 rounded-full text-gray-600 hover:border-primary-300 hover:bg-primary-50"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {iconLoading && <p className="text-xs text-gray-400 py-3 text-center">Recherche…</p>}
+
+                    {/* Results grid */}
+                    {iconResults.length > 0 && (
+                      <div className="grid grid-cols-6 gap-1 max-h-44 overflow-y-auto pr-1">
+                        {iconResults.map(name => (
+                          <button
+                            key={name}
+                            onClick={() => addIconElement(name)}
+                            disabled={iconAdding === name}
+                            title={name}
+                            className="aspect-square flex items-center justify-center border border-gray-100 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors disabled:opacity-40"
+                          >
+                            <img src={iconPreviewUrl(name, iconColor)} alt={name} className="w-6 h-6" loading="lazy" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-gray-400 mt-1.5">
+                      Icônes Iconify (libres). L'icône est intégrée au template à sa couleur choisie.
+                    </p>
+                  </div>
+                )}
+
+                {libTab === 'emoji' && (
+                  <div className="max-h-52 overflow-y-auto pr-1 space-y-2">
+                    {EMOJI_GROUPS.map(group => (
+                      <div key={group.label}>
+                        <p className="text-[11px] font-medium text-gray-500 mb-1">{group.label}</p>
+                        <div className="grid grid-cols-7 gap-1">
+                          {group.emojis.map((emoji, i) => (
+                            <button
+                              key={`${group.label}-${i}`}
+                              onClick={() => addEmojiElement(emoji)}
+                              className="aspect-square flex items-center justify-center text-lg border border-gray-100 rounded-lg hover:border-primary-300 hover:bg-primary-50 transition-colors"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Multi-select Toolbar */}
               {selectedIds.length > 0 && (
