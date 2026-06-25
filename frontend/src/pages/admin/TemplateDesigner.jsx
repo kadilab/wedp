@@ -5,7 +5,7 @@ import { adminAPI, templateAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import { processImage } from '../../utils/imageProcessor'
 import { EVENT_TYPES, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
-import { PHOTO_SHAPES, getClipPath } from '../../utils/imageShapes'
+import { PHOTO_SHAPES, getClipPath, getImageStyle, DEFAULT_CUSTOM_CLIP_PATH, OBJECT_FIT_OPTIONS, OBJECT_POSITION_OPTIONS } from '../../utils/imageShapes'
 import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable } from '../../utils/dateFormats'
 import {
   ArrowLeftIcon,
@@ -781,6 +781,35 @@ export default function TemplateDesigner({ clientMode = false }) {
     const handleKeyDown = (e) => {
       if (!canvasRef.current) return
 
+      // Don't hijack keys while the user is typing in a field (content, sizes,
+      // color hexes, the free-form clip-path textarea, etc.).
+      const t = e.target
+      const isTyping = t && (
+        t.tagName === 'INPUT' ||
+        t.tagName === 'TEXTAREA' ||
+        t.tagName === 'SELECT' ||
+        t.isContentEditable
+      )
+      if (isTyping) return
+
+      // Arrow keys - nudge selected element(s) for precise positioning.
+      // 1px by default, 10px with Shift.
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        const groupIds = Array.from(new Set([selectedId, ...selectedIds].filter(Boolean)))
+        if (groupIds.length === 0) return
+        e.preventDefault()
+        const step = e.shiftKey ? 10 : 1
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
+        setElements(prev => prev.map(el => {
+          if (!groupIds.includes(el.id) || el.locked) return el
+          const newX = Math.max(0, Math.min(canvasWidth - el.width, el.x + dx))
+          const newY = Math.max(0, Math.min(canvasHeight - el.height, el.y + dy))
+          return { ...el, x: newX, y: newY }
+        }))
+        return
+      }
+
       // Delete key - delete selected or multi-selected elements
       if (e.key === 'Delete') {
         e.preventDefault()
@@ -810,7 +839,7 @@ export default function TemplateDesigner({ clientMode = false }) {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedId, selectedIds])
+  }, [selectedId, selectedIds, canvasWidth, canvasHeight])
 
   // ===================== ELEMENT OPERATIONS =====================
 
@@ -1154,11 +1183,16 @@ export default function TemplateDesigner({ clientMode = false }) {
         iconUrl: el.iconUrl || '',  // Preserve icon URLs for programme labels and decorative images
         // Photo/image element styling (border/opacity/radius/cadrage/forme)
         objectFit: el.objectFit || 'cover',
+        objectPosition: el.objectPosition || 'center',
+        imageScale: el.imageScale ?? 100,
+        rotation: el.rotation ?? 0,
+        opacity: el.opacity ?? 100,
         borderWidth: el.borderWidth ?? 0,
         borderColor: el.borderColor || '#FFFFFF',
         borderOpacity: el.borderOpacity ?? 100,
         borderRadius: el.borderRadius ?? 0,
-        shape: el.shape || 'rect'
+        shape: el.shape || 'rect',
+        customClipPath: el.customClipPath || ''  // Free-form shape (clip-path CSS)
       }))
 
       // Debug: verify clean elements
@@ -1301,7 +1335,7 @@ export default function TemplateDesigner({ clientMode = false }) {
     // fixed decorative image uploaded by the admin - both support shapes
     // (rectangle/cercle/hexagone/losange/octogone/étoile) via clip-path.
     if (el.type === 'photo' || el.type === 'image') {
-      const clipPath = getClipPath(el.shape)
+      const clipPath = getClipPath(el.shape, el.customClipPath)
       const borderColor = hexToRgba(el.borderColor || '#FFFFFF', el.borderOpacity ?? 100)
       const apiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || ''
       const imgSrc = el.type === 'image' && el.iconUrl
@@ -1318,7 +1352,7 @@ export default function TemplateDesigner({ clientMode = false }) {
         <div className={`w-full h-full overflow-hidden ${placeholderBg} flex items-center justify-center`} style={outerStyle}>
           <div className={`w-full h-full overflow-hidden ${placeholderBg} flex items-center justify-center`} style={clipPath ? { clipPath } : undefined}>
             {imgSrc ? (
-              <img src={imgSrc} alt="" className="w-full h-full" style={{ objectFit: el.objectFit || 'contain' }} />
+              <img src={imgSrc} alt="" style={getImageStyle(el)} />
             ) : (
               <div className="text-center text-gray-400">
                 <PhotoIcon className="h-8 w-8 mx-auto mb-1" />
@@ -2238,16 +2272,55 @@ export default function TemplateDesigner({ clientMode = false }) {
                           </div>
                         </div>
 
+                        {/* Custom (free-form) clip-path */}
+                        {selectedElement.shape === 'custom' && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Forme libre (clip-path CSS)
+                            </label>
+                            <textarea
+                              rows={3}
+                              value={selectedElement.customClipPath || DEFAULT_CUSTOM_CLIP_PATH}
+                              onChange={(e) => updateElement(selectedId, { customClipPath: e.target.value })}
+                              placeholder="polygon(50% 0%, 100% 100%, 0% 100%)"
+                              className="w-full text-xs font-mono border border-gray-200 rounded-lg p-2 focus:border-primary-400 focus:ring-1 focus:ring-primary-200"
+                            />
+                            <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+                              Coordonnées en %. Ex : triangle{' '}
+                              <code className="bg-gray-100 px-1 rounded">polygon(50% 0%, 100% 100%, 0% 100%)</code>.
+                              Générateur : <span className="text-primary-600">bennettfeely.com/clippy</span>
+                            </p>
+                            <div className="grid grid-cols-3 gap-2 mt-2">
+                              {[
+                                { label: 'Triangle', v: 'polygon(50% 0%, 100% 100%, 0% 100%)' },
+                                { label: 'Pentagone', v: 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)' },
+                                { label: 'Goutte', v: 'polygon(50% 0%, 90% 35%, 90% 75%, 50% 100%, 10% 75%, 10% 35%)' },
+                                { label: 'Flèche', v: 'polygon(0% 20%, 60% 20%, 60% 0%, 100% 50%, 60% 100%, 60% 80%, 0% 80%)' },
+                                { label: 'Parallélo.', v: 'polygon(25% 0%, 100% 0%, 75% 100%, 0% 100%)' },
+                                { label: 'Biseau', v: 'polygon(20% 0%, 80% 0%, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0% 80%, 0% 20%)' }
+                              ].map(preset => (
+                                <button
+                                  key={preset.label}
+                                  onClick={() => updateElement(selectedId, { customClipPath: preset.v })}
+                                  className="px-2 py-1.5 text-[11px] border border-gray-200 rounded-lg text-gray-600 hover:border-primary-300 hover:bg-primary-50 transition-colors"
+                                >
+                                  {preset.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Object fit */}
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-2">Cadrage de l'image</label>
-                          <div className="grid grid-cols-2 gap-2">
-                            {[{ v: 'cover', label: 'Remplir' }, { v: 'contain', label: 'Ajuster' }].map(opt => (
+                          <div className="grid grid-cols-3 gap-2">
+                            {OBJECT_FIT_OPTIONS.map(opt => (
                               <button
-                                key={opt.v}
-                                onClick={() => updateElement(selectedId, { objectFit: opt.v })}
-                                className={`px-3 py-2 text-xs border rounded-lg font-medium transition-colors ${
-                                  (selectedElement.objectFit || 'cover') === opt.v
+                                key={opt.id}
+                                onClick={() => updateElement(selectedId, { objectFit: opt.id })}
+                                className={`px-2 py-2 text-xs border rounded-lg font-medium transition-colors ${
+                                  (selectedElement.objectFit || 'cover') === opt.id
                                     ? 'bg-primary-100 border-primary-400 text-primary-700'
                                     : 'border-gray-200 text-gray-600 hover:border-primary-300'
                                 }`}
@@ -2255,6 +2328,104 @@ export default function TemplateDesigner({ clientMode = false }) {
                                 {opt.label}
                               </button>
                             ))}
+                          </div>
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            Remplir = recadre · Ajuster = image entière · Étirer = déforme
+                          </p>
+                        </div>
+
+                        {/* Object position (anchor) */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-2">Position dans le cadre</label>
+                          <div className="grid grid-cols-3 gap-1.5 w-max">
+                            {OBJECT_POSITION_OPTIONS.map(opt => (
+                              <button
+                                key={opt.id}
+                                onClick={() => updateElement(selectedId, { objectPosition: opt.id })}
+                                title={opt.id}
+                                className={`w-9 h-9 text-base border rounded-lg font-medium transition-colors ${
+                                  (selectedElement.objectPosition || 'center') === opt.id
+                                    ? 'bg-primary-100 border-primary-400 text-primary-700'
+                                    : 'border-gray-200 text-gray-500 hover:border-primary-300'
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Zoom */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Zoom ({selectedElement.imageScale ?? 100}%)
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range" min="50" max="300" step="5"
+                              value={selectedElement.imageScale ?? 100}
+                              onChange={(e) => updateElement(selectedId, { imageScale: parseInt(e.target.value) })}
+                              className="w-full accent-primary-600"
+                            />
+                            <button
+                              onClick={() => updateElement(selectedId, { imageScale: 100 })}
+                              className="text-[11px] text-primary-600 hover:underline whitespace-nowrap"
+                            >
+                              Réinit.
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Rotation */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Rotation ({selectedElement.rotation ?? 0}°)
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range" min="-180" max="180" step="1"
+                              value={selectedElement.rotation ?? 0}
+                              onChange={(e) => updateElement(selectedId, { rotation: parseInt(e.target.value) })}
+                              className="w-full accent-primary-600"
+                            />
+                            <input
+                              type="number" min="-180" max="180"
+                              value={selectedElement.rotation ?? 0}
+                              onChange={(e) => updateElement(selectedId, { rotation: parseInt(e.target.value) || 0 })}
+                              className="w-16 text-xs border border-gray-200 rounded-lg px-2 py-1"
+                            />
+                          </div>
+                          <div className="flex gap-1.5 mt-1.5">
+                            {[0, 90, 180, 270].map(deg => (
+                              <button
+                                key={deg}
+                                onClick={() => updateElement(selectedId, { rotation: deg > 180 ? deg - 360 : deg })}
+                                className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg text-gray-600 hover:border-primary-300 hover:bg-primary-50 transition-colors"
+                              >
+                                {deg}°
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Opacity */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Opacité ({selectedElement.opacity ?? 100}%)
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range" min="0" max="100" step="1"
+                              value={selectedElement.opacity ?? 100}
+                              onChange={(e) => updateElement(selectedId, { opacity: parseInt(e.target.value) })}
+                              className="w-full accent-primary-600"
+                            />
+                            <button
+                              onClick={() => updateElement(selectedId, { opacity: 100 })}
+                              className="text-[11px] text-primary-600 hover:underline whitespace-nowrap"
+                            >
+                              Réinit.
+                            </button>
                           </div>
                         </div>
 

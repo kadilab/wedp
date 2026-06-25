@@ -345,11 +345,16 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       iconUrl: el.iconUrl || '',
       // Photo element styling (border/opacity/radius/cadrage)
       objectFit: el.objectFit || 'cover',
+      objectPosition: el.objectPosition || 'center',
+      imageScale: el.imageScale ?? 100,
+      rotation: el.rotation ?? 0,
+      opacity: el.opacity ?? 100,
       borderWidth: el.borderWidth ?? 0,
       borderColor: el.borderColor || '#FFFFFF',
       borderOpacity: el.borderOpacity ?? 100,
       borderRadius: el.borderRadius ?? 0,
-      shape: el.shape || 'rect'
+      shape: el.shape || 'rect',
+      customClipPath: el.customClipPath || ''
     }));
 
     const config = {
@@ -563,11 +568,16 @@ router.put('/:id/design', authenticate, async (req, res) => {
       iconUrl: el.iconUrl || '',
       // Photo element styling (border/opacity/radius/cadrage)
       objectFit: el.objectFit || 'cover',
+      objectPosition: el.objectPosition || 'center',
+      imageScale: el.imageScale ?? 100,
+      rotation: el.rotation ?? 0,
+      opacity: el.opacity ?? 100,
       borderWidth: el.borderWidth ?? 0,
       borderColor: el.borderColor || '#FFFFFF',
       borderOpacity: el.borderOpacity ?? 100,
       borderRadius: el.borderRadius ?? 0,
-      shape: el.shape || 'rect'
+      shape: el.shape || 'rect',
+      customClipPath: el.customClipPath || ''
     }));
 
     const updatedConfig = {

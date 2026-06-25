@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { getClipPath } from '../../utils/imageShapes'
+import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT } from '../../utils/dateFormats'
 // Format date: JJ-MM-YYYY HH:mm
 import {
@@ -417,7 +417,7 @@ export default function InvitationView() {
               if (el.type === 'photo' || el.type === 'image') {
                 const isDecorative = el.type === 'image'
                 const photoBorderColor = hexToRgba(el.borderColor || '#FFFFFF', (el.borderOpacity ?? 100) / 100)
-                const clipPath = getClipPath(el.shape)
+                const clipPath = getClipPath(el.shape, el.customClipPath)
                 // Each client photo placeholder binds to its own image by element
                 // id (multi-image templates), falling back to legacy couplePhoto.
                 const imgSrc = isDecorative
@@ -447,8 +447,7 @@ export default function InvitationView() {
                         <img
                           src={imgSrc}
                           alt={isDecorative ? '' : 'Photo des mariés'}
-                          className="w-full h-full"
-                          style={{ objectFit: el.objectFit || (isDecorative ? 'contain' : 'cover') }}
+                          style={getImageStyle(el)}
                         />
                       )}
                     </div>

@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { HeartIcon, CalendarIcon, PhotoIcon } from '@heroicons/react/24/outline'
-import { getClipPath } from '../../utils/imageShapes'
+import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT } from '../../utils/dateFormats'
 
 const hexToRgba = (hex, alpha = 1) => {
@@ -215,7 +215,7 @@ export default function TemplatePreview({ template, className = '', weddingData 
                 if (el.type === 'photo' || el.type === 'image') {
                   const isDecorative = el.type === 'image'
                   const photoBorderColor = hexToRgba(el.borderColor || '#FFFFFF', (el.borderOpacity ?? 100) / 100)
-                  const clipPath = getClipPath(el.shape)
+                  const clipPath = getClipPath(el.shape, el.customClipPath)
                   const apiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || ''
                   // Client photo placeholders each bind to their own image by
                   // element id (multi-image templates), falling back to the
@@ -248,7 +248,7 @@ export default function TemplatePreview({ template, className = '', weddingData 
                     >
                       <div style={{ width: '100%', height: '100%', overflow: 'hidden', background: placeholderBg, display: 'flex', alignItems: 'center', justifyContent: 'center', clipPath: clipPath || undefined }}>
                         {imgSrc ? (
-                          <img src={imgSrc} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: el.objectFit || (isDecorative ? 'contain' : 'cover') }} />
+                          <img src={imgSrc} alt="" loading="lazy" style={getImageStyle(el)} />
                         ) : (
                           <PhotoIcon className="w-1/3 h-1/3 text-gray-300" />
                         )}

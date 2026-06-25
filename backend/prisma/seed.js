@@ -131,8 +131,10 @@ async function main() {
 
   console.log('✅ Demo client created:', demoClient.email);
 
-  // Create Templates
-  const templates = await Promise.all([
+  // Templates: none by default. Templates are created by admins/creators
+  // through the app (and the marketplace), not seeded.
+  const SEED_TEMPLATES = false;
+  const templates = SEED_TEMPLATES ? await Promise.all([
     prisma.template.upsert({
       where: { slug: 'elegant-gold' },
       update: {
@@ -952,7 +954,7 @@ footer .line {
 }`
       }
     })
-  ]);
+  ]) : [];
 
   console.log('✅ Templates created:', templates.map(t => t.name));
 
