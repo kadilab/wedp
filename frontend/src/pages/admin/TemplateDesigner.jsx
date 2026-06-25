@@ -946,6 +946,7 @@ export default function TemplateDesigner({ clientMode = false }) {
       const w = Math.min(160, Math.round(canvasWidth * 0.2))
       const newElement = {
         id, type: 'image', label: `Icône ${iconName}`, content: '', iconUrl: dataUrl,
+        iconName, iconColor,
         x: Math.round((canvasWidth - w) / 2), y: Math.round(canvasHeight * 0.15), width: w, height: w,
         visible: true, locked: false, shape: 'rect',
         objectFit: 'contain', objectPosition: 'center', imageScale: 100, rotation: 0, opacity: 100,
