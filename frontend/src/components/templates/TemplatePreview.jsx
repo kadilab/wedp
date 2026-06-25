@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { HeartIcon, CalendarIcon, PhotoIcon } from '@heroicons/react/24/outline'
 import { getClipPath, getImageStyle } from '../../utils/imageShapes'
+import CurvedText, { hasArc } from './CurvedText'
 import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT } from '../../utils/dateFormats'
 
 const hexToRgba = (hex, alpha = 1) => {
@@ -284,12 +285,16 @@ export default function TemplatePreview({ template, className = '', weddingData 
                       letterSpacing: el.letterSpacing != null ? `${el.letterSpacing}px` : undefined,
                       textTransform: el.textTransform || 'none',
                       textShadow: textShadow !== 'none' ? `${textShadow} ${shadowColor}` : 'none',
-                      overflow: 'hidden',
+                      overflow: hasArc(el) ? 'visible' : 'hidden',
                       wordBreak: 'break-words',
                       lineHeight: el.lineHeight || 1.2,
+                      transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
+                      transformOrigin: 'center center',
                     }}
                   >
-                    <span style={{ width: '100%' }}>{content}</span>
+                    {hasArc(el)
+                      ? <CurvedText el={el} text={content} />
+                      : <span style={{ width: '100%' }}>{content}</span>}
                   </div>
                 )
               })}

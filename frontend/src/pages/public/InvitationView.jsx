@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { getClipPath, getImageStyle } from '../../utils/imageShapes'
+import CurvedText, { hasArc } from '../../components/templates/CurvedText'
 import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT } from '../../utils/dateFormats'
 // Format date: JJ-MM-YYYY HH:mm
 import {
@@ -466,7 +467,7 @@ export default function InvitationView() {
               return (
                 <div
                   key={el.id || idx}
-                  className="absolute overflow-hidden break-words"
+                  className={`absolute break-words ${hasArc(el) ? 'overflow-visible' : 'overflow-hidden'}`}
                   style={{
                     left: elLeft, top: elTop,
                     width: el.width, height: el.height,
@@ -483,9 +484,13 @@ export default function InvitationView() {
                     letterSpacing: el.letterSpacing || 0,
                     textTransform: el.textTransform || 'none',
                     textShadow: textShadow !== 'none' ? `${textShadow} ${shadowColor}` : 'none',
+                    transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
+                    transformOrigin: 'center center',
                   }}
                 >
-                  <span className="w-full">{content}</span>
+                  {hasArc(el)
+                    ? <CurvedText el={el} text={content} />
+                    : <span className="w-full">{content}</span>}
                 </div>
               )
             })}

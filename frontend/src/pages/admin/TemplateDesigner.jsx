@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { processImage } from '../../utils/imageProcessor'
 import { EVENT_TYPES, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
 import { PHOTO_SHAPES, getClipPath, getImageStyle, DEFAULT_CUSTOM_CLIP_PATH, OBJECT_FIT_OPTIONS, OBJECT_POSITION_OPTIONS } from '../../utils/imageShapes'
+import CurvedText, { hasArc } from '../../components/templates/CurvedText'
 import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable } from '../../utils/dateFormats'
 import {
   ArrowLeftIcon,
@@ -1180,6 +1181,7 @@ export default function TemplateDesigner({ clientMode = false }) {
         shadowColor: el.shadowColor ?? '#000000',
         zIndex: el.zIndex ?? 0,
         dateFormat: el.dateFormat || 'datetime',  // Per-element date variable format
+        curve: el.curve ?? 0,  // Arc/curved text amount (-100..100)
         iconUrl: el.iconUrl || '',  // Preserve icon URLs for programme labels and decorative images
         // Photo/image element styling (border/opacity/radius/cadrage/forme)
         objectFit: el.objectFit || 'cover',
@@ -1394,6 +1396,18 @@ export default function TemplateDesigner({ clientMode = false }) {
       )
     }
 
+    const rot = el.rotation || 0
+    const rotTransform = rot ? `rotate(${rot}deg)` : undefined
+
+    // Curved (arc) text
+    if (hasArc(el)) {
+      return (
+        <div className="w-full h-full" style={{ transform: rotTransform, transformOrigin: 'center center' }}>
+          <CurvedText el={el} text={text} />
+        </div>
+      )
+    }
+
     return (
       <span
         className="block w-full h-full overflow-hidden whitespace-pre-wrap break-words leading-tight"
@@ -1410,7 +1424,9 @@ export default function TemplateDesigner({ clientMode = false }) {
           alignItems: el.verticalAlign === 'top' ? 'flex-start' : el.verticalAlign === 'bottom' ? 'flex-end' : 'center',
           justifyContent: el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start',
           textShadow: el.textShadow && el.textShadow !== 'none' ? `${el.textShadow} ${el.shadowColor || '#000000'}` : 'none',
-          lineHeight: el.lineHeight || 1.2
+          lineHeight: el.lineHeight || 1.2,
+          transform: rotTransform,
+          transformOrigin: 'center center'
         }}
       >
         {text}
@@ -2675,6 +2691,62 @@ export default function TemplateDesigner({ clientMode = false }) {
                             Espacement ({selectedElement.letterSpacing || 0}px)
                           </label>
                           <input type="range" min="-2" max="20" value={selectedElement.letterSpacing || 0} onChange={(e) => updateElement(selectedId, { letterSpacing: parseInt(e.target.value) })} className="w-full accent-primary-600" />
+                        </div>
+
+                        {/* Text arc / curve */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Courbe / Arc ({selectedElement.curve || 0})
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range" min="-100" max="100" step="1"
+                              value={selectedElement.curve || 0}
+                              onChange={(e) => updateElement(selectedId, { curve: parseInt(e.target.value) })}
+                              className="w-full accent-primary-600"
+                            />
+                            <button
+                              onClick={() => updateElement(selectedId, { curve: 0 })}
+                              className="text-[11px] text-primary-600 hover:underline whitespace-nowrap"
+                            >
+                              Réinit.
+                            </button>
+                          </div>
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            Négatif = vallée · Positif = arc-en-ciel. Idéal pour un texte court (noms, titre).
+                          </p>
+                        </div>
+
+                        {/* Text rotation */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Rotation du texte ({selectedElement.rotation ?? 0}°)
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range" min="-180" max="180" step="1"
+                              value={selectedElement.rotation ?? 0}
+                              onChange={(e) => updateElement(selectedId, { rotation: parseInt(e.target.value) })}
+                              className="w-full accent-primary-600"
+                            />
+                            <input
+                              type="number" min="-180" max="180"
+                              value={selectedElement.rotation ?? 0}
+                              onChange={(e) => updateElement(selectedId, { rotation: parseInt(e.target.value) || 0 })}
+                              className="w-16 text-xs border border-gray-200 rounded-lg px-2 py-1"
+                            />
+                          </div>
+                          <div className="flex gap-1.5 mt-1.5">
+                            {[0, 90, 180, 270].map(deg => (
+                              <button
+                                key={deg}
+                                onClick={() => updateElement(selectedId, { rotation: deg > 180 ? deg - 360 : deg })}
+                                className="px-2 py-1 text-[11px] border border-gray-200 rounded-lg text-gray-600 hover:border-primary-300 hover:bg-primary-50 transition-colors"
+                              >
+                                {deg}°
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </>
                     )}

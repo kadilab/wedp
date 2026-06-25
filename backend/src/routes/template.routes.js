@@ -342,6 +342,7 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       shadowColor: el.shadowColor ?? '#000000',
       zIndex: el.zIndex ?? 0,
       dateFormat: el.dateFormat || 'datetime',
+      curve: el.curve ?? 0,
       iconUrl: el.iconUrl || '',
       // Photo element styling (border/opacity/radius/cadrage)
       objectFit: el.objectFit || 'cover',
@@ -565,6 +566,7 @@ router.put('/:id/design', authenticate, async (req, res) => {
       shadowColor: el.shadowColor ?? '#000000',
       zIndex: el.zIndex ?? 0,
       dateFormat: el.dateFormat || 'datetime',
+      curve: el.curve ?? 0,
       iconUrl: el.iconUrl || '',
       // Photo element styling (border/opacity/radius/cadrage)
       objectFit: el.objectFit || 'cover',
