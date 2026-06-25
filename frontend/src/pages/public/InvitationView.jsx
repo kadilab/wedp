@@ -9,7 +9,7 @@ import { fr } from 'date-fns/locale'
 import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
 import AutoFitText from '../../components/templates/AutoFitText'
-import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT } from '../../utils/dateFormats'
+import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars } from '../../utils/dateFormats'
 // Format date: JJ-MM-YYYY HH:mm
 import {
   CalendarIcon,
@@ -322,6 +322,14 @@ export default function InvitationView() {
       reception_time: wedding?.receptionStartTime || '',
       reception_venue: wedding?.receptionVenue || '',
       reception_address: wedding?.receptionAddress || '',
+      // Separated date components (day name/number, month name, year)
+      ...componentVars({
+        wedding: wedding?.weddingDate,
+        commune: wedding?.communeDate,
+        eglise: wedding?.egliseDate,
+        reception: wedding?.receptionDate,
+        rsvp: wedding?.rsvpDeadline
+      }),
       // Combined program (legacy)
       program: [
         wedding?.communeVenue ? `Mairie ${wedding.communeTime || ''}` : '',

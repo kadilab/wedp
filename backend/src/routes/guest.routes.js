@@ -7,6 +7,7 @@ const { createGuestValidation, paginationValidation } = require('../middleware/v
 const { uploadSingle, handleUploadError } = require('../middleware/upload.middleware');
 const { paginate, buildPaginationMeta, parseCSV, mapCSVToGuest } = require('../utils/helpers');
 const { generateQRCode, generateUniqueCode } = require('../utils/qrcode');
+const { buildGuestShare } = require('../utils/guestMessaging');
 const logger = require('../utils/logger');
 const fs = require('fs').promises;
 
@@ -529,6 +530,110 @@ router.get('/:weddingId/export', authenticate, async (req, res) => {
   } catch (error) {
     logger.error('Export guests error:', error);
     res.status(500).json({ error: 'Erreur lors de l\'export' });
+  }
+});
+
+/**
+ * Helper: load a wedding the requester owns (or is staff for).
+ */
+async function findOwnedWedding(req, weddingId) {
+  return prisma.wedding.findFirst({
+    where: {
+      id: weddingId,
+      ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
+    }
+  });
+}
+
+/**
+ * @route   GET /api/guests/:weddingId/:guestId/whatsapp
+ * @desc    Build the personalized WhatsApp share link (+ message + invitation
+ *          URL) for a single guest. Ensures the guest has an invitation code.
+ * @access  Private
+ */
+router.get('/:weddingId/:guestId/whatsapp', authenticate, async (req, res) => {
+  try {
+    const { weddingId, guestId } = req.params;
+    const wedding = await findOwnedWedding(req, weddingId);
+    if (!wedding) return res.status(404).json({ error: 'Mariage non trouvé' });
+
+    const guest = await prisma.guest.findFirst({
+      where: { id: guestId, weddingId },
+      include: { invitation: true }
+    });
+    if (!guest) return res.status(404).json({ error: 'Invité non trouvé' });
+
+    const share = await buildGuestShare(wedding, guest);
+    res.json(share);
+  } catch (error) {
+    logger.error('Guest whatsapp link error:', error);
+    res.status(500).json({ error: 'Erreur lors de la génération du lien WhatsApp' });
+  }
+});
+
+/**
+ * @route   GET /api/guests/:weddingId/whatsapp/bulk
+ * @desc    Build WhatsApp share links for many guests at once (optionally
+ *          filtered by RSVP status, e.g. only PENDING). Ensures invitation
+ *          codes for all of them.
+ *          NB: 3 segments so it isn't shadowed by GET /:weddingId/:guestId.
+ * @access  Private
+ */
+router.get('/:weddingId/whatsapp/bulk', authenticate, async (req, res) => {
+  try {
+    const { weddingId } = req.params;
+    const { status, onlyUnsent } = req.query;
+    const wedding = await findOwnedWedding(req, weddingId);
+    if (!wedding) return res.status(404).json({ error: 'Mariage non trouvé' });
+
+    const guests = await prisma.guest.findMany({
+      where: {
+        weddingId,
+        ...(status && { rsvpStatus: status }),
+        ...(onlyUnsent === 'true' && { invitationSent: false })
+      },
+      include: { invitation: true },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const shares = [];
+    for (const guest of guests) {
+      try {
+        shares.push(await buildGuestShare(wedding, guest));
+      } catch (err) {
+        logger.error(`Bulk whatsapp share failed for guest ${guest.id}:`, err);
+      }
+    }
+    res.json({ count: shares.length, shares });
+  } catch (error) {
+    logger.error('Guest whatsapp bulk error:', error);
+    res.status(500).json({ error: 'Erreur lors de la génération des liens WhatsApp' });
+  }
+});
+
+/**
+ * @route   POST /api/guests/:weddingId/:guestId/mark-sent
+ * @desc    Mark a guest's invitation as sent (called after the admin actually
+ *          opens WhatsApp / shares the link).
+ * @access  Private
+ */
+router.post('/:weddingId/:guestId/mark-sent', authenticate, async (req, res) => {
+  try {
+    const { weddingId, guestId } = req.params;
+    const wedding = await findOwnedWedding(req, weddingId);
+    if (!wedding) return res.status(404).json({ error: 'Mariage non trouvé' });
+
+    const guest = await prisma.guest.findFirst({ where: { id: guestId, weddingId } });
+    if (!guest) return res.status(404).json({ error: 'Invité non trouvé' });
+
+    const updated = await prisma.guest.update({
+      where: { id: guestId },
+      data: { invitationSent: true, invitationSentAt: new Date() }
+    });
+    res.json({ id: updated.id, invitationSent: updated.invitationSent, invitationSentAt: updated.invitationSentAt });
+  } catch (error) {
+    logger.error('Mark guest sent error:', error);
+    res.status(500).json({ error: 'Erreur lors de la mise à jour' });
   }
 });
 

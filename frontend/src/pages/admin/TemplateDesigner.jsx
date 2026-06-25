@@ -8,7 +8,7 @@ import { EVENT_TYPES, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
 import { PHOTO_SHAPES, getClipPath, getImageStyle, DEFAULT_CUSTOM_CLIP_PATH, OBJECT_FIT_OPTIONS, OBJECT_POSITION_OPTIONS } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
 import AutoFitText from '../../components/templates/AutoFitText'
-import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable } from '../../utils/dateFormats'
+import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable, formatEventDate, DATE_VARIABLE_KEYS } from '../../utils/dateFormats'
 import { searchIcons, iconPreviewUrl, fetchIconDataUrl, ICON_SUGGESTIONS, EMOJI_GROUPS } from '../../utils/elementLibrary'
 import {
   ArrowLeftIcon,
@@ -459,6 +459,16 @@ const parseDateComponents = (dateStr) => {
     }
   }
   return { day_name: '', day_num: '', month_name: '', year: '' }
+}
+
+// Parseable sample dates so the per-element date format selector visibly
+// changes the editor preview (SAMPLE_DATA holds pre-formatted strings).
+const SAMPLE_RAW_DATES = {
+  wedding_date: '2026-06-20T10:30:00',
+  rsvp_date: '2026-05-01T10:30:00',
+  commune_date: '2026-06-20T10:00:00',
+  eglise_date: '2026-06-20T14:00:00',
+  reception_date: '2026-06-20T18:00:00'
 }
 
 const SAMPLE_DATA = {
@@ -978,6 +988,20 @@ export default function TemplateDesigner({ clientMode = false }) {
     setActivePanel('properties')
   }
 
+  // Re-color a placed library icon by re-fetching its SVG with a new color.
+  const recolorIcon = async (id, color) => {
+    const el = elements.find(e => e.id === id)
+    if (!el || !el.iconName) return
+    // Optimistic: store the chosen color right away so the picker stays in sync.
+    updateElement(id, { iconColor: color })
+    try {
+      const dataUrl = await fetchIconDataUrl(el.iconName, color)
+      updateElement(id, { iconUrl: dataUrl, iconColor: color })
+    } catch {
+      toast.error("Recoloration impossible (vérifiez la connexion)")
+    }
+  }
+
   const DELETABLE_TYPES = ['custom', 'photo', 'image']
 
   const deleteElement = (id) => {
@@ -1253,6 +1277,8 @@ export default function TemplateDesigner({ clientMode = false }) {
         curve: el.curve ?? 0,  // Arc/curved text amount (-100..100)
         autoFit: el.autoFit ?? false,  // Shrink long text to fit the box
         iconUrl: el.iconUrl || '',  // Preserve icon URLs for programme labels and decorative images
+        iconName: el.iconName || '',  // Library icon name (for re-coloring)
+        iconColor: el.iconColor || '',
         // Photo/image element styling (border/opacity/radius/cadrage/forme)
         objectFit: el.objectFit || 'cover',
         objectPosition: el.objectPosition || 'center',
@@ -1375,16 +1401,20 @@ export default function TemplateDesigner({ clientMode = false }) {
     }
 
     let text = el.content || '';
-    // Pour chaque variable, applique le formatage si c'est une date/heure de programme
-    Object.entries(SAMPLE_DATA).forEach(([key, val]) => {
-      if ([
-        'wedding_date', 'commune_date', 'eglise_date', 'reception_date', 'rsvp_date'
-      ].includes(key)) {
-        text = text.replace(new RegExp(`\\{\\{${key}\\}\}`, 'g'), formatDateTime(val));
-      } else {
-        // Convert to string to handle all value types
-        text = text.replace(new RegExp(`\\{\\{${key}\\}\}`, 'g'), String(val || ''));
+    // Date variables first, using THIS element's chosen format with a parseable
+    // sample date (so the format selector visibly changes the preview).
+    DATE_VARIABLE_KEYS.forEach((key) => {
+      if (text.includes(`{{${key}}}`)) {
+        text = text.replace(
+          new RegExp(`\\{\\{${key}\\}\\}`, 'g'),
+          formatEventDate(SAMPLE_RAW_DATES[key], el.dateFormat || DEFAULT_DATE_FORMAT)
+        );
       }
+    });
+    // Remaining (non-date) variables from the sample data.
+    Object.entries(SAMPLE_DATA).forEach(([key, val]) => {
+      if (DATE_VARIABLE_KEYS.includes(key)) return;
+      text = text.replace(new RegExp(`\\{\\{${key}\\}\}`, 'g'), String(val || ''));
     });
 
     if (el.type === 'qrcode') {
@@ -2452,6 +2482,41 @@ export default function TemplateDesigner({ clientMode = false }) {
                               : '🖼️ Image fixe décorative (logo, ornement...) - identique pour toutes les invitations.'}
                           </p>
                         </div>
+
+                        {/* Icon recolor (only for library icons) */}
+                        {selectedElement.iconName && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-2">Couleur de l'icône</label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={selectedElement.iconColor || '#000000'}
+                                onChange={(e) => recolorIcon(selectedId, e.target.value)}
+                                className="w-10 h-10 rounded cursor-pointer border border-gray-200"
+                              />
+                              <input
+                                type="text"
+                                value={selectedElement.iconColor || '#000000'}
+                                onChange={(e) => recolorIcon(selectedId, e.target.value)}
+                                className="input text-xs flex-1"
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {['#000000', '#FFFFFF', '#D4AF37', '#B76E79', '#8B7355', '#6B7B5E', '#1E3A5F', '#C17767'].map(c => (
+                                <button
+                                  key={c}
+                                  onClick={() => recolorIcon(selectedId, c)}
+                                  title={c}
+                                  className="w-6 h-6 rounded-full border border-gray-300 hover:scale-110 transition-transform"
+                                  style={{ backgroundColor: c }}
+                                />
+                              ))}
+                            </div>
+                            <p className="text-[11px] text-gray-500 mt-1.5">
+                              Icône de la bibliothèque — recolorée en direct.
+                            </p>
+                          </div>
+                        )}
 
                         {/* Shape */}
                         <div>

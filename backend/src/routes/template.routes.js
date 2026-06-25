@@ -345,6 +345,8 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       curve: el.curve ?? 0,
       autoFit: el.autoFit ?? false,
       iconUrl: el.iconUrl || '',
+      iconName: el.iconName || '',
+      iconColor: el.iconColor || '',
       // Photo element styling (border/opacity/radius/cadrage)
       objectFit: el.objectFit || 'cover',
       objectPosition: el.objectPosition || 'center',
@@ -570,6 +572,8 @@ router.put('/:id/design', authenticate, async (req, res) => {
       curve: el.curve ?? 0,
       autoFit: el.autoFit ?? false,
       iconUrl: el.iconUrl || '',
+      iconName: el.iconName || '',
+      iconColor: el.iconColor || '',
       // Photo element styling (border/opacity/radius/cadrage)
       objectFit: el.objectFit || 'cover',
       objectPosition: el.objectPosition || 'center',

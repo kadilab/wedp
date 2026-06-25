@@ -156,11 +156,15 @@ export const guestAPI = {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
   },
-  export: (weddingId, format = 'csv') => 
-    api.get(`/guests/${weddingId}/export`, { 
+  export: (weddingId, format = 'csv') =>
+    api.get(`/guests/${weddingId}/export`, {
       params: { format },
       responseType: 'blob'
-    })
+    }),
+  // WhatsApp 1-click sharing
+  whatsappLink: (weddingId, guestId) => api.get(`/guests/${weddingId}/${guestId}/whatsapp`),
+  whatsappBulk: (weddingId, params) => api.get(`/guests/${weddingId}/whatsapp/bulk`, { params }),
+  markSent: (weddingId, guestId) => api.post(`/guests/${weddingId}/${guestId}/mark-sent`)
 }
 
 // Invitation API

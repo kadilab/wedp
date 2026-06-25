@@ -2,6 +2,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
+const { DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, formatEventDate, componentVars } = require('./dateFormats');
 
 // Convert a hex color + opacity (0-100) to an rgba() CSS string (used for photo element borders)
 function hexToRgba(hex, alphaPercent = 100) {
@@ -686,7 +687,24 @@ function generateDesignBasedHTML(options) {
     reception_date: wedding.receptionDate ? formatDate(wedding.receptionDate) : '',
     reception_time: wedding.receptionStartTime || '',
     reception_venue: wedding.receptionVenue || '',
-    reception_address: wedding.receptionAddress || ''
+    reception_address: wedding.receptionAddress || '',
+    // Separated date components (day name/number, month name, year) for each date
+    ...componentVars({
+      wedding: wedding.weddingDate,
+      commune: wedding.communeDate,
+      eglise: wedding.egliseDate,
+      reception: wedding.receptionDate,
+      rsvp: wedding.rsvpDeadline
+    })
+  };
+
+  // Raw (unformatted) date values so each element renders its own chosen format.
+  const rawDateMap = {
+    wedding_date: wedding.weddingDate || '',
+    rsvp_date: wedding.rsvpDeadline || '',
+    commune_date: wedding.communeDate || '',
+    eglise_date: wedding.egliseDate || '',
+    reception_date: wedding.receptionDate || ''
   };
 
   // Resolve background image path to base64 for PDF rendering
@@ -725,7 +743,17 @@ function generateDesignBasedHTML(options) {
     .map((el, idx) => {
       let content = el.content || '';
 
-      // Replace variables
+      // Date variables first, using this element's chosen format.
+      DATE_VARIABLE_KEYS.forEach((key) => {
+        if (content.includes(`{{${key}}}`)) {
+          content = content.replace(
+            new RegExp(`\\{\\{${key}\\}\\}`, 'g'),
+            formatEventDate(rawDateMap[key], el.dateFormat || DEFAULT_DATE_FORMAT)
+          );
+        }
+      });
+
+      // Replace remaining (non-date) variables
       Object.entries(dataMap).forEach(([key, val]) => {
         content = content.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val);
       });

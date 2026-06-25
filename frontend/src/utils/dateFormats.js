@@ -63,6 +63,33 @@ export function formatEventDate(value, format = DEFAULT_DATE_FORMAT) {
   }
 }
 
+// Separated, uppercase French date components for variables like
+// {{wedding_day_name}} / {{commune_month_name}} / {{rsvp_year}}.
+export function dateComponents(value) {
+  const d = parseDate(value)
+  if (!d) return { day_name: '', day_num: '', month_name: '', year: '' }
+  return {
+    day_name: d.toLocaleDateString('fr-FR', { weekday: 'long' }).toUpperCase(),
+    day_num: String(d.getDate()),
+    month_name: d.toLocaleDateString('fr-FR', { month: 'long' }).toUpperCase(),
+    year: String(d.getFullYear())
+  }
+}
+
+// Build the full {prefix}_day_name / _day_num / _month_name / _year map for a
+// set of named dates, e.g. componentVars({ wedding: date, commune: date }).
+export function componentVars(named) {
+  const out = {}
+  for (const [prefix, value] of Object.entries(named)) {
+    const c = dateComponents(value)
+    out[`${prefix}_day_name`] = c.day_name
+    out[`${prefix}_day_num`] = c.day_num
+    out[`${prefix}_month_name`] = c.month_name
+    out[`${prefix}_year`] = c.year
+  }
+  return out
+}
+
 /** Does this text contain at least one date variable? */
 export function containsDateVariable(text) {
   if (!text) return false

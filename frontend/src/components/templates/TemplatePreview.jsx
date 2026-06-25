@@ -3,7 +3,7 @@ import { HeartIcon, CalendarIcon, PhotoIcon } from '@heroicons/react/24/outline'
 import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from './CurvedText'
 import AutoFitText from './AutoFitText'
-import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT } from '../../utils/dateFormats'
+import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars } from '../../utils/dateFormats'
 
 const hexToRgba = (hex, alpha = 1) => {
   const h = (hex || '#FFFFFF').replace('#', '')
@@ -98,6 +98,14 @@ export default function TemplatePreview({ template, className = '', weddingData 
         weddingData?.egliseVenue ? `Ã‰glise ${weddingData.egliseTime || ''}` : '',
         weddingData?.receptionVenue ? `RÃ©ception ${weddingData.receptionStartTime || ''}` : '',
       ].filter(Boolean).join(' â€¢ '),
+      // Separated date components (day name/number, month name, year)
+      ...componentVars({
+        wedding: weddingData?.weddingDate,
+        commune: weddingData?.communeDate,
+        eglise: weddingData?.egliseDate,
+        reception: weddingData?.receptionDate,
+        rsvp: weddingData?.rsvpDeadline
+      }),
     }
   }
 
