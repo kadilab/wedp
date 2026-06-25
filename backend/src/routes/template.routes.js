@@ -343,6 +343,7 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       zIndex: el.zIndex ?? 0,
       dateFormat: el.dateFormat || 'datetime',
       curve: el.curve ?? 0,
+      autoFit: el.autoFit ?? false,
       iconUrl: el.iconUrl || '',
       // Photo element styling (border/opacity/radius/cadrage)
       objectFit: el.objectFit || 'cover',
@@ -567,6 +568,7 @@ router.put('/:id/design', authenticate, async (req, res) => {
       zIndex: el.zIndex ?? 0,
       dateFormat: el.dateFormat || 'datetime',
       curve: el.curve ?? 0,
+      autoFit: el.autoFit ?? false,
       iconUrl: el.iconUrl || '',
       // Photo element styling (border/opacity/radius/cadrage)
       objectFit: el.objectFit || 'cover',

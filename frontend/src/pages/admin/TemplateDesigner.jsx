@@ -7,6 +7,7 @@ import { processImage } from '../../utils/imageProcessor'
 import { EVENT_TYPES, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
 import { PHOTO_SHAPES, getClipPath, getImageStyle, DEFAULT_CUSTOM_CLIP_PATH, OBJECT_FIT_OPTIONS, OBJECT_POSITION_OPTIONS } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
+import AutoFitText from '../../components/templates/AutoFitText'
 import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable } from '../../utils/dateFormats'
 import {
   ArrowLeftIcon,
@@ -88,7 +89,7 @@ const DEFAULT_ELEMENTS = [
     x: 50, y: 100, width: 700, height: 80,
     fontSize: 48, fontFamily: 'Great Vibes', fontWeight: 'normal', fontStyle: 'normal',
     color: '#2D2D2D', textAlign: 'center', verticalAlign: 'middle', visible: true,
-    letterSpacing: 0, textTransform: 'none', locked: false
+    letterSpacing: 0, textTransform: 'none', locked: false, autoFit: true
   },
   {
     id: 'guestName',
@@ -118,7 +119,7 @@ const DEFAULT_ELEMENTS = [
     x: 100, y: 290, width: 600, height: 50,
     fontSize: 14, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'italic',
     color: '#666666', textAlign: 'center', verticalAlign: 'middle', visible: true,
-    letterSpacing: 0, textTransform: 'none', locked: false
+    letterSpacing: 0, textTransform: 'none', locked: false, autoFit: true
   },
   {
     id: 'date',
@@ -170,7 +171,7 @@ const DEFAULT_ELEMENTS = [
     x: 50, y: 518, width: 220, height: 24,
     fontSize: 12, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'italic',
     color: '#8B7355', textAlign: 'center', verticalAlign: 'middle', visible: true,
-    letterSpacing: 0, textTransform: 'none', locked: false
+    letterSpacing: 0, textTransform: 'none', locked: false, autoFit: true
   },
   {
     id: 'communeAddress',
@@ -180,7 +181,7 @@ const DEFAULT_ELEMENTS = [
     x: 50, y: 544, width: 220, height: 22,
     fontSize: 10, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
     color: '#999999', textAlign: 'center', verticalAlign: 'middle', visible: true,
-    letterSpacing: 0, textTransform: 'none', locked: false
+    letterSpacing: 0, textTransform: 'none', locked: false, autoFit: true
   },
   // ======== Programme: Église ========
   {
@@ -212,7 +213,7 @@ const DEFAULT_ELEMENTS = [
     x: 290, y: 518, width: 220, height: 24,
     fontSize: 12, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'italic',
     color: '#8B7355', textAlign: 'center', verticalAlign: 'middle', visible: true,
-    letterSpacing: 0, textTransform: 'none', locked: false
+    letterSpacing: 0, textTransform: 'none', locked: false, autoFit: true
   },
   {
     id: 'egliseAddress',
@@ -222,7 +223,7 @@ const DEFAULT_ELEMENTS = [
     x: 290, y: 544, width: 220, height: 22,
     fontSize: 10, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
     color: '#999999', textAlign: 'center', verticalAlign: 'middle', visible: true,
-    letterSpacing: 0, textTransform: 'none', locked: false
+    letterSpacing: 0, textTransform: 'none', locked: false, autoFit: true
   },
   // ======== Programme: Réception ========
   {
@@ -254,7 +255,7 @@ const DEFAULT_ELEMENTS = [
     x: 530, y: 518, width: 220, height: 24,
     fontSize: 12, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'italic',
     color: '#8B7355', textAlign: 'center', verticalAlign: 'middle', visible: true,
-    letterSpacing: 0, textTransform: 'none', locked: false
+    letterSpacing: 0, textTransform: 'none', locked: false, autoFit: true
   },
   {
     id: 'receptionAddress',
@@ -264,7 +265,7 @@ const DEFAULT_ELEMENTS = [
     x: 530, y: 544, width: 220, height: 22,
     fontSize: 10, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
     color: '#999999', textAlign: 'center', verticalAlign: 'middle', visible: true,
-    letterSpacing: 0, textTransform: 'none', locked: false
+    letterSpacing: 0, textTransform: 'none', locked: false, autoFit: true
   },
   {
     id: 'qrCode',
@@ -340,7 +341,7 @@ const SIMPLE_EVENT_ELEMENTS = [
     x: 100, y: 260, width: 600, height: 60,
     fontSize: 14, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'italic',
     color: '#666666', textAlign: 'center', verticalAlign: 'middle', visible: true,
-    letterSpacing: 0, textTransform: 'none', locked: false
+    letterSpacing: 0, textTransform: 'none', locked: false, autoFit: true
   },
   {
     id: 'date',
@@ -1182,6 +1183,7 @@ export default function TemplateDesigner({ clientMode = false }) {
         zIndex: el.zIndex ?? 0,
         dateFormat: el.dateFormat || 'datetime',  // Per-element date variable format
         curve: el.curve ?? 0,  // Arc/curved text amount (-100..100)
+        autoFit: el.autoFit ?? false,  // Shrink long text to fit the box
         iconUrl: el.iconUrl || '',  // Preserve icon URLs for programme labels and decorative images
         // Photo/image element styling (border/opacity/radius/cadrage/forme)
         objectFit: el.objectFit || 'cover',
@@ -1408,27 +1410,31 @@ export default function TemplateDesigner({ clientMode = false }) {
       )
     }
 
+    const textStyle = {
+      fontFamily: el.fontFamily,
+      fontSize: `${el.fontSize}px`,
+      fontWeight: el.fontWeight,
+      fontStyle: el.fontStyle,
+      color: el.color,
+      textAlign: el.textAlign,
+      letterSpacing: `${el.letterSpacing || 0}px`,
+      textTransform: el.textTransform || 'none',
+      display: 'flex',
+      alignItems: el.verticalAlign === 'top' ? 'flex-start' : el.verticalAlign === 'bottom' ? 'flex-end' : 'center',
+      justifyContent: el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start',
+      textShadow: el.textShadow && el.textShadow !== 'none' ? `${el.textShadow} ${el.shadowColor || '#000000'}` : 'none',
+      lineHeight: el.lineHeight || 1.2,
+      transform: rotTransform,
+      transformOrigin: 'center center'
+    }
+    const textClass = 'block w-full h-full overflow-hidden whitespace-pre-wrap break-words leading-tight'
+
+    if (el.autoFit) {
+      return <AutoFitText text={text} fontSize={el.fontSize} className={textClass} style={textStyle} />
+    }
+
     return (
-      <span
-        className="block w-full h-full overflow-hidden whitespace-pre-wrap break-words leading-tight"
-        style={{
-          fontFamily: el.fontFamily,
-          fontSize: `${el.fontSize}px`,
-          fontWeight: el.fontWeight,
-          fontStyle: el.fontStyle,
-          color: el.color,
-          textAlign: el.textAlign,
-          letterSpacing: `${el.letterSpacing || 0}px`,
-          textTransform: el.textTransform || 'none',
-          display: 'flex',
-          alignItems: el.verticalAlign === 'top' ? 'flex-start' : el.verticalAlign === 'bottom' ? 'flex-end' : 'center',
-          justifyContent: el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start',
-          textShadow: el.textShadow && el.textShadow !== 'none' ? `${el.textShadow} ${el.shadowColor || '#000000'}` : 'none',
-          lineHeight: el.lineHeight || 1.2,
-          transform: rotTransform,
-          transformOrigin: 'center center'
-        }}
-      >
+      <span className={textClass} style={textStyle}>
         {text}
       </span>
     )
@@ -2747,6 +2753,25 @@ export default function TemplateDesigner({ clientMode = false }) {
                               </button>
                             ))}
                           </div>
+                        </div>
+
+                        {/* Auto-fit (shrink long text to fit the box) */}
+                        <div className="flex items-start justify-between gap-3 p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <p className="text-xs font-medium text-gray-700">Ajuster automatiquement</p>
+                            <p className="text-[11px] text-gray-500 mt-0.5">
+                              Réduit la police pour que les textes longs (adresses, message) tiennent dans la boîte.
+                            </p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-0.5">
+                            <input
+                              type="checkbox"
+                              checked={!!selectedElement.autoFit}
+                              onChange={(e) => updateElement(selectedId, { autoFit: e.target.checked })}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:ring-2 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                          </label>
                         </div>
                       </>
                     )}

@@ -8,6 +8,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
+import AutoFitText from '../../components/templates/AutoFitText'
 import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT } from '../../utils/dateFormats'
 // Format date: JJ-MM-YYYY HH:mm
 import {
@@ -490,7 +491,20 @@ export default function InvitationView() {
                 >
                   {hasArc(el)
                     ? <CurvedText el={el} text={content} />
-                    : <span className="w-full">{content}</span>}
+                    : el.autoFit
+                      ? <AutoFitText
+                          text={content}
+                          fontSize={el.fontSize}
+                          style={{
+                            width: '100%', height: '100%', display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start',
+                            textAlign: el.textAlign || 'center',
+                            overflow: 'hidden', whiteSpace: 'normal', wordBreak: 'break-word',
+                            lineHeight: el.lineHeight || 1.2
+                          }}
+                        />
+                      : <span className="w-full">{content}</span>}
                 </div>
               )
             })}

@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from 'react'
 import { HeartIcon, CalendarIcon, PhotoIcon } from '@heroicons/react/24/outline'
 import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from './CurvedText'
+import AutoFitText from './AutoFitText'
 import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT } from '../../utils/dateFormats'
 
 const hexToRgba = (hex, alpha = 1) => {
@@ -294,7 +295,20 @@ export default function TemplatePreview({ template, className = '', weddingData 
                   >
                     {hasArc(el)
                       ? <CurvedText el={el} text={content} />
-                      : <span style={{ width: '100%' }}>{content}</span>}
+                      : el.autoFit
+                        ? <AutoFitText
+                            text={content}
+                            fontSize={el.fontSize}
+                            style={{
+                              width: '100%', height: '100%', display: 'flex',
+                              alignItems: el.verticalAlign === 'top' ? 'flex-start' : el.verticalAlign === 'bottom' ? 'flex-end' : 'center',
+                              justifyContent: el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start',
+                              textAlign: el.textAlign || 'center',
+                              overflow: 'hidden', whiteSpace: 'normal', wordBreak: 'break-word',
+                              lineHeight: el.lineHeight || 1.2
+                            }}
+                          />
+                        : <span style={{ width: '100%' }}>{content}</span>}
                   </div>
                 )
               })}
