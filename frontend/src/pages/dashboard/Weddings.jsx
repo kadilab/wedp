@@ -17,7 +17,7 @@ import {
   TicketIcon
 } from '@heroicons/react/24/outline'
 
-const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Dot', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
+const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
 const eventDisplayName = (wedding) =>
   (!wedding.eventType || wedding.eventType === 'WEDDING')
     ? `${wedding.brideName} & ${wedding.groomName}`

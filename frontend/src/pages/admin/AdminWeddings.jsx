@@ -16,7 +16,7 @@ import {
   MapPinIcon
 } from '@heroicons/react/24/outline'
 
-const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Dot', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
+const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
 const EVENT_TYPE_COLORS = {
   WEDDING: 'bg-rose-100 text-rose-700',
   BIRTHDAY: 'bg-orange-100 text-orange-700',

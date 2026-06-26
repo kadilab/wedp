@@ -26,6 +26,8 @@ import {
   Squares2X2Icon,
   CursorArrowRaysIcon,
   ArrowPathIcon,
+  ArrowUturnLeftIcon,
+  ArrowUturnRightIcon,
   CheckIcon,
   Cog6ToothIcon,
   SparklesIcon,
@@ -585,6 +587,19 @@ export default function TemplateDesigner({ clientMode = false }) {
   const [showGrid, setShowGrid] = useState(true)
   const [zoom, setZoom] = useState(0.65)
   const [saving, setSaving] = useState(false)
+
+  // ---- Undo / Redo history (snapshots of `elements`) ----
+  const elementsRef = useRef(elements)
+  elementsRef.current = elements
+  const undoStack = useRef([])
+  const redoStack = useRef([])
+  const prevElementsRef = useRef(null)
+  const skipHistoryRef = useRef(false)
+  const commitTimerRef = useRef(null)
+  const [history, setHistory] = useState({ canUndo: false, canRedo: false })
+  const syncHistory = useCallback(() => {
+    setHistory({ canUndo: undoStack.current.length > 0, canRedo: redoStack.current.length > 0 })
+  }, [])
   const [activePanel, setActivePanel] = useState('format') // format, background, elements, properties, settings
   const [panelCollapsed, setPanelCollapsed] = useState(false) // collapse the left tools sidebar for a bigger canvas
   // Element library (icons via Iconify + emojis)
@@ -658,6 +673,10 @@ export default function TemplateDesigner({ clientMode = false }) {
         if (Array.isArray(t.config.designElements) && t.config.designElements.length > 0) {
           console.log('Setting elements from config - COUNT:', t.config.designElements.length)
           console.log('First element:', t.config.designElements[0])
+          // Loading the template is not an undoable step.
+          skipHistoryRef.current = true
+          undoStack.current = []
+          redoStack.current = []
           setElements(t.config.designElements)
         } else {
           console.warn('designElements exists but is not a valid array!', t.config.designElements)
@@ -798,10 +817,71 @@ export default function TemplateDesigner({ clientMode = false }) {
     }
   }, [handleMouseMove, handleMouseUp])
 
+  // ---- Undo / Redo ----
+  // Record a history snapshot whenever `elements` settles after a change.
+  // Debounced so a multi-step gesture (drag, resize) becomes a single undo step.
+  useEffect(() => {
+    if (skipHistoryRef.current) {
+      skipHistoryRef.current = false
+      prevElementsRef.current = elements
+      return
+    }
+    if (prevElementsRef.current === null) {
+      prevElementsRef.current = elements
+      return
+    }
+    if (commitTimerRef.current) clearTimeout(commitTimerRef.current)
+    commitTimerRef.current = setTimeout(() => {
+      const prev = prevElementsRef.current
+      if (prev && prev !== elementsRef.current) {
+        undoStack.current.push(prev)
+        if (undoStack.current.length > 60) undoStack.current.shift()
+        redoStack.current = []
+        prevElementsRef.current = elementsRef.current
+        syncHistory()
+      }
+    }, 350)
+  }, [elements, syncHistory])
+
+  const undo = useCallback(() => {
+    if (commitTimerRef.current) { clearTimeout(commitTimerRef.current); commitTimerRef.current = null }
+    // Flush a not-yet-committed change so it becomes its own undo step.
+    if (prevElementsRef.current && prevElementsRef.current !== elementsRef.current) {
+      undoStack.current.push(prevElementsRef.current)
+      prevElementsRef.current = elementsRef.current
+    }
+    if (undoStack.current.length === 0) { syncHistory(); return }
+    const prev = undoStack.current.pop()
+    redoStack.current.push(elementsRef.current)
+    skipHistoryRef.current = true
+    prevElementsRef.current = prev
+    setElements(prev)
+    setSelectedId(null); setSelectedIds([])
+    syncHistory()
+  }, [syncHistory])
+
+  const redo = useCallback(() => {
+    if (redoStack.current.length === 0) return
+    const next = redoStack.current.pop()
+    undoStack.current.push(elementsRef.current)
+    skipHistoryRef.current = true
+    prevElementsRef.current = next
+    setElements(next)
+    setSelectedId(null); setSelectedIds([])
+    syncHistory()
+  }, [syncHistory])
+
   // Keyboard shortcuts handler
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!canvasRef.current) return
+
+      // Undo / Redo — allowed even while typing (standard editor behavior).
+      if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+        const k = e.key.toLowerCase()
+        if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return }
+        if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); return }
+      }
 
       // Don't hijack keys while the user is typing in a field (content, sizes,
       // color hexes, the free-form clip-path textarea, etc.).
@@ -861,7 +941,7 @@ export default function TemplateDesigner({ clientMode = false }) {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedId, selectedIds, canvasWidth, canvasHeight])
+  }, [selectedId, selectedIds, canvasWidth, canvasHeight, undo, redo])
 
   // ===================== ELEMENT OPERATIONS =====================
 
@@ -1578,6 +1658,26 @@ export default function TemplateDesigner({ clientMode = false }) {
             <button onClick={() => setZoom(z => Math.max(0.3, z - 0.1))} className="text-sm font-bold px-1">-</button>
             <span className="text-xs w-12 text-center">{Math.round(zoom * 100)}%</span>
             <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="text-sm font-bold px-1">+</button>
+          </div>
+
+          {/* Undo / Redo */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={undo}
+              disabled={!history.canUndo}
+              className="p-2 rounded-lg text-gray-500 hover:text-primary-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"
+              title="Annuler (Ctrl+Z)"
+            >
+              <ArrowUturnLeftIcon className="h-5 w-5" />
+            </button>
+            <button
+              onClick={redo}
+              disabled={!history.canRedo}
+              className="p-2 rounded-lg text-gray-500 hover:text-primary-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"
+              title="Rétablir (Ctrl+Y)"
+            >
+              <ArrowUturnRightIcon className="h-5 w-5" />
+            </button>
           </div>
 
           {/* Grid */}

@@ -29,10 +29,6 @@ export default function Templates() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [previewTemplate, setPreviewTemplate] = useState(null)
   const [previewDevice, setPreviewDevice] = useState('desktop')
-  const [customizeTemplate, setCustomizeTemplate] = useState(null) // template to personalize
-  const [selectedWeddingId, setSelectedWeddingId] = useState('')
-  const [forking, setForking] = useState(false)
-  const queryClient = useQueryClient()
 
   
   const { data, isLoading } = useQuery('templates', () => templateAPI.getAll())
@@ -40,40 +36,6 @@ export default function Templates() {
 
   const { data: myTemplatesData, refetch: refetchMyTemplates } = useQuery('my-templates', () => templateAPI.getMyTemplates())
   const myTemplates = myTemplatesData?.data?.templates || []
-
-  const { data: weddingsData } = useQuery('weddings', () => weddingAPI.getAll())
-  const weddings = weddingsData?.data?.weddings || []
-
-  const handlePersonalize = (template) => {
-    setCustomizeTemplate(template)
-    const matchingWeddings = weddings.filter(w => (w.eventType || 'WEDDING') === (template.eventType || 'WEDDING'))
-    setSelectedWeddingId(matchingWeddings[0]?.id || '')
-  }
-
-  const eventDisplayName = (w) =>
-    (!w.eventType || w.eventType === 'WEDDING') ? `${w.brideName} & ${w.groomName}` : (w.eventTitle || EVENT_TYPE_LABELS[w.eventType])
-
-  const handleStartCustomize = async () => {
-    if (!selectedWeddingId) {
-      toast.error('Veuillez sélectionner un mariage')
-      return
-    }
-    setForking(true)
-    try {
-      const forkRes = await templateAPI.fork(customizeTemplate.id)
-      const forkedId = forkRes.data.template.id
-      await weddingAPI.update(selectedWeddingId, { templateId: forkedId })
-      queryClient.invalidateQueries('my-templates')
-      queryClient.invalidateQueries(['wedding', selectedWeddingId])
-      queryClient.invalidateQueries('weddings')
-      setCustomizeTemplate(null)
-      navigate(`/templates/${forkedId}/design?wedding=${selectedWeddingId}`)
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur lors de la duplication du template')
-    } finally {
-      setForking(false)
-    }
-  }
 
 
   const categories = [
@@ -260,13 +222,6 @@ export default function Templates() {
                   >
                     <EyeIcon className="h-4 w-4" />
                     Aperçu
-                  </button>
-                  <button
-                    onClick={() => handlePersonalize(template)}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-sm text-primary-700 rounded-full text-sm font-medium hover:bg-white transition-colors mb-2"
-                  >
-                    <PaintBrushIcon className="h-4 w-4" />
-                    Personnaliser
                   </button>
                   <button
                     onClick={() => handleSelectTemplate(template)}
@@ -472,17 +427,6 @@ export default function Templates() {
                 <button
                   onClick={() => {
                     setPreviewTemplate(null)
-                    handlePersonalize(previewTemplate)
-                  }}
-                  className="btn-outline w-full mt-3"
-                >
-                  <PaintBrushIcon className="h-5 w-5 mr-2" />
-                  Personnaliser ce template
-                </button>
-
-                <button
-                  onClick={() => {
-                    setPreviewTemplate(null)
                     handleSelectTemplate(previewTemplate)
                   }}
                   className="btn-primary w-full mt-3"
@@ -492,64 +436,6 @@ export default function Templates() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-      {/* Wedding Selector Modal for Personnaliser */}
-      {customizeTemplate && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-serif font-bold text-gray-900">Personnaliser le template</h3>
-              <button onClick={() => setCustomizeTemplate(null)} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100">
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
-            <p className="text-sm text-gray-500 mb-4">
-              Sélectionnez l'événement ({EVENT_TYPE_LABELS[customizeTemplate.eventType] || 'Mariage'}) pour lequel vous souhaitez personnaliser <strong>{customizeTemplate.name}</strong>.
-            </p>
-            {(() => {
-              const matchingWeddings = weddings.filter(w => (w.eventType || 'WEDDING') === (customizeTemplate.eventType || 'WEDDING'))
-              return matchingWeddings.length === 0 ? (
-                <div className="text-center py-4">
-                  <p className="text-sm text-gray-500 mb-3">
-                    Vous n'avez pas encore d'événement de type « {EVENT_TYPE_LABELS[customizeTemplate.eventType] || 'Mariage'} ».
-                  </p>
-                  <button
-                    onClick={() => { setCustomizeTemplate(null); navigate('/weddings/new') }}
-                    className="btn-primary"
-                  >
-                    Créer un événement
-                  </button>
-                </div>
-              ) : (
-              <>
-                <select
-                  value={selectedWeddingId}
-                  onChange={e => setSelectedWeddingId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-primary-400"
-                >
-                  {matchingWeddings.map(w => (
-                    <option key={w.id} value={w.id}>{eventDisplayName(w)}</option>
-                  ))}
-                </select>
-                <div className="flex gap-3">
-                  <button onClick={() => setCustomizeTemplate(null)} className="btn-outline flex-1">Annuler</button>
-                  <button
-                    onClick={handleStartCustomize}
-                    disabled={forking}
-                    className="btn-primary flex-1 flex items-center justify-center gap-2"
-                  >
-                    {forking ? (
-                      <><span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span> Chargement...</>
-                    ) : (
-                      <><PaintBrushIcon className="h-4 w-4" /> Personnaliser</>
-                    )}
-                  </button>
-                </div>
-              </>
-              )
-            })()}
           </div>
         </div>
       )}

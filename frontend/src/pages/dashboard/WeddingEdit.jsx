@@ -62,7 +62,7 @@ export default function WeddingEdit() {
   const wedding = weddingData?.data?.wedding
   // Event type is fixed at creation - this page only adapts which fields it shows.
   const isWedding = !wedding?.eventType || wedding.eventType === 'WEDDING'
-  const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Dot', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
+  const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
 
   // Only show templates designed for this event's type
   const { data: templatesData } = useQuery(

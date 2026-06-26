@@ -25,9 +25,12 @@ export const DEFAULT_DATE_FORMAT = 'datetime'
 
 function parseDate(value) {
   if (!value) return null
-  const d = typeof value === 'string' && value.includes('T')
-    ? new Date(value)
-    : new Date(String(value).replace(' ', 'T'))
+  // Date object (e.g. SSR / Prisma) or ISO string from the API — handle both.
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value
+  let d = new Date(value) // ISO / RFC strings parse directly
+  if (isNaN(d.getTime()) && typeof value === 'string') {
+    d = new Date(value.replace(' ', 'T')) // fallback for "YYYY-MM-DD HH:mm"
+  }
   return isNaN(d.getTime()) ? null : d
 }
 

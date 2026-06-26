@@ -650,7 +650,7 @@ function generateDesignBasedHTML(options) {
   };
 
   // Build replacement data map
-  const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Dot', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' };
+  const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' };
   const isWeddingEvent = !wedding.eventType || wedding.eventType === 'WEDDING';
   const dataMap = {
     bride_name: wedding.brideName || '',
@@ -759,9 +759,10 @@ function generateDesignBasedHTML(options) {
       });
 
       const elZIndex = el.zIndex ?? (10 + idx);
-      // Offset element positions by margins
-      const elLeft = el.x + mLeft;
-      const elTop = el.y + mTop;
+      // Raw canvas coords — the editor positions elements without offsetting by
+      // margins (margins are only a visual guide), so keep them raw for WYSIWYG.
+      const elLeft = el.x;
+      const elTop = el.y;
 
       // QR code element
       if (el.type === 'qrcode' && qrCodeSrc) {

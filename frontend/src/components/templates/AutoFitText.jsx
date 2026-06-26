@@ -37,7 +37,17 @@ export default function AutoFitText({ text, fontSize = 16, minFontSize = 6, clas
     // Re-fit when the box (not the font) changes size.
     const ro = new ResizeObserver(fit)
     ro.observe(el)
-    return () => ro.disconnect()
+
+    // Web fonts (esp. script fonts like Great Vibes) load asynchronously and
+    // change the text width AFTER the first measure — re-fit once they're ready.
+    let cancelled = false
+    if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => { if (!cancelled) fit() })
+    }
+    // Extra safety net for slow font loads.
+    const t = setTimeout(fit, 600)
+
+    return () => { cancelled = true; clearTimeout(t); ro.disconnect() }
   }, [text, fontSize, minFontSize])
 
   return (

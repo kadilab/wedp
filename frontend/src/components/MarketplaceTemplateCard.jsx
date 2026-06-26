@@ -5,7 +5,7 @@ import { ShoppingBagIcon } from '@heroicons/react/24/outline';
 const EVENT_TYPE_LABELS = {
   WEDDING: 'Mariage',
   BIRTHDAY: 'Anniversaire',
-  DOT: 'Dot',
+  DOT: 'Mariage coutumier',
   CEREMONY: 'Cérémonie',
   CONFERENCE: 'Conférence',
   OTHER: 'Autre'

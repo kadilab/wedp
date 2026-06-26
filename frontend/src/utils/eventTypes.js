@@ -7,7 +7,7 @@ export const EVENT_TYPES = ['WEDDING', 'BIRTHDAY', 'DOT', 'CEREMONY', 'CONFERENC
 export const EVENT_TYPE_LABELS = {
   WEDDING: 'Mariage',
   BIRTHDAY: 'Anniversaire',
-  DOT: 'Dot',
+  DOT: 'Mariage coutumier',
   CEREMONY: 'Cérémonie',
   CONFERENCE: 'Conférence',
   OTHER: 'Autre événement'

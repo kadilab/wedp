@@ -18,7 +18,8 @@ import {
   CloudArrowDownIcon,
   CloudArrowUpIcon,
   WifiIcon,
-  SignalSlashIcon
+  SignalSlashIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline'
 import { checkinAPI } from '../services/api'
 import useOnlineStatus from '../hooks/useOnlineStatus'
@@ -48,6 +49,7 @@ export default function CheckIn() {
   const [scannerActive, setScannerActive] = useState(false)
   const [cameras, setCameras] = useState([])
   const [selectedCamera, setSelectedCamera] = useState('')
+  const [nameQuery, setNameQuery] = useState('') // Hostess mode: search by name
 
   const scannerInstanceRef = useRef(null)
   const lastScannedCodeRef = useRef(null)
@@ -258,6 +260,16 @@ export default function CheckIn() {
     if (code.trim()) processCode(code.trim())
   }
 
+  // Hostess mode: find guests by name when their QR is unreadable.
+  const nameResults = (() => {
+    const q = nameQuery.trim().toLowerCase()
+    if (!q) return []
+    return guests
+      .filter(g => `${g.firstName || ''} ${g.lastName || ''}`.toLowerCase().includes(q))
+      .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`))
+      .slice(0, 25)
+  })()
+
   const checkedInCount = guests.filter(g => g.checkedIn).length
   const recentCheckIns = guests
     .filter(g => g.checkedIn)
@@ -435,6 +447,73 @@ export default function CheckIn() {
                     )}
                   </div>
                 </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Hostess mode: search by name (when the QR is unreadable) */}
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-1">
+            <MagnifyingGlassIcon className="h-6 w-6 text-primary-500" />
+            <h2 className="font-serif font-bold text-gray-900">Mode hôtesse — recherche par nom</h2>
+          </div>
+          <p className="text-xs text-gray-400 mb-3">Si le QR code est illisible, retrouvez l'invité par son nom.</p>
+
+          <div className="relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              value={nameQuery}
+              onChange={(e) => setNameQuery(e.target.value)}
+              placeholder="Nom ou prénom de l'invité"
+              disabled={!meta}
+              className="input pl-10 w-full"
+            />
+            {nameQuery && (
+              <button
+                type="button"
+                onClick={() => setNameQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg leading-none"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {!meta && <p className="text-xs text-gray-400 mt-2">Téléchargez la liste des invités pour activer la recherche.</p>}
+
+          {nameQuery.trim() && (
+            <div className="mt-3 divide-y border rounded-lg max-h-80 overflow-y-auto">
+              {nameResults.length === 0 ? (
+                <p className="p-4 text-center text-sm text-gray-400">Aucun invité trouvé pour « {nameQuery} »</p>
+              ) : (
+                nameResults.map((g) => (
+                  <div key={g.uniqueCode} className="p-3 flex items-center gap-3">
+                    <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-primary-600 text-sm font-medium">{g.firstName?.[0]}{g.lastName?.[0]}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{g.firstName} {g.lastName}</p>
+                      <p className="text-xs text-gray-500">
+                        Table {g.tableNumber || '—'} • {g.invitationType}
+                      </p>
+                    </div>
+                    {g.checkedIn ? (
+                      <span className="inline-flex items-center gap-1 text-amber-600 text-sm font-medium flex-shrink-0">
+                        <CheckCircleIcon className="h-5 w-5" /> Arrivé
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { processCode(g.uniqueCode); setNameQuery('') }}
+                        className="btn-primary text-sm flex-shrink-0"
+                      >
+                        <CheckCircleIcon className="h-4 w-4 mr-1" /> Enregistrer
+                      </button>
+                    )}
+                  </div>
+                ))
               )}
             </div>
           )}

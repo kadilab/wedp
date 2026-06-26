@@ -63,7 +63,7 @@ export default function TemplatePreview({ template, className = '', weddingData 
         return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
       } catch { return String(dateStr) }
     }
-    const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Dot', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
+    const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
     const isWeddingEvent = !weddingData?.eventType || weddingData.eventType === 'WEDDING'
     return {
       bride_name: weddingData?.brideName || 'Marie',
@@ -182,8 +182,10 @@ export default function TemplatePreview({ template, className = '', weddingData 
                   content = content.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val)
                 })
 
-                const elLeft = el.x + mLeft
-                const elTop = el.y + mTop
+                // Raw canvas coords (the editor doesn't offset by margins —
+                // they're only a visual guide). Keep WYSIWYG.
+                const elLeft = el.x
+                const elTop = el.y
                 const zIdx = el.zIndex ?? (10 + idx)
 
                 // QR placeholder

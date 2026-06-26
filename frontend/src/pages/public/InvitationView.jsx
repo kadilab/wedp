@@ -64,7 +64,7 @@ export default function InvitationView() {
   // Wedding gets the bride & groom name treatment; everything else uses
   // a single generic event title.
   const isWedding = !wedding?.eventType || wedding.eventType === 'WEDDING'
-  const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Dot', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
+  const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
   const EVENT_INTRO_LABELS = {
     WEDDING: 'Invitation au mariage de',
     BIRTHDAY: 'Invitation à l\'anniversaire de',
@@ -397,8 +397,11 @@ export default function InvitationView() {
               })
 
               const elZIndex = el.zIndex ?? (10 + idx)
-              const elLeft = el.x + mLeft
-              const elTop = el.y + mTop
+              // Element coordinates are absolute canvas coords (same as the
+              // editor, which does NOT offset by margins — margins are only a
+              // visual guide). Keep them raw so the render is WYSIWYG.
+              const elLeft = el.x
+              const elTop = el.y
 
               // QR code element
               if (el.type === 'qrcode' && invitationInfo?.qrCodeData) {
