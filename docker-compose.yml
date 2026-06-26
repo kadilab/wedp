@@ -39,6 +39,7 @@ services:
       KPAY_API_KEY: ${KPAY_API_KEY:-}
       KPAY_SECRET_KEY: ${KPAY_SECRET_KEY:-}
       KPAY_WEBHOOK_SECRET: ${KPAY_WEBHOOK_SECRET:-}
+      KPAY_USD_TO_XAF: ${KPAY_USD_TO_XAF:-600}
     volumes:
       - backend_uploads:/app/uploads
       - backend_logs:/app/logs

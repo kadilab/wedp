@@ -262,10 +262,14 @@ router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) =
       return res.status(400).json({ error: 'Cette commande a déjà été traitée' });
     }
 
-    const amount = Math.round(parseFloat(order.totalAmount));
+    // The order amount is stored in USD but the K-PAY account is in XAF
+    // (minimum 100, and NO `currency` field is allowed). Convert here.
+    const usdToXaf = parseFloat(String(process.env.KPAY_USD_TO_XAF || '600').replace(',', '.')) || 600;
+    let amount = Math.round(parseFloat(order.totalAmount) * usdToXaf);
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Montant de la commande invalide' });
     }
+    if (amount < 100) amount = 100; // K-PAY minimum
 
     const { provider, phoneNumber } = req.body || {};
     const frontendUrl = process.env.FRONTEND_URL || '';

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { invitationAPI, guestAPI, weddingAPI, invitationOrderAPI } from '../../services/api'
 import { socketService } from '../../services/socket'
@@ -38,6 +38,27 @@ export default function Invitations() {
   const downloadMenuRef = useRef(null)
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // K-PAY return/cancel handling: the client is redirected back here after the
+  // hosted payment page. The order is confirmed server-side by the webhook, so
+  // here we only inform the client and refresh the quota.
+  useEffect(() => {
+    const kpay = searchParams.get('kpay')
+    if (!kpay) return
+    if (kpay === 'return') {
+      toast.success('Paiement reçu — confirmation en cours. Vos invitations seront débloquées dès validation.', { duration: 7000 })
+      queryClient.invalidateQueries(['quota', weddingId])
+      queryClient.invalidateQueries(['invitation-orders', weddingId])
+    } else if (kpay === 'cancel') {
+      toast('Paiement annulé.', { icon: 'ℹ️' })
+    }
+    // Clean the query params so the message doesn't reappear on refresh.
+    const next = new URLSearchParams(searchParams)
+    next.delete('kpay'); next.delete('order')
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Close dropdown when clicking outside
   useEffect(() => {

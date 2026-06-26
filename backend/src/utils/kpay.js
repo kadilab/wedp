@@ -1,6 +1,11 @@
 const crypto = require('crypto');
+const dns = require('dns');
 const axios = require('axios');
 const logger = require('./logger');
+
+// Force IPv4 resolution first — avoids the UND_ERR_CONNECT_TIMEOUT / hang that
+// happens when the host's IPv6 is broken (common on VPS / VPN). See K-PAY README §5.
+try { dns.setDefaultResultOrder('ipv4first'); } catch { /* older Node */ }
 
 // K-PAY Mobile Money gateway client.
 // Docs: https://kpay.site/documentation
@@ -62,9 +67,12 @@ async function getBalance() {
  * body in the `X-KPAY-Signature` header.
  */
 function verifyWebhookSignature(rawBody, signature) {
-  if (!WEBHOOK_SECRET || !signature || !rawBody) return false;
+  // KPay signs with the dashboard webhook secret; fall back to the secret key
+  // when no dedicated webhook secret is set (matches the reference integration).
+  const secret = WEBHOOK_SECRET || SECRET_KEY;
+  if (!secret || !signature || !rawBody) return false;
   try {
-    const expected = crypto.createHmac('sha256', WEBHOOK_SECRET)
+    const expected = crypto.createHmac('sha256', secret)
       .update(rawBody)
       .digest('hex');
     const a = Buffer.from(signature);

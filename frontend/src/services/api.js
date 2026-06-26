@@ -184,7 +184,9 @@ export const invitationOrderAPI = {
   getQuota: (weddingId) => api.get(`/invitation-orders/${weddingId}/quota`),
   getMyOrders: (weddingId) => api.get(`/invitation-orders/${weddingId}/orders`),
   createOrder: (weddingId, quantity, couponCode) => api.post(`/invitation-orders/${weddingId}`, { quantity, couponCode }),
-  submitTransaction: (weddingId, orderId, data) => api.put(`/invitation-orders/${weddingId}/orders/${orderId}/submit`, data)
+  submitTransaction: (weddingId, orderId, data) => api.put(`/invitation-orders/${weddingId}/orders/${orderId}/submit`, data),
+  // K-PAY automatic Mobile Money payment (GATEWAY): returns { gatewayUrl }
+  payKpay: (weddingId, orderId, data = {}) => api.post(`/invitation-orders/${weddingId}/orders/${orderId}/kpay`, data)
 }
 
 // Template API

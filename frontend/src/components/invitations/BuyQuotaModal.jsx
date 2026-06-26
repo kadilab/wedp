@@ -33,6 +33,7 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
   const [couponCode, setCouponCode] = useState('')
   const [appliedCoupon, setAppliedCoupon] = useState(null) // { code, discount, finalAmount }
   const [couponError, setCouponError] = useState('')
+  const [payingOnline, setPayingOnline] = useState(false)
 
   const { data: pricingData } = useQuery(
     ['invitation-pricing', weddingId],
@@ -97,6 +98,30 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
       onError: (err) => toast.error(err.response?.data?.error || 'Erreur lors de l\'envoi')
     }
   )
+
+  // Online payment (K-PAY GATEWAY): create the order, init the payment, then
+  // redirect the client to the hosted KPay page. The order is confirmed
+  // server-side by the webhook once the payment completes.
+  const payOnline = async () => {
+    setPayingOnline(true)
+    try {
+      const orderRes = await invitationOrderAPI.createOrder(weddingId, quantity, appliedCoupon?.code)
+      const orderId = orderRes.data.order.id
+      const kpayRes = await invitationOrderAPI.payKpay(weddingId, orderId)
+      const url = kpayRes.data?.gatewayUrl
+      if (url) {
+        window.location.href = url
+      } else {
+        toast.error('Lien de paiement indisponible. Réessayez ou utilisez le paiement manuel.')
+        queryClient.invalidateQueries(['invitation-orders', weddingId])
+        setView('list')
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur lors du paiement en ligne')
+    } finally {
+      setPayingOnline(false)
+    }
+  }
 
   if (!isOpen) return null
 
@@ -207,13 +232,27 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
                 </p>
               )}
 
+              {/* Online payment (Mobile Money via K-PAY) */}
               <button
-                onClick={() => createOrderMutation.mutate()}
-                disabled={createOrderMutation.isLoading || pricing.paymentMethods.length === 0}
-                className="btn-primary w-full"
+                onClick={payOnline}
+                disabled={payingOnline || quantity < 1}
+                className="btn-primary w-full flex items-center justify-center gap-2"
               >
-                {createOrderMutation.isLoading ? 'Création...' : `Commander ${quantity} invitation(s) — ${finalTotal}$`}
+                {payingOnline
+                  ? 'Redirection vers le paiement...'
+                  : `💳 Payer en ligne (Mobile Money) — ${finalTotal}$`}
               </button>
+
+              {/* Manual payment fallback */}
+              {pricing.paymentMethods.length > 0 && (
+                <button
+                  onClick={() => createOrderMutation.mutate()}
+                  disabled={createOrderMutation.isLoading}
+                  className="btn-outline w-full"
+                >
+                  {createOrderMutation.isLoading ? 'Création...' : 'Paiement manuel (saisir le n° de transaction)'}
+                </button>
+              )}
 
               {orders.length > 0 && (
                 <div className="pt-4 border-t">
