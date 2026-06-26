@@ -23,7 +23,8 @@ import {
   GiftIcon,
   UserGroupIcon,
   MapPinIcon,
-  CheckIcon
+  CheckIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline'
 
 const ChurchIcon = ({ className }) => (
@@ -80,6 +81,9 @@ export default function WeddingCreate() {
   const [step, setStep] = useState(0)
   const [serverErrors, setServerErrors] = useState([])
   const [previewTmpl, setPreviewTmpl] = useState(null)
+  const [templateSearch, setTemplateSearch] = useState('')
+  const [templatePage, setTemplatePage] = useState(1)
+  const TEMPLATES_PER_PAGE = 6
   const navigate = useNavigate()
   const location = useLocation()
   // Template can be preselected via router state or a ?templateId= query param
@@ -136,6 +140,22 @@ export default function WeddingCreate() {
   const selectedTemplateForImages = [...myTemplates, ...templates].find(t => t.id === watch('templateId'))
   const photoPlaceholders = (selectedTemplateForImages?.config?.designElements || [])
     .filter(el => el.type === 'photo')
+
+  // Template search + pagination (design step)
+  const tplMatches = (t) => {
+    const q = templateSearch.trim().toLowerCase()
+    if (!q) return true
+    return (t.name || '').toLowerCase().includes(q) ||
+      (TEMPLATE_CATEGORIES[t.category] || t.category || '').toLowerCase().includes(q)
+  }
+  const filteredMyTemplates = myTemplates.filter(tplMatches)
+  const filteredTemplates = templates.filter(tplMatches)
+  const totalTemplatePages = Math.max(1, Math.ceil(filteredTemplates.length / TEMPLATES_PER_PAGE))
+  const safeTemplatePage = Math.min(templatePage, totalTemplatePages)
+  const pagedTemplates = filteredTemplates.slice(
+    (safeTemplatePage - 1) * TEMPLATES_PER_PAGE,
+    safeTemplatePage * TEMPLATES_PER_PAGE
+  )
 
   // Shared live-preview data so canvas tokens ({{event_title}}, {{venue_name}}...)
   // reflect what the user has typed so far, for wedding and non-wedding types alike.
@@ -721,7 +741,21 @@ export default function WeddingCreate() {
 
               {/* Template Selection + Live Preview */}
               <div>
-                <h3 className="font-medium text-gray-900 mb-3">Choisir un template</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                  <h3 className="font-medium text-gray-900">Choisir un template</h3>
+                  {(templates.length > 0 || myTemplates.length > 0) && (
+                    <div className="relative w-full sm:w-64">
+                      <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={templateSearch}
+                        onChange={(e) => { setTemplateSearch(e.target.value); setTemplatePage(1) }}
+                        placeholder="Rechercher un template…"
+                        className="input pl-9 py-2 text-sm w-full"
+                      />
+                    </div>
+                  )}
+                </div>
                 {templates.length === 0 && myTemplates.length === 0 ? (
                   <div className="text-center py-6 bg-gray-50 rounded-xl">
                     <HeartIcon className="h-10 w-10 text-gray-300 mx-auto mb-2" />
@@ -733,13 +767,13 @@ export default function WeddingCreate() {
                   <div className="flex gap-6">
                     {/* Left: template grid */}
                     <div className="flex-1 space-y-4">
-                      {myTemplates.length > 0 && (
+                      {filteredMyTemplates.length > 0 && (
                         <div>
                           <p className="text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2 flex items-center gap-1">
                             <UserIcon className="h-3.5 w-3.5" /> Mes templates personnalisés
                           </p>
                           <div className="grid grid-cols-2 gap-3">
-                            {myTemplates.map((tmpl) => (
+                            {filteredMyTemplates.map((tmpl) => (
                               <label key={tmpl.id} className={`cursor-pointer rounded-xl border-2 overflow-hidden transition-all ${
                                 watch('templateId') === tmpl.id ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-primary-100 hover:border-primary-300 hover:shadow-sm'
                               }`}>
@@ -779,8 +813,14 @@ export default function WeddingCreate() {
                           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-4 mb-2">Templates globaux</p>
                         </div>
                       )}
+                      {filteredMyTemplates.length === 0 && filteredTemplates.length === 0 && (
+                        <div className="text-center py-8 bg-gray-50 rounded-xl">
+                          <MagnifyingGlassIcon className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">Aucun template ne correspond à « {templateSearch} »</p>
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 gap-3">
-                        {templates.map((tmpl) => (
+                        {pagedTemplates.map((tmpl) => (
                           <label key={tmpl.id} className={`cursor-pointer rounded-xl border-2 overflow-hidden transition-all ${
                             watch('templateId') === tmpl.id ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
                           }`}>
@@ -817,6 +857,31 @@ export default function WeddingCreate() {
                           </label>
                         ))}
                       </div>
+
+                      {/* Pagination (global templates) */}
+                      {totalTemplatePages > 1 && (
+                        <div className="flex items-center justify-center gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setTemplatePage(p => Math.max(1, p - 1))}
+                            disabled={safeTemplatePage <= 1}
+                            className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                          >
+                            ‹ Précédent
+                          </button>
+                          <span className="text-sm text-gray-500">
+                            Page {safeTemplatePage} / {totalTemplatePages}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setTemplatePage(p => Math.min(totalTemplatePages, p + 1))}
+                            disabled={safeTemplatePage >= totalTemplatePages}
+                            className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                          >
+                            Suivant ›
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Right: live preview panel */}

@@ -150,6 +150,14 @@ router.post('/:weddingId/generate', authenticate, async (req, res) => {
       }
     }
 
+    // An event with generated invitations is live → promote it out of DRAFT.
+    if (generated.length > 0) {
+      await prisma.wedding.updateMany({
+        where: { id: weddingId, status: 'DRAFT' },
+        data: { status: 'ACTIVE' }
+      });
+    }
+
     // Emit socket event for real-time update
     const io = req.app.get('io');
     if (io) {

@@ -14,7 +14,9 @@ import {
   TrashIcon,
   UserGroupIcon,
   QrCodeIcon,
-  TicketIcon
+  TicketIcon,
+  LockClosedIcon,
+  CalendarDaysIcon
 } from '@heroicons/react/24/outline'
 
 const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
@@ -54,19 +56,31 @@ export default function Weddings() {
     }
   }
 
+  // Effective status: a DRAFT event that already has invitations is live, and a
+  // past event is finished. Keeps the badge meaningful without manual updates.
+  const effectiveStatus = (w) => {
+    if (w.status === 'CANCELLED') return 'CANCELLED'
+    const hasInvitations = (w._count?.invitations || 0) > 0
+    if (hasInvitations && w.weddingDate && new Date(w.weddingDate) < new Date()) return 'COMPLETED'
+    if (w.status === 'DRAFT' && hasInvitations) return 'ACTIVE'
+    return w.status
+  }
+
+  const STATUS_META = {
+    ACTIVE: { label: 'Actif', dot: 'bg-green-500', cls: 'bg-green-50 text-green-700 border-green-200' },
+    DRAFT: { label: 'Brouillon', dot: 'bg-amber-500', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+    COMPLETED: { label: 'Terminé', dot: 'bg-blue-500', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+    CANCELLED: { label: 'Annulé', dot: 'bg-red-500', cls: 'bg-red-50 text-red-700 border-red-200' }
+  }
+
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'ACTIVE':
-        return <span className="badge-success">Actif</span>
-      case 'DRAFT':
-        return <span className="badge-warning">Brouillon</span>
-      case 'COMPLETED':
-        return <span className="badge-info">Terminé</span>
-      case 'CANCELLED':
-        return <span className="badge-danger">Annulé</span>
-      default:
-        return <span className="badge">{status}</span>
-    }
+    const m = STATUS_META[status] || { label: status, dot: 'bg-gray-400', cls: 'bg-gray-50 text-gray-600 border-gray-200' }
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${m.cls}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${m.dot}`} />
+        {m.label}
+      </span>
+    )
   }
 
   return (
@@ -136,68 +150,87 @@ export default function Weddings() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {weddings.map((wedding) => (
-            <div key={wedding.id} className="card-hover">
-              {/* Cover Image */}
-              <div className="h-40 bg-gradient-wedding relative overflow-hidden">
+          {weddings.map((wedding) => {
+            const locked = (wedding._count?.invitations || 0) > 0
+            const header = wedding.primaryColor
+              ? { background: `linear-gradient(135deg, ${wedding.primaryColor}, ${wedding.secondaryColor || wedding.primaryColor})` }
+              : undefined
+            return (
+            <div
+              key={wedding.id}
+              className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 overflow-hidden flex flex-col"
+            >
+              {/* Cover / header */}
+              <div
+                className={`h-36 relative overflow-hidden ${header ? '' : 'bg-gradient-wedding'}`}
+                style={header}
+              >
                 {wedding.coverPhoto ? (
                   <img
                     src={wedding.coverPhoto}
                     alt={eventDisplayName(wedding)}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <HeartIcon className="h-16 w-16 text-primary-200" />
+                    <HeartIcon className="h-14 w-14 text-white/40" />
                   </div>
                 )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent pointer-events-none" />
                 <div className="absolute top-3 left-3">
-                  <span className="badge-gold">{EVENT_TYPE_LABELS[wedding.eventType] || 'Mariage'}</span>
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white/90 backdrop-blur-sm text-gray-800 shadow-sm">
+                    {EVENT_TYPE_LABELS[wedding.eventType] || 'Mariage'}
+                  </span>
                 </div>
                 <div className="absolute top-3 right-3">
-                  {getStatusBadge(wedding.status)}
+                  {getStatusBadge(effectiveStatus(wedding))}
                 </div>
               </div>
 
               {/* Content */}
-              <div className="p-5">
-                <h3 className="text-lg font-serif font-bold text-gray-900 mb-1">
-                  {eventDisplayName(wedding)}
-                </h3>
-                <p className="text-sm text-gray-500 mb-4">
+              <div className="p-5 flex flex-col flex-1">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <h3 className="text-lg font-serif font-bold text-gray-900 leading-snug">
+                    {eventDisplayName(wedding)}
+                  </h3>
+                  {locked && (
+                    <span title="Informations verrouillées (invitations générées)" className="flex-shrink-0 mt-1 text-gray-400">
+                      <LockClosedIcon className="h-4 w-4" />
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-500 mb-4 flex items-center gap-1.5">
+                  <CalendarDaysIcon className="h-4 w-4 text-gray-400" />
                   {format(new Date(wedding.weddingDate), 'd MMMM yyyy', { locale: fr })}
-                  {wedding.ceremonyTime && ` à ${wedding.ceremonyTime}`}
+                  {wedding.ceremonyTime && ` · ${wedding.ceremonyTime}`}
                 </p>
 
                 {/* Stats */}
-                <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
-                  <span className="flex items-center">
-                    <UserGroupIcon className="h-4 w-4 mr-1" />
-                    {wedding._count?.guests || 0}
-                  </span>
-                  <span className="flex items-center">
-                    <QrCodeIcon className="h-4 w-4 mr-1" />
-                    {wedding._count?.invitations || 0}
-                  </span>
-                  <span className="flex items-center">
-                    <TicketIcon className="h-4 w-4 mr-1" />
-                    {wedding.confirmedGuests || 0}
-                  </span>
+                <div className="grid grid-cols-3 gap-2 mb-5">
+                  {[
+                    { icon: UserGroupIcon, value: wedding._count?.guests || 0, label: 'Invités' },
+                    { icon: QrCodeIcon, value: wedding._count?.invitations || 0, label: 'Invit.' },
+                    { icon: TicketIcon, value: wedding.confirmedGuests || 0, label: 'Confirmés' }
+                  ].map((s, i) => (
+                    <div key={i} className="flex flex-col items-center justify-center py-2 rounded-lg bg-gray-50">
+                      <s.icon className="h-4 w-4 text-primary-500 mb-0.5" />
+                      <span className="text-sm font-semibold text-gray-900">{s.value}</span>
+                      <span className="text-[10px] text-gray-400">{s.label}</span>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-2">
-                  <Link
-                    to={`/weddings/${wedding.id}`}
-                    className="btn-primary btn-sm flex-1"
-                  >
+                <div className="flex items-center gap-2 mt-auto">
+                  <Link to={`/weddings/${wedding.id}`} className="btn-primary btn-sm flex-1">
                     <EyeIcon className="h-4 w-4 mr-1" />
                     Voir
                   </Link>
                   <Link
                     to={`/weddings/${wedding.id}/edit`}
                     className="btn-secondary btn-sm"
+                    title={locked ? 'Informations verrouillées' : 'Modifier'}
                   >
                     <PencilIcon className="h-4 w-4" />
                   </Link>
@@ -211,7 +244,7 @@ export default function Weddings() {
                 </div>
               </div>
             </div>
-          ))}
+          )})}
         </div>
       )}
     </div>

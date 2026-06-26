@@ -2379,7 +2379,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                   placeholder="0.00"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500 mt-1">Montant facturé au client par invitation au-delà de la gratuite.</p>
+                <p className="text-xs text-gray-500 mt-1">Montant facturé au client par invitation générée. À <strong>0</strong>, les invitations de ce template sont gratuites.</p>
               </div>
 
               <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
