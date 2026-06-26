@@ -103,9 +103,21 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // Static files
-// Uploaded files get a fresh UUID filename on every upload (never reused/
-// overwritten), so it's safe to let browsers cache them aggressively -
-// avoids re-downloading the same avatar/background/etc. on every page load.
+// Generated invitations (PDF/PNG) REUSE a stable filename (invitation_<code>)
+// and are overwritten on every regeneration, so they must NOT be cached as
+// immutable — otherwise the browser keeps serving the old file. Serve these
+// with revalidation BEFORE the general /uploads handler.
+const NO_CACHE_OPTIONS = {
+  etag: true,
+  lastModified: true,
+  setHeaders: (res) => { res.setHeader('Cache-Control', 'no-cache, must-revalidate'); }
+};
+app.use('/uploads/pdfs', express.static(path.join(__dirname, '../uploads/pdfs'), NO_CACHE_OPTIONS));
+app.use('/uploads/images', express.static(path.join(__dirname, '../uploads/images'), NO_CACHE_OPTIONS));
+
+// Everything else under /uploads gets a fresh UUID filename on every upload
+// (never reused/overwritten), so it's safe to cache aggressively - avoids
+// re-downloading the same avatar/background/etc. on every page load.
 const UPLOADS_CACHE_OPTIONS = { maxAge: '7d', immutable: true };
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), UPLOADS_CACHE_OPTIONS));
 app.use('/templates', express.static(path.join(__dirname, '../templates')));

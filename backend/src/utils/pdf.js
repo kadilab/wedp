@@ -4,6 +4,24 @@ const path = require('path');
 const logger = require('./logger');
 const { DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, formatEventDate, componentVars } = require('./dateFormats');
 
+// Runs INSIDE the puppeteer page: shrink the font-size of [data-autofit]
+// elements until their text fits their fixed box. Mirrors the frontend
+// AutoFitText so generated PDF/PNG match the web render.
+function applyAutoFitInPage() {
+  document.querySelectorAll('[data-autofit="1"]').forEach((el) => {
+    let s = parseFloat(el.style.fontSize) || 16;
+    let guard = 0;
+    while (
+      (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1) &&
+      s > 6 && guard < 400
+    ) {
+      s -= 0.5;
+      el.style.fontSize = s + 'px';
+      guard++;
+    }
+  });
+}
+
 // Convert a hex color + opacity (0-100) to an rgba() CSS string (used for photo element borders)
 function hexToRgba(hex, alphaPercent = 100) {
   let h = (hex || '#FFFFFF').replace('#', '');
@@ -835,7 +853,7 @@ function generateDesignBasedHTML(options) {
       // Text element
       const alignItems = el.verticalAlign === 'top' ? 'flex-start' : el.verticalAlign === 'bottom' ? 'flex-end' : 'center';
       const shadowStyle = el.textShadow && el.textShadow !== 'none' ? `text-shadow:${el.textShadow} ${el.shadowColor || '#000000'};` : '';
-      return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};display:flex;align-items:${alignItems};justify-content:${el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start'};font-family:'${el.fontFamily}',serif;font-size:${el.fontSize}px;font-weight:${el.fontWeight || 'normal'};font-style:${el.fontStyle || 'normal'};color:${el.color || '#000'};text-align:${el.textAlign || 'center'};letter-spacing:${el.letterSpacing || 0}px;text-transform:${el.textTransform || 'none'};overflow:hidden;word-break:break-word;${shadowStyle}">
+      return `<div ${el.autoFit ? 'data-autofit="1"' : ''} style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};display:flex;align-items:${alignItems};justify-content:${el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start'};font-family:'${el.fontFamily}',serif;font-size:${el.fontSize}px;font-weight:${el.fontWeight || 'normal'};font-style:${el.fontStyle || 'normal'};color:${el.color || '#000'};text-align:${el.textAlign || 'center'};letter-spacing:${el.letterSpacing || 0}px;text-transform:${el.textTransform || 'none'};overflow:hidden;word-break:break-word;${shadowStyle}">
         <span style="width:100%">${content}</span>
       </div>`;
     })
@@ -908,6 +926,7 @@ async function generateInvitationPDF(options) {
     });
 
     await page.evaluateHandle('document.fonts.ready');
+    await page.evaluate(applyAutoFitInPage);
 
     if (hasDesignElements) {
       await page.pdf({
@@ -992,6 +1011,7 @@ async function generateInvitationImage(options) {
     });
 
     await page.evaluateHandle('document.fonts.ready');
+    await page.evaluate(applyAutoFitInPage);
 
     // For design-based templates, screenshot the .canvas container at exact dimensions
     const canvasContainer = await page.$('.canvas');
