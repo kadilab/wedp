@@ -18,7 +18,7 @@ import TemplatePreview from '../../components/templates/TemplatePreview'
 
 const EVENT_TYPE_LABELS = {
   WEDDING: 'Mariage',
-  DOT: 'Dot / Fiançailles',
+  DOT: 'Mariage coutumier',
   BIRTHDAY: 'Anniversaire',
   CEREMONY: 'Cérémonie',
   CONFERENCE: 'Conférence',

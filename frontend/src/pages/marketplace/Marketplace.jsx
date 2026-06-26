@@ -7,7 +7,7 @@ import { SparklesIcon } from '@heroicons/react/24/outline';
 const EVENT_TYPES = [
   { value: '', label: 'Tous' },
   { value: 'WEDDING', label: 'Mariage' },
-  { value: 'DOT', label: 'Dot' },
+  { value: 'DOT', label: 'Mariage coutumier' },
   { value: 'BIRTHDAY', label: 'Anniversaire' },
   { value: 'CEREMONY', label: 'Cérémonie' },
   { value: 'CONFERENCE', label: 'Conférence' },

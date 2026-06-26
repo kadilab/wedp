@@ -68,7 +68,7 @@ export default function InvitationView() {
   const EVENT_INTRO_LABELS = {
     WEDDING: 'Invitation au mariage de',
     BIRTHDAY: 'Invitation à l\'anniversaire de',
-    DOT: 'Invitation à la dot de',
+    DOT: 'Invitation au mariage coutumier de',
     CEREMONY: 'Invitation à la cérémonie de',
     CONFERENCE: 'Vous êtes invité(e) à',
     OTHER: 'Vous êtes invité(e) à'

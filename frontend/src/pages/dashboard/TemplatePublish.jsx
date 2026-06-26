@@ -6,7 +6,7 @@ import { useAuthStore } from '../../stores/authStore';
 
 const EVENT_TYPES = [
   { value: 'WEDDING', label: 'Mariage' },
-  { value: 'DOT', label: 'Dot / Fiançailles' },
+  { value: 'DOT', label: 'Mariage coutumier' },
   { value: 'BIRTHDAY', label: 'Anniversaire' },
   { value: 'CEREMONY', label: 'Cérémonie (baptême…)' },
   { value: 'CONFERENCE', label: 'Conférence / Séminaire' },

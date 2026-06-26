@@ -37,7 +37,7 @@ const ChurchIcon = ({ className }) => (
 const EVENT_TYPES_META = [
   { id: 'WEDDING', label: 'Mariage', icon: HeartIcon, desc: 'Cérémonie civile, religieuse, réception...' },
   { id: 'BIRTHDAY', label: 'Anniversaire', icon: CakeIcon, desc: 'Date, heure et lieu' },
-  { id: 'DOT', label: 'Dot', icon: GiftIcon, desc: 'Cérémonie traditionnelle' },
+  { id: 'DOT', label: 'Mariage coutumier', icon: GiftIcon, desc: 'Cérémonie traditionnelle' },
   { id: 'CEREMONY', label: 'Cérémonie', icon: ChurchIcon, desc: 'Baptême, communion...' },
   { id: 'CONFERENCE', label: 'Conférence', icon: UserGroupIcon, desc: 'Séminaire, conférence...' },
   { id: 'OTHER', label: 'Autre événement', icon: CalendarDaysIcon, desc: 'Tout autre type d\'événement' }
@@ -566,7 +566,7 @@ export default function WeddingCreate() {
                   className={`input ${errors.eventTitle || getServerError('eventTitle') ? 'input-error' : ''}`}
                   placeholder={
                     eventType === 'BIRTHDAY' ? 'Anniversaire de Fatou' :
-                    eventType === 'DOT' ? 'Dot de Awa & Moussa' :
+                    eventType === 'DOT' ? 'Mariage coutumier de Awa & Moussa' :
                     eventType === 'CONFERENCE' ? 'Conférence Tech 2026' :
                     'Cérémonie de Jean'
                   }
