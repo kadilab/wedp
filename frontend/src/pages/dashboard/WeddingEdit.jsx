@@ -198,7 +198,13 @@ export default function WeddingEdit() {
 
   const cleanValue = (val) => (val === '' || val === undefined) ? null : val
 
+  const locked = (wedding?._count?.invitations || 0) > 0
+
   const onSubmit = (data) => {
+    if (locked) {
+      toast.error('Des invitations ont déjà été générées : les informations ne sont plus modifiables.')
+      return
+    }
     const submitData = {
       weddingDate: new Date(data.weddingDate).toISOString(),
       customMessage: cleanValue(data.customMessage),
@@ -273,6 +279,19 @@ export default function WeddingEdit() {
         </p>
       </div>
 
+      {locked && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <ExclamationTriangleIcon className="h-6 w-6 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">Informations verrouillées</p>
+            <p className="text-sm text-amber-700">
+              Des invitations ont déjà été générées pour cet événement. Pour éviter toute fraude,
+              les informations ne sont plus modifiables.
+            </p>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* ==================== Section 1: Mariés (Mariage uniquement) ==================== */}
         {isWedding && (
@@ -302,7 +321,7 @@ export default function WeddingEdit() {
             <textarea className="input" rows={3} placeholder="Un message spécial..." {...register('customMessage')} />
           </div>
 
-          {/* Photo des mariés */}
+          {/* Photo des mariés 
           <div className="border-t pt-6">
             <h3 className="font-medium text-gray-900 flex items-center mb-1">
               <PhotoIcon className="h-5 w-5 mr-2 text-primary-500" />
@@ -320,7 +339,7 @@ export default function WeddingEdit() {
               validation={{ maxSizeMB: 5 }}
             />
           </div>
-
+*/}
           {/* Per-placeholder images for multi-photo templates */}
           {photoPlaceholders.length > 1 && (
             <div className="border-t pt-6">
@@ -890,8 +909,8 @@ export default function WeddingEdit() {
           </button>
           <div className="flex items-center gap-4">
             <button type="button" onClick={() => navigate(`/weddings/${id}`)} className="btn-secondary">Annuler</button>
-            <button type="submit" disabled={!isDirty || updateMutation.isLoading} className="btn-primary">
-              {updateMutation.isLoading ? 'Enregistrement...' : 'Enregistrer'}
+            <button type="submit" disabled={locked || !isDirty || updateMutation.isLoading} className="btn-primary">
+              {locked ? 'Verrouillé' : updateMutation.isLoading ? 'Enregistrement...' : 'Enregistrer'}
             </button>
           </div>
         </div>

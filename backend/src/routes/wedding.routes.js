@@ -449,6 +449,21 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
       select: { wantsPrintService: true, brideName: true, groomName: true, eventTitle: true }
     });
 
+    // Anti-fraud: once invitations have been generated for this event, its
+    // content can no longer be edited — otherwise a client could buy a few
+    // invitations, change the names and re-use them for other people/events.
+    // Staff (admin) can still edit for support.
+    const isStaff = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
+    if (!isStaff) {
+      const invitationCount = await prisma.invitation.count({ where: { weddingId: req.params.id } });
+      if (invitationCount > 0) {
+        return res.status(403).json({
+          error: 'Des invitations ont déjà été générées pour cet événement. Les informations ne sont plus modifiables.',
+          code: 'WEDDING_LOCKED'
+        });
+      }
+    }
+
     const wedding = await prisma.wedding.update({
       where: { id: req.params.id },
       data: {

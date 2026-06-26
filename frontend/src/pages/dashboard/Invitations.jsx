@@ -297,7 +297,8 @@ export default function Invitations() {
               {quota.remaining} invitation{quota.remaining > 1 ? 's' : ''} restante{quota.remaining > 1 ? 's' : ''} sur {quota.totalAllowed}
             </p>
             <p className="text-xs text-gray-500">
-              {quota.freeQuota} gratuite{quota.freeQuota > 1 ? 's' : ''} + {quota.purchased} achetée{quota.purchased > 1 ? 's' : ''}
+              {quota.freeQuota > 0 && `${quota.freeQuota} gratuite${quota.freeQuota > 1 ? 's' : ''} + `}
+              {quota.purchased} achetée{quota.purchased > 1 ? 's' : ''}
             </p>
           </div>
           <button onClick={() => setShowBuyModal(true)} className="btn-secondary btn-sm">

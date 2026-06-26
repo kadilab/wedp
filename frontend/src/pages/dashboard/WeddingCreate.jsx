@@ -166,7 +166,8 @@ export default function WeddingCreate() {
   const STEP_PROGRAMME = 2
   const STEP_DESIGN = isWedding ? 3 : 2
   const STEP_QR = isWedding ? 4 : 3
-  const STEP_PRINT = isWedding ? 5 : 4
+  const STEP_PREVIEW = isWedding ? 5 : 4
+  const STEP_PRINT = isWedding ? 6 : 5
   const totalSteps = STEP_PRINT
 
   const STEPS = [
@@ -176,11 +177,13 @@ export default function WeddingCreate() {
       { num: STEP_PROGRAMME, label: 'Programme' },
       { num: STEP_DESIGN, label: 'Design' },
       { num: STEP_QR, label: 'QR Code' },
+      { num: STEP_PREVIEW, label: 'Aperçu' },
       { num: STEP_PRINT, label: 'Impression' }
     ] : [
       { num: STEP_INFO, label: 'Infos' },
       { num: STEP_DESIGN, label: 'Design' },
       { num: STEP_QR, label: 'QR Code' },
+      { num: STEP_PREVIEW, label: 'Aperçu' },
       { num: STEP_PRINT, label: 'Impression' }
     ])
   ]
@@ -1078,6 +1081,58 @@ export default function WeddingCreate() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ===================== STEP PREVIEW ===================== */}
+          {step === STEP_PREVIEW && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-serif font-bold text-gray-900 mb-2 flex items-center">
+                <EyeIcon className="h-6 w-6 mr-2 text-primary-500" />
+                Visualisez votre invitation
+              </h2>
+              <p className="text-gray-600">
+                Voici un aperçu de votre invitation avec vos informations. Cliquez sur l'aperçu pour l'agrandir.
+              </p>
+
+              {selectedTemplateForImages ? (
+                <div className="flex flex-col items-center">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTmpl(selectedTemplateForImages)}
+                    className="group relative w-full max-w-sm rounded-xl overflow-hidden shadow-lg border border-gray-200 hover:shadow-xl transition-shadow"
+                    title="Cliquer pour agrandir"
+                  >
+                    <TemplatePreview template={selectedTemplateForImages} adaptive weddingData={previewWeddingData} />
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
+                      <span className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-1 px-3 py-1.5 bg-white/90 rounded-full text-sm font-medium text-gray-800 transition-opacity">
+                        <EyeIcon className="h-4 w-4" /> Agrandir
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTmpl(selectedTemplateForImages)}
+                    className="btn-secondary btn-sm mt-4"
+                  >
+                    <EyeIcon className="h-4 w-4 mr-1" /> Agrandir l'aperçu
+                  </button>
+
+                  <div className="mt-6 w-full max-w-md bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-700">
+                    💡 Cet aperçu est donné à titre indicatif. Les invitations définitives (avec QR code
+                    personnalisé par invité) seront générées depuis la page <strong>Invitations</strong> de l'événement.
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
+                  <p className="text-amber-700 text-sm">
+                    Aucun template sélectionné. Revenez à l'étape <strong>Design</strong> pour en choisir un.
+                  </p>
+                  <button type="button" onClick={() => setStep(STEP_DESIGN)} className="btn-secondary btn-sm mt-3">
+                    Choisir un template
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

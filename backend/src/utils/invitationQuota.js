@@ -2,8 +2,9 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-// Chaque mariage a droit à 1 invitation gratuite avant de devoir acheter du quota.
-const FREE_QUOTA = 1;
+// Aucune invitation gratuite : toute invitation générée doit être achetée
+// (anti-fraude). Mettre > 0 pour réautoriser des invitations offertes.
+const FREE_QUOTA = 0;
 
 /**
  * Quota d'invitations d'un mariage = 1 gratuite + somme des quantités des
