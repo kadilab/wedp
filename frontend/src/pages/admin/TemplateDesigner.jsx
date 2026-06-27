@@ -735,9 +735,11 @@ export default function TemplateDesigner({ clientMode = false }) {
     const rect = canvasRef.current.getBoundingClientRect()
     const scaleX = canvasWidth / rect.width
     const scaleY = canvasHeight / rect.height
+    // Works for both mouse and touch events.
+    const point = e.touches?.[0] || e.changedTouches?.[0] || e
     return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY
+      x: (point.clientX - rect.left) * scaleX,
+      y: (point.clientY - rect.top) * scaleY
     }
   }, [canvasWidth, canvasHeight])
 
@@ -802,6 +804,8 @@ export default function TemplateDesigner({ clientMode = false }) {
 
   const handleMouseMove = useCallback((e) => {
     if (!isDragging && !isResizing) return
+    // Prevent the page from scrolling while dragging an element on touch.
+    if (e.touches && e.cancelable) e.preventDefault()
     const coords = getCanvasCoords(e)
     const dx = coords.x - dragStart.x
     const dy = coords.y - dragStart.y
@@ -842,9 +846,16 @@ export default function TemplateDesigner({ clientMode = false }) {
   useEffect(() => {
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
+    // Touch (mobile) — touchmove must be non-passive so we can preventDefault.
+    window.addEventListener('touchmove', handleMouseMove, { passive: false })
+    window.addEventListener('touchend', handleMouseUp)
+    window.addEventListener('touchcancel', handleMouseUp)
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
+      window.removeEventListener('touchmove', handleMouseMove)
+      window.removeEventListener('touchend', handleMouseUp)
+      window.removeEventListener('touchcancel', handleMouseUp)
     }
   }, [handleMouseMove, handleMouseUp])
 
@@ -3304,10 +3315,11 @@ export default function TemplateDesigner({ clientMode = false }) {
                 <div
                   key={el.id}
                   onMouseDown={(e) => handleElementMouseDown(e, el.id)}
+                  onTouchStart={(e) => handleElementMouseDown(e, el.id)}
                   className={`absolute transition-shadow ${el.locked ? 'cursor-not-allowed' : 'cursor-move'} ${
                     isSelected ? 'ring-2 ring-primary-500 ring-offset-1' : isMultiSelected ? 'ring-2 ring-blue-400 ring-offset-1' : 'hover:ring-1 hover:ring-primary-300'
                   }`}
-                  style={{ left: el.x, top: el.y, width: el.width, height: el.height }}
+                  style={{ left: el.x, top: el.y, width: el.width, height: el.height, touchAction: 'none' }}
                 >
                   {renderElementContent(el)}
 
@@ -3318,6 +3330,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                         <div
                           key={dir}
                           onMouseDown={(e) => handleResizeMouseDown(e, dir)}
+                          onTouchStart={(e) => handleResizeMouseDown(e, dir)}
                           className="absolute w-3 h-3 bg-primary-500 border border-white rounded-sm"
                           style={{
                             cursor: `${dir}-resize`,
@@ -3330,6 +3343,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                         <button
                           key={dir}
                           onMouseDown={(e) => handleResizeMouseDown(e, dir)}
+                          onTouchStart={(e) => handleResizeMouseDown(e, dir)}
                           className="absolute bg-primary-400 border border-white"
                           aria-label={`Resize ${dir}`}
                           style={{

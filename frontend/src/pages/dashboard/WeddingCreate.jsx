@@ -881,7 +881,6 @@ export default function WeddingCreate() {
                         </div>
                       )}
                     </div>
-                  </div>
                 )}
               </div>
 
