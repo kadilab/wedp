@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 
 // Ensure upload directories exist
-const uploadDirs = ['uploads', 'uploads/images', 'uploads/covers', 'uploads/logos', 'uploads/csv', 'uploads/pdfs', 'uploads/qrcodes', 'uploads/backgrounds', 'uploads/qr-logos', 'uploads/couple-photos', 'uploads/avatars', 'uploads/template-backgrounds', 'uploads/templates', 'uploads/icons'];
+const uploadDirs = ['uploads', 'uploads/images', 'uploads/covers', 'uploads/logos', 'uploads/csv', 'uploads/pdfs', 'uploads/qrcodes', 'uploads/backgrounds', 'uploads/qr-logos', 'uploads/couple-photos', 'uploads/avatars', 'uploads/template-backgrounds', 'uploads/templates', 'uploads/icons', 'uploads/fonts'];
 uploadDirs.forEach(dir => {
   const fullPath = path.join(__dirname, '../../', dir);
   if (!fs.existsSync(fullPath)) {
@@ -35,6 +35,8 @@ const storage = multer.diskStorage({
       folder = 'uploads/templates';
     } else if (file.fieldname === 'icon') {
       folder = 'uploads/icons';
+    } else if (file.fieldname === 'font') {
+      folder = 'uploads/fonts';
     } else if (file.fieldname === 'csv' || file.fieldname === 'guestList') {
       folder = 'uploads/csv';
     }
@@ -62,6 +64,13 @@ const fileFilter = (req, file, cb) => {
       cb(null, true);
     } else {
       cb(new Error('Only CSV and Excel files are allowed'), false);
+    }
+  } else if (file.fieldname === 'font') {
+    // Font files — browsers send inconsistent mimetypes, so trust the extension.
+    if (/\.(ttf|otf|woff|woff2)$/i.test(file.originalname)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Formats acceptés : .ttf, .otf, .woff, .woff2'), false);
     }
   } else {
     if (allowedImageTypes.includes(file.mimetype)) {

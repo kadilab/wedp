@@ -8,6 +8,9 @@ import { EVENT_TYPES, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
 import { PHOTO_SHAPES, getClipPath, getImageStyle, DEFAULT_CUSTOM_CLIP_PATH, OBJECT_FIT_OPTIONS, OBJECT_POSITION_OPTIONS } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
 import AutoFitText from '../../components/templates/AutoFitText'
+import FontStyles, { useCustomFonts } from '../../components/templates/FontStyles'
+import { GOOGLE_FONT_NAMES } from '../../utils/fonts'
+import { fontAPI } from '../../services/api'
 import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable, formatEventDate, DATE_VARIABLE_KEYS } from '../../utils/dateFormats'
 import { searchIcons, iconPreviewUrl, fetchIconDataUrl, ICON_SUGGESTIONS, EMOJI_GROUPS } from '../../utils/elementLibrary'
 import {
@@ -587,6 +590,34 @@ export default function TemplateDesigner({ clientMode = false }) {
   const [showGrid, setShowGrid] = useState(true)
   const [zoom, setZoom] = useState(0.65)
   const [saving, setSaving] = useState(false)
+
+  // ---- Fonts: Google list + admin-uploaded custom fonts ----
+  const customFonts = useCustomFonts()
+  const fontNames = [...GOOGLE_FONT_NAMES, ...customFonts.map(f => f.family)]
+  const [fontUploading, setFontUploading] = useState(false)
+  const fontInputRef = useRef(null)
+
+  const handleFontUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (e.target) e.target.value = ''
+    if (!file) return
+    const family = window.prompt(
+      "Nom à donner à cette police (tel qu'il apparaîtra dans la liste) :",
+      file.name.replace(/\.(ttf|otf|woff2?|TTF|OTF|WOFF2?)$/,'').replace(/[-_]+/g,' ').trim()
+    )
+    if (!family || !family.trim()) return
+    setFontUploading(true)
+    try {
+      const res = await fontAPI.upload(file, family.trim())
+      await queryClient.invalidateQueries('custom-fonts')
+      toast.success(`Police « ${res.data.font.family} » importée`)
+      if (selectedId) updateElement(selectedId, { fontFamily: res.data.font.family })
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Échec de l'import de la police")
+    } finally {
+      setFontUploading(false)
+    }
+  }
 
   // ---- Undo / Redo history (snapshots of `elements`) ----
   const elementsRef = useRef(elements)
@@ -1632,6 +1663,8 @@ export default function TemplateDesigner({ clientMode = false }) {
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
+      {/* Google Fonts + custom uploaded fonts (dropdown preview + canvas) */}
+      <FontStyles />
       {/* Top Bar */}
       <div className="bg-white border-b px-4 py-3 flex items-center justify-between shrink-0 shadow-sm">
         <div className="flex items-center gap-3">
@@ -2870,16 +2903,46 @@ export default function TemplateDesigner({ clientMode = false }) {
                       <>
                         {/* Font Family */}
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Police</label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-medium text-gray-700">Police</label>
+                            {!clientMode && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => fontInputRef.current?.click()}
+                                  disabled={fontUploading}
+                                  className="text-[11px] text-primary-600 hover:text-primary-700 font-medium disabled:opacity-50"
+                                >
+                                  {fontUploading ? 'Import…' : '+ Importer une police'}
+                                </button>
+                                <input
+                                  ref={fontInputRef}
+                                  type="file"
+                                  accept=".ttf,.otf,.woff,.woff2"
+                                  onChange={handleFontUpload}
+                                  className="hidden"
+                                />
+                              </>
+                            )}
+                          </div>
                           <select
                             value={selectedElement.fontFamily || 'Montserrat'}
                             onChange={(e) => updateElement(selectedId, { fontFamily: e.target.value })}
                             className="w-full px-2 py-1.5 text-sm border rounded-lg"
                             style={{ fontFamily: selectedElement.fontFamily || 'Montserrat' }}
                           >
-                            {FONT_FAMILIES.map(font => (
-                              <option key={font} value={font} style={{ fontFamily: font }}>{font}</option>
-                            ))}
+                            {customFonts.length > 0 && (
+                              <optgroup label="Mes polices importées">
+                                {customFonts.map(f => (
+                                  <option key={f.id} value={f.family} style={{ fontFamily: f.family }}>{f.family}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                            <optgroup label="Polices Google">
+                              {GOOGLE_FONT_NAMES.map(font => (
+                                <option key={font} value={font} style={{ fontFamily: font }}>{font}</option>
+                              ))}
+                            </optgroup>
                           </select>
                           {/* Font preview */}
                           <div

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
-import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
+import { EyeIcon, EyeSlashIcon, EnvelopeIcon, LockClosedIcon, UserIcon, PhoneIcon, ArrowRightIcon } from '@heroicons/react/24/outline'
 
 export default function Register() {
   const [showPassword, setShowPassword] = useState(false)
@@ -39,46 +39,41 @@ export default function Register() {
   return (
     <div>
       <div className="mb-8">
-        <h2 className="text-2xl font-serif font-bold text-gray-900">
+        <h2 className="text-3xl font-serif font-bold text-gray-900">
           Créer un compte
         </h2>
-        <p className="text-gray-600 mt-2">
-          Commencez à créer vos invitations de mariage
+        <p className="text-gray-500 mt-2">
+          Commencez à créer vos invitations en quelques minutes
         </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="firstName" className="label">
-              Prénom
-            </label>
-            <input
-              id="firstName"
-              type="text"
-              className={`input ${errors.firstName ? 'input-error' : ''}`}
-              placeholder="Jean"
-              {...register('firstName', {
-                required: 'Le prénom est requis'
-              })}
-            />
+            <label htmlFor="firstName" className="label">Prénom</label>
+            <div className="relative">
+              <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                id="firstName"
+                type="text"
+                className={`input pl-10 ${errors.firstName ? 'input-error' : ''}`}
+                placeholder="Jean"
+                {...register('firstName', { required: 'Le prénom est requis' })}
+              />
+            </div>
             {errors.firstName && (
               <p className="mt-1 text-sm text-red-600">{errors.firstName.message}</p>
             )}
           </div>
 
           <div>
-            <label htmlFor="lastName" className="label">
-              Nom
-            </label>
+            <label htmlFor="lastName" className="label">Nom</label>
             <input
               id="lastName"
               type="text"
               className={`input ${errors.lastName ? 'input-error' : ''}`}
               placeholder="Dupont"
-              {...register('lastName', {
-                required: 'Le nom est requis'
-              })}
+              {...register('lastName', { required: 'Le nom est requis' })}
             />
             {errors.lastName && (
               <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>
@@ -87,49 +82,50 @@ export default function Register() {
         </div>
 
         <div>
-          <label htmlFor="email" className="label">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            className={`input ${errors.email ? 'input-error' : ''}`}
-            placeholder="votre@email.com"
-            {...register('email', {
-              required: 'L\'email est requis',
-              pattern: {
-                value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                message: 'Email invalide'
-              }
-            })}
-          />
+          <label htmlFor="email" className="label">Email</label>
+          <div className="relative">
+            <EnvelopeIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              id="email"
+              type="email"
+              className={`input pl-10 ${errors.email ? 'input-error' : ''}`}
+              placeholder="votre@email.com"
+              {...register('email', {
+                required: 'L\'email est requis',
+                pattern: {
+                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: 'Email invalide'
+                }
+              })}
+            />
+          </div>
           {errors.email && (
             <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
           )}
         </div>
 
         <div>
-          <label htmlFor="phone" className="label">
-            Téléphone (optionnel)
-          </label>
-          <input
-            id="phone"
-            type="tel"
-            className="input"
-            placeholder="+33 6 12 34 56 78"
-            {...register('phone')}
-          />
+          <label htmlFor="phone" className="label">Téléphone (optionnel)</label>
+          <div className="relative">
+            <PhoneIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              id="phone"
+              type="tel"
+              className="input pl-10"
+              placeholder="+229 01 23 45 67"
+              {...register('phone')}
+            />
+          </div>
         </div>
 
         <div>
-          <label htmlFor="password" className="label">
-            Mot de passe
-          </label>
+          <label htmlFor="password" className="label">Mot de passe</label>
           <div className="relative">
+            <LockClosedIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               id="password"
               type={showPassword ? 'text' : 'password'}
-              className={`input pr-10 ${errors.password ? 'input-error' : ''}`}
+              className={`input pl-10 pr-10 ${errors.password ? 'input-error' : ''}`}
               placeholder="••••••••"
               {...register('password', {
                 required: 'Le mot de passe est requis',
@@ -164,17 +160,20 @@ export default function Register() {
           <label htmlFor="confirmPassword" className="label">
             Confirmer le mot de passe
           </label>
-          <input
-            id="confirmPassword"
-            type="password"
-            className={`input ${errors.confirmPassword ? 'input-error' : ''}`}
-            placeholder="••••••••"
-            {...register('confirmPassword', {
-              required: 'Veuillez confirmer le mot de passe',
-              validate: (value) =>
-                value === password || 'Les mots de passe ne correspondent pas'
-            })}
-          />
+          <div className="relative">
+            <LockClosedIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              id="confirmPassword"
+              type="password"
+              className={`input pl-10 ${errors.confirmPassword ? 'input-error' : ''}`}
+              placeholder="••••••••"
+              {...register('confirmPassword', {
+                required: 'Veuillez confirmer le mot de passe',
+                validate: (value) =>
+                  value === password || 'Les mots de passe ne correspondent pas'
+              })}
+            />
+          </div>
           {errors.confirmPassword && (
             <p className="mt-1 text-sm text-red-600">{errors.confirmPassword.message}</p>
           )}
@@ -207,7 +206,7 @@ export default function Register() {
         <button
           type="submit"
           disabled={isLoading}
-          className="btn-primary w-full py-3"
+          className="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-full bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold shadow-lg shadow-primary-600/25 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:hover:translate-y-0"
         >
           {isLoading ? (
             <span className="flex items-center justify-center">
@@ -218,14 +217,14 @@ export default function Register() {
               Création en cours...
             </span>
           ) : (
-            'Créer mon compte'
+            <>Créer mon compte <ArrowRightIcon className="h-5 w-5" /></>
           )}
         </button>
       </form>
 
       <p className="mt-8 text-center text-gray-600">
         Déjà un compte ?{' '}
-        <Link to="/login" className="text-primary-600 hover:text-primary-700 font-medium">
+        <Link to="/login" className="text-primary-600 hover:text-primary-700 font-semibold">
           Se connecter
         </Link>
       </p>

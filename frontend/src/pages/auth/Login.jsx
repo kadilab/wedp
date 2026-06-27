@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
-import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
+import { EyeIcon, EyeSlashIcon, EnvelopeIcon, LockClosedIcon, ArrowRightIcon } from '@heroicons/react/24/outline'
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
@@ -39,46 +39,46 @@ export default function Login() {
   return (
     <div>
       <div className="mb-8">
-        <h2 className="text-2xl font-serif font-bold text-gray-900">
-          Connexion
+        <h2 className="text-3xl font-serif font-bold text-gray-900">
+          Bon retour 👋
         </h2>
-        <p className="text-gray-600 mt-2">
-          Accédez à votre espace de gestion d'invitations
+        <p className="text-gray-500 mt-2">
+          Connectez-vous à votre espace de gestion d'invitations
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div>
-          <label htmlFor="email" className="label">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            className={`input ${errors.email ? 'input-error' : ''}`}
-            placeholder="votre@email.com"
-            {...register('email', {
-              required: 'L\'email est requis',
-              pattern: {
-                value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                message: 'Email invalide'
-              }
-            })}
-          />
+          <label htmlFor="email" className="label">Email</label>
+          <div className="relative">
+            <EnvelopeIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              id="email"
+              type="email"
+              className={`input pl-10 ${errors.email ? 'input-error' : ''}`}
+              placeholder="votre@email.com"
+              {...register('email', {
+                required: 'L\'email est requis',
+                pattern: {
+                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: 'Email invalide'
+                }
+              })}
+            />
+          </div>
           {errors.email && (
             <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
           )}
         </div>
 
         <div>
-          <label htmlFor="password" className="label">
-            Mot de passe
-          </label>
+          <label htmlFor="password" className="label">Mot de passe</label>
           <div className="relative">
+            <LockClosedIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               id="password"
               type={showPassword ? 'text' : 'password'}
-              className={`input pr-10 ${errors.password ? 'input-error' : ''}`}
+              className={`input pl-10 pr-10 ${errors.password ? 'input-error' : ''}`}
               placeholder="••••••••"
               {...register('password', {
                 required: 'Le mot de passe est requis',
@@ -93,11 +93,7 @@ export default function Login() {
               className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
               onClick={() => setShowPassword(!showPassword)}
             >
-              {showPassword ? (
-                <EyeSlashIcon className="h-5 w-5" />
-              ) : (
-                <EyeIcon className="h-5 w-5" />
-              )}
+              {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
             </button>
           </div>
           {errors.password && (
@@ -125,7 +121,7 @@ export default function Login() {
         <button
           type="submit"
           disabled={isLoading}
-          className="btn-primary w-full py-3"
+          className="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-full bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold shadow-lg shadow-primary-600/25 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:hover:translate-y-0"
         >
           {isLoading ? (
             <span className="flex items-center justify-center">
@@ -136,14 +132,14 @@ export default function Login() {
               Connexion en cours...
             </span>
           ) : (
-            'Se connecter'
+            <>Se connecter <ArrowRightIcon className="h-5 w-5" /></>
           )}
         </button>
       </form>
 
       <p className="mt-8 text-center text-gray-600">
         Pas encore de compte ?{' '}
-        <Link to="/register" className="text-primary-600 hover:text-primary-700 font-medium">
+        <Link to="/register" className="text-primary-600 hover:text-primary-700 font-semibold">
           Créer un compte
         </Link>
       </p>

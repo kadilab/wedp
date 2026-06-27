@@ -189,6 +189,18 @@ export const invitationOrderAPI = {
   payKpay: (weddingId, orderId, data = {}) => api.post(`/invitation-orders/${weddingId}/orders/${orderId}/kpay`, data)
 }
 
+// Custom fonts API
+export const fontAPI = {
+  list: () => api.get('/fonts'),
+  upload: (file, family) => {
+    const fd = new FormData()
+    fd.append('font', file)
+    fd.append('family', family)
+    return api.post('/fonts', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+  },
+  delete: (id) => api.delete(`/fonts/${id}`)
+}
+
 // Template API
 export const templateAPI = {
   getAll: (params) => api.get('/templates', { params }),

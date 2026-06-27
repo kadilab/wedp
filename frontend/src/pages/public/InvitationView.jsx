@@ -9,6 +9,7 @@ import { fr } from 'date-fns/locale'
 import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
 import AutoFitText from '../../components/templates/AutoFitText'
+import FontStyles from '../../components/templates/FontStyles'
 import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars } from '../../utils/dateFormats'
 // Format date: JJ-MM-YYYY HH:mm
 import {
@@ -355,8 +356,8 @@ export default function InvitationView() {
 
     return (
       <div className="min-h-screen flex flex-col items-center justify-start bg-gray-100 py-6" style={{ fontFamily: bodyFont }}>
-        {/* Google Fonts */}
-        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&family=Great+Vibes&family=Cormorant+Garamond:wght@400;500;600;700&family=Lora:wght@400;500;600;700&family=Dancing+Script:wght@400;500;600;700&family=Tangerine:wght@400;700&family=Montserrat:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&family=Raleway:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&family=Open+Sans:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700;900&family=Satisfy&family=Pacifico&family=Alex+Brush&family=Sacramento&display=swap" rel="stylesheet" />
+        {/* Google Fonts + custom uploaded fonts */}
+        <FontStyles />
 
         {/* Canvas container - matches template dimensions */}
         <div

@@ -764,9 +764,7 @@ export default function WeddingCreate() {
                     </p>
                   </div>
                 ) : (
-                  <div className="flex gap-6">
-                    {/* Left: template grid */}
-                    <div className="flex-1 space-y-4">
+                  <div className="space-y-4">
                       {filteredMyTemplates.length > 0 && (
                         <div>
                           <p className="text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2 flex items-center gap-1">
@@ -882,41 +880,6 @@ export default function WeddingCreate() {
                           </button>
                         </div>
                       )}
-                    </div>
-
-                    {/* Right: live preview panel */}
-                    <div className="w-56 flex-shrink-0">
-                      <div className="sticky top-4">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                          <EyeIcon className="h-3.5 w-3.5" /> Aperçu en direct
-                        </p>
-                        {watch('templateId') ? (
-                          (() => {
-                            const selectedTmpl = [...myTemplates, ...templates].find(t => t.id === watch('templateId'))
-                            return selectedTmpl ? (
-                              <div className="rounded-xl border-2 border-primary-200 overflow-hidden shadow-lg">
-                                <div className="aspect-[3/4] relative bg-gray-50">
-                                  <TemplatePreview
-                                    template={selectedTmpl}
-                                    weddingData={previewWeddingData}
-                                  />
-                                </div>
-                                <div className="p-2 bg-primary-50 border-t border-primary-200">
-                                  <p className="text-xs font-semibold text-primary-700 truncate">{selectedTmpl.name}</p>
-                                  <p className="text-[10px] text-primary-500 mt-0.5">
-                                    {isWedding ? `${(watch('brideName') || 'Mariée')} & ${(watch('groomName') || 'Marié')}` : (watch('eventTitle') || selectedEventMeta.label)}
-                                  </p>
-                                </div>
-                              </div>
-                            ) : null
-                          })()
-                        ) : (
-                          <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center bg-gray-50 text-center p-4">
-                            <SwatchIcon className="h-8 w-8 text-gray-300 mb-2" />
-                            <p className="text-xs text-gray-400">Sélectionnez un template pour voir l'aperçu</p>
-                          </div>
-                        )}
-                      </div>
                     </div>
                   </div>
                 )}

@@ -161,6 +161,7 @@ app.use('/api/print-orders', printOrderRoutes);
 app.use('/api/creators', creatorRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/public', publicRoutes); // Public invitation routes
+app.use('/api/fonts', require('./routes/font.routes')); // Custom font upload/list
 app.use('/api/webhooks', require('./routes/webhook.routes')); // K-PAY callbacks
 
 // Socket.IO connection handling

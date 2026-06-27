@@ -3,6 +3,7 @@ import { HeartIcon, CalendarIcon, PhotoIcon } from '@heroicons/react/24/outline'
 import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from './CurvedText'
 import AutoFitText from './AutoFitText'
+import FontStyles from './FontStyles'
 import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars } from '../../utils/dateFormats'
 
 const hexToRgba = (hex, alpha = 1) => {
@@ -129,11 +130,8 @@ export default function TemplatePreview({ template, className = '', weddingData 
         className={`w-full overflow-hidden relative bg-white ${adaptive ? '' : 'h-full'} ${className}`}
         style={adaptive ? { aspectRatio: `${canvasWidth} / ${canvasHeight}` } : undefined}
       >
-        {/* Google Fonts â€” same list as InvitationView */}
-        <link
-          href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&family=Great+Vibes&family=Cormorant+Garamond:wght@400;500;600;700&family=Lora:wght@400;500;600;700&family=Dancing+Script:wght@400;500;600;700&family=Tangerine:wght@400;700&family=Montserrat:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&family=Raleway:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&family=Open+Sans:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700;900&family=Satisfy&family=Pacifico&family=Alex+Brush&family=Sacramento&display=swap"
-          rel="stylesheet"
-        />
+        {/* Google Fonts + custom uploaded fonts (shared source of truth) */}
+        <FontStyles />
         {scale !== null && (
           <div
             style={{

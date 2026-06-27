@@ -3,6 +3,21 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
 const { DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, formatEventDate, componentVars } = require('./dateFormats');
+const { buildGoogleFontsHref, customFontFaceCss } = require('./fonts');
+
+// Lazily read admin-uploaded custom fonts and build their @font-face CSS so the
+// puppeteer page can render them (absolute URLs fetched over the network).
+async function getCustomFontCss() {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    const row = await prisma.setting.findUnique({ where: { key: 'customFonts' } });
+    const fonts = row?.value ? JSON.parse(row.value) : [];
+    return customFontFaceCss(fonts);
+  } catch {
+    return '';
+  }
+}
 
 // Runs INSIDE the puppeteer page: shrink the font-size of [data-autofit]
 // elements until their text fits their fixed box. Mirrors the frontend
@@ -636,7 +651,7 @@ function generateInvitationHTML(options) {
  * Uses template.config.designElements for absolute positioning on background
  */
 function generateDesignBasedHTML(options) {
-  const { wedding, guest, invitation, template } = options;
+  const { wedding, guest, invitation, template, customFontCss = '' } = options;
   const config = template?.config || {};
   const designElements = config.designElements || [];
   
@@ -864,9 +879,10 @@ function generateDesignBasedHTML(options) {
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&family=Great+Vibes&family=Cormorant+Garamond:wght@400;500;600;700&family=Lora:wght@400;500;600;700&family=Dancing+Script:wght@400;500;600;700&family=Tangerine:wght@400;700&family=Montserrat:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&family=Raleway:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&family=Open+Sans:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700;900&family=Satisfy&family=Pacifico&family=Alex+Brush&family=Sacramento&display=swap" rel="stylesheet">
+  <link href="${buildGoogleFontsHref()}" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    ${customFontCss}
     @page { size: ${canvasW}px ${canvasH}px; margin: 0; }
     body { margin: 0; padding: 0; width: ${canvasW}px; height: ${canvasH}px; overflow: hidden; }
     .canvas { position: relative; width: ${canvasW}px; height: ${canvasH}px; background: #fff; overflow: hidden; }
@@ -906,8 +922,9 @@ async function generateInvitationPDF(options) {
     // Use design-based layout if template has designElements
     const hasDesignElements = template?.config?.designElements && Array.isArray(template.config.designElements) && template.config.designElements.length > 0;
     
+    const customFontCss = await getCustomFontCss();
     const htmlContent = hasDesignElements
-      ? generateDesignBasedHTML({ wedding, guest, invitation: invitationWithQR, template })
+      ? generateDesignBasedHTML({ wedding, guest, invitation: invitationWithQR, template, customFontCss })
       : generateInvitationHTML({ wedding, guest, invitation: invitationWithQR, template });
 
     const canvasW = template?.config?.canvasWidth || 800;
@@ -985,8 +1002,9 @@ async function generateInvitationImage(options) {
     // Use design-based layout if template has designElements
     const hasDesignElements = template?.config?.designElements && Array.isArray(template.config.designElements) && template.config.designElements.length > 0;
 
+    const customFontCss = await getCustomFontCss();
     const htmlContent = hasDesignElements
-      ? generateDesignBasedHTML({ wedding, guest, invitation: invitationWithQR, template })
+      ? generateDesignBasedHTML({ wedding, guest, invitation: invitationWithQR, template, customFontCss })
       : generateInvitationHTML({ wedding, guest, invitation: invitationWithQR, template });
 
     const canvasW = template?.config?.canvasWidth || 800;
@@ -1130,12 +1148,13 @@ async function generatePrintLayoutPDF(options) {
   }
 
   // Generate individual invitation HTML snippets
+  const customFontCss = await getCustomFontCss();
   const snippets = [];
   for (const guest of guests) {
     if (guest.invitation) {
       // Use design-based layout if template has designElements
       const html = hasDesignElements
-        ? generateDesignBasedHTML({ wedding, guest, invitation: guest.invitation, template })
+        ? generateDesignBasedHTML({ wedding, guest, invitation: guest.invitation, template, customFontCss })
         : generateInvitationHTML({ wedding, guest, invitation: guest.invitation, template });
       snippets.push(html);
     }
