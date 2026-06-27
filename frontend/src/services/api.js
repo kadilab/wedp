@@ -291,6 +291,7 @@ export const publicAPI = {
 export const adminAPI = {
   getDashboard: () => api.get('/admin/dashboard'),
   getStats: () => api.get('/admin/dashboard'),
+  getSupervision: () => api.get('/admin/supervision'),
   // Settings
   getSettings: () => api.get('/admin/settings'),
   updateSettings: (data) => api.put('/admin/settings', data),

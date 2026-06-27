@@ -13,9 +13,51 @@ const { uploadSingle, handleUploadError } = require('../middleware/upload.middle
 const { safeDeleteUploads } = require('../utils/fileCleanup');
 const { recordOrderCommission } = require('../utils/marketplace');
 const { approveInvitationOrder } = require('../utils/invitationOrders');
+const { getVisitStats, getSecurityEvents } = require('../utils/supervision');
 const kpay = require('../utils/kpay');
 
 const prisma = new PrismaClient();
+
+/**
+ * @route   GET /api/admin/supervision
+ * @desc    Supervision dashboard: live online users, visits, security events.
+ * @access  Admin
+ */
+router.get('/supervision', authenticate, isAdmin, async (req, res) => {
+  try {
+    // Online users (from the in-memory Socket.IO registry).
+    const onlineMap = req.app.get('onlineUsers') || new Map();
+    const onlineIds = [...new Set(Array.from(onlineMap.values()))];
+    const onlineUsers = onlineIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: onlineIds } },
+          select: { id: true, firstName: true, lastName: true, email: true, role: true, isCreator: true }
+        })
+      : [];
+
+    const [visits, security, totals] = await Promise.all([
+      getVisitStats(),
+      getSecurityEvents(40),
+      (async () => ({
+        users: await prisma.user.count(),
+        weddings: await prisma.wedding.count(),
+        invitations: await prisma.invitation.count(),
+        creators: await prisma.user.count({ where: { isCreator: true } })
+      }))()
+    ]);
+
+    res.json({
+      online: { count: onlineUsers.length, users: onlineUsers },
+      visits,
+      security,
+      totals,
+      generatedAt: new Date()
+    });
+  } catch (error) {
+    logger.error('Supervision error:', error);
+    res.status(500).json({ error: 'Erreur lors du chargement de la supervision' });
+  }
+});
 
 /**
  * @route   GET /api/admin/dashboard

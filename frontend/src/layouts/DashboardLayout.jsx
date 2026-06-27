@@ -9,6 +9,7 @@ import {
   HomeIcon,
   HeartIcon,
   CalendarDaysIcon,
+  SignalIcon,
   UserGroupIcon,
   TicketIcon,
   SwatchIcon,
@@ -64,6 +65,7 @@ const adminNavSections = [
     label: 'Vue d\'ensemble',
     items: [
       { name: 'Dashboard', href: '/admin', icon: ChartBarIcon },
+      { name: 'Supervision', href: '/admin/supervision', icon: SignalIcon },
     ]
   },
   {

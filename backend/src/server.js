@@ -127,6 +127,15 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Public visit tracking (no auth) — called once per session by the public site.
+app.post('/api/public/track-visit', async (req, res) => {
+  try {
+    const { recordVisit } = require('./utils/supervision');
+    await recordVisit();
+  } catch { /* non-blocking */ }
+  res.json({ ok: true });
+});
+
 // Public settings (no auth)
 app.get('/api/settings/public', async (req, res) => {
   try {
@@ -164,12 +173,18 @@ app.use('/api/public', publicRoutes); // Public invitation routes
 app.use('/api/fonts', require('./routes/font.routes')); // Custom font upload/list
 app.use('/api/webhooks', require('./routes/webhook.routes')); // K-PAY callbacks
 
+// Live online users registry (socketId -> userId), exposed for the admin
+// supervision dashboard.
+const onlineUsers = new Map();
+app.set('onlineUsers', onlineUsers);
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   logger.info(`Socket connected: ${socket.id}`);
 
   socket.on('join-user', (userId) => {
     socket.join(`user:${userId}`);
+    if (userId) onlineUsers.set(socket.id, userId);
     logger.info(`Socket ${socket.id} joined user:${userId}`);
   });
 
@@ -183,6 +198,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    onlineUsers.delete(socket.id);
     logger.info(`Socket disconnected: ${socket.id}`);
   });
 });

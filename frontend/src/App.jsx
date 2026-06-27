@@ -46,6 +46,7 @@ import AdminPrintOrders from './pages/admin/AdminPrintOrders'
 import AdminTemplates from './pages/admin/AdminTemplates'
 import AdminCoupons from './pages/admin/AdminCoupons'
 import AdminSettings from './pages/admin/AdminSettings'
+import AdminSupervision from './pages/admin/AdminSupervision'
 import AdminPayoutDashboard from './pages/admin/AdminPayoutDashboard'
 import AdminMarketplaceApprovals from './pages/admin/AdminMarketplaceApprovals'
 import TemplateDesigner from './pages/admin/TemplateDesigner'
@@ -134,6 +135,7 @@ function App() {
       {/* Admin Routes */}
       <Route element={<AdminRoute><DashboardLayout isAdmin /></AdminRoute>}>
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/supervision" element={<AdminSupervision />} />
         <Route path="/admin/users" element={<AdminUsers />} />
         <Route path="/admin/weddings" element={<AdminWeddings />} />
         <Route path="/admin/invitation-orders" element={<AdminInvitationOrders />} />

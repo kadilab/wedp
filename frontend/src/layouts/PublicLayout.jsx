@@ -1,11 +1,21 @@
+import { useEffect } from 'react'
 import { Outlet, Link } from 'react-router-dom'
 import { HeartIcon } from '@heroicons/react/24/solid'
+import { QrCodeIcon } from '@heroicons/react/24/outline'
+import api from '../services/api'
 import { useAuthStore } from '../stores/authStore'
 import useSiteSettingsStore from '../stores/siteSettingsStore'
 
 export default function PublicLayout() {
   const { isAuthenticated, user } = useAuthStore()
   const { siteName, siteLogo, logoHeight, contactEmail, supportPhone } = useSiteSettingsStore()
+
+  // Count a visit once per browser session (non-blocking).
+  useEffect(() => {
+    if (sessionStorage.getItem('visit-tracked')) return
+    sessionStorage.setItem('visit-tracked', '1')
+    api.post('/public/track-visit').catch(() => {})
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -35,6 +45,9 @@ export default function PublicLayout() {
               </a>
               <a href="#contact" className="text-gray-600 hover:text-primary-600 transition-colors">
                 Contact
+              </a>
+              <a href="/checkin" className="inline-flex items-center gap-1 text-gray-600 hover:text-primary-600 transition-colors">
+                <QrCodeIcon className="h-4 w-4" /> Check-in
               </a>
             </nav>
 
@@ -96,6 +109,7 @@ export default function PublicLayout() {
               <ul className="space-y-2 text-gray-400">
                 <li><a href="#features" className="hover:text-white transition-colors">Fonctionnalités</a></li>
                 <li><a href="#templates" className="hover:text-white transition-colors">Templates</a></li>
+                <li><a href="/checkin" className="hover:text-white transition-colors">App Check-in</a></li>
               </ul>
             </div>
 

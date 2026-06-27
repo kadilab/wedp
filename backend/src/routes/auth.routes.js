@@ -9,6 +9,7 @@ const { sendWelcomeEmail, sendPasswordResetEmail } = require('../utils/email');
 const { generateToken } = require('../utils/helpers');
 const logger = require('../utils/logger');
 const { createNotification, NotificationTemplates } = require('../utils/notifications');
+const { recordSecurityEvent } = require('../utils/supervision');
 
 const prisma = new PrismaClient();
 
@@ -110,13 +111,17 @@ router.post('/login', loginValidation, async (req, res) => {
       where: { email }
     });
 
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress;
+
     if (!user) {
+      recordSecurityEvent({ type: 'LOGIN_FAILED', reason: 'unknown_email', email, ip: clientIp, ua: req.headers['user-agent'] }).catch(() => {});
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
 
     // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      recordSecurityEvent({ type: 'LOGIN_FAILED', reason: 'bad_password', email, ip: clientIp, ua: req.headers['user-agent'] }).catch(() => {});
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
 

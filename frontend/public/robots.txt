@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /$
+Allow: /login
+Allow: /register
+
+# Private / app areas — not for indexing
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /weddings
+Disallow: /i/
+Disallow: /checkin
+Disallow: /api/
+
+Sitemap: https://winvite.pro/sitemap.xml
