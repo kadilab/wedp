@@ -304,6 +304,16 @@ const DEFAULT_ELEMENTS = [
     fontSize: 12, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
     color: '#999999', textAlign: 'center', verticalAlign: 'middle', visible: true,
     letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'additionalInfo',
+    type: 'additionalInfo',
+    label: 'Informations supplémentaires',
+    content: '{{additional_info}}',
+    x: 100, y: 930, width: 600, height: 40,
+    fontSize: 12, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'italic',
+    color: '#999999', textAlign: 'center', verticalAlign: 'middle', visible: false,
+    letterSpacing: 0, textTransform: 'none', locked: false, autoFit: true
   }
 ]
 
@@ -420,6 +430,16 @@ const SIMPLE_EVENT_ELEMENTS = [
     fontSize: 12, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'normal',
     color: '#999999', textAlign: 'center', verticalAlign: 'middle', visible: true,
     letterSpacing: 0, textTransform: 'none', locked: false
+  },
+  {
+    id: 'additionalInfo',
+    type: 'additionalInfo',
+    label: 'Informations supplémentaires',
+    content: '{{additional_info}}',
+    x: 100, y: 930, width: 600, height: 40,
+    fontSize: 12, fontFamily: 'Montserrat', fontWeight: 'normal', fontStyle: 'italic',
+    color: '#999999', textAlign: 'center', verticalAlign: 'middle', visible: false,
+    letterSpacing: 0, textTransform: 'none', locked: false, autoFit: true
   }
 ]
 
@@ -487,6 +507,7 @@ const SAMPLE_DATA = {
   venue_address: '12 Rue des Fleurs, Dakar',
   guest_name: 'Sophie Dupont',
   custom_message: 'Nous serions honorés de votre présence pour célébrer notre union',
+  additional_info: 'Parking disponible · Dress code : tenue de soirée',
   wedding_date: '20 Juin 2026',
   ceremony_time: '15h00',
   table_number: 'VIP',
@@ -573,7 +594,7 @@ export default function TemplateDesigner({ clientMode = false }) {
   const [templateCategory, setTemplateCategory] = useState('MODERN')
   const [templateEventType, setTemplateEventType] = useState(initialEventType)
   const [isPremium, setIsPremium] = useState(false)
-  const [pricePerInvitation, setPricePerInvitation] = useState('0')
+  const [pricePerInvitation, setPricePerInvitation] = useState('')
   const [previewImage, setPreviewImage] = useState('')
 
   // Design state
@@ -1355,6 +1376,11 @@ export default function TemplateDesigner({ clientMode = false }) {
   const handleSave = async () => {
     if (!clientMode && !templateName.trim()) {
       toast.error('Veuillez entrer un nom pour le template')
+      setActivePanel('settings')
+      return
+    }
+    if (!clientMode && !(parseFloat(pricePerInvitation) > 0)) {
+      toast.error('Veuillez définir un prix par invitation supérieur à 0')
       setActivePanel('settings')
       return
     }

@@ -8,6 +8,7 @@ import NotificationDropdown from '../components/notifications/NotificationDropdo
 import {
   HomeIcon,
   HeartIcon,
+  CalendarDaysIcon,
   UserGroupIcon,
   TicketIcon,
   SwatchIcon,
@@ -45,7 +46,7 @@ const clientNavSections = [
     label: 'Général',
     items: [
       { name: 'Tableau de bord', href: '/dashboard', icon: HomeIcon },
-      { name: 'Mes événements', href: '/weddings', icon: HeartIcon },
+      { name: 'Mes événements', href: '/weddings', icon: CalendarDaysIcon },
     ]
   },
   {
@@ -69,7 +70,7 @@ const adminNavSections = [
     label: 'Gestion',
     items: [
       { name: 'Utilisateurs', href: '/admin/users', icon: UsersIcon },
-      { name: 'Événements', href: '/admin/weddings', icon: HeartIcon },
+      { name: 'Événements', href: '/admin/weddings', icon: CalendarDaysIcon },
       { name: 'Achats invitations', href: '/admin/invitation-orders', icon: TicketIcon, badgeKey: 'pendingInvitationOrders' },
       { name: 'Impressions', href: '/admin/print-orders', icon: PrinterIcon },
       { name: 'Marketplace', href: '/admin/marketplace', icon: ShoppingBagIcon, badgeKey: 'pendingMarketplaceSubmissions' },

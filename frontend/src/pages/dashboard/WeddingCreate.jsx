@@ -170,6 +170,7 @@ export default function WeddingCreate() {
     venueName: watch('venueName'),
     venueAddress: watch('venueAddress'),
     customMessage: watch('customMessage'),
+    additionalInfo: watch('additionalInfo'),
     communeTime: watch('communeTime'),
     egliseTime: watch('egliseTime'),
     receptionStartTime: watch('receptionStartTime'),

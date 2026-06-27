@@ -302,6 +302,7 @@ export default function InvitationView() {
       guest_name: guest ? `${guest.firstName} ${guest.lastName}` : '',
       invitation_type: guest ? (guest.plusOnes > 0 ? 'Couple' : 'Singleton') : '',
       custom_message: wedding?.customMessage || '',
+      additional_info: wedding?.additionalInfo || '',
       wedding_date: formatDateSimple(wedding?.weddingDate),
       ceremony_time: wedding?.ceremonyTime || wedding?.communeTime || '',
       venue_name: wedding?.venueName || wedding?.receptionVenue || '',

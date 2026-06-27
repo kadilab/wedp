@@ -1862,8 +1862,8 @@ router.put('/marketplace/templates/:marketplaceId/review', authenticate, isAdmin
       const price = parseFloat(priceUSD);
       const commission = parseFloat(commissionPercentage);
 
-      if (Number.isNaN(price) || price < 0) {
-        return res.status(400).json({ message: 'A valid sale price is required to approve a template' });
+      if (Number.isNaN(price) || price <= 0) {
+        return res.status(400).json({ message: 'Un prix par invitation supérieur à 0 est requis pour approuver un template.' });
       }
       if (Number.isNaN(commission) || commission < 0 || commission > 100) {
         return res.status(400).json({ message: 'A valid commission percentage (0-100) is required to approve a template' });
@@ -1888,7 +1888,9 @@ router.put('/marketplace/templates/:marketplaceId/review', authenticate, isAdmin
         where: { id: submission.templateId },
         data: {
           marketplaceStatus: 'APPROVED',
-          pricePerInvitation: reviewData.priceUSD
+          pricePerInvitation: reviewData.priceUSD,
+          // Creator templates published to the marketplace are premium.
+          isPremium: true
         }
       });
     }

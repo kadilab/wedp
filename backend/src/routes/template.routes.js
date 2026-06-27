@@ -461,7 +461,8 @@ router.post('/:id/fork', authenticate, async (req, res) => {
         config: source.config,
         category: source.category,
         eventType: source.eventType,
-        isPremium: false,
+        // Templates owned by a creator are premium.
+        isPremium: !!req.user.isCreator,
         isActive: true,
         allowBackgroundChange: source.allowBackgroundChange,
         colorScheme: source.colorScheme,
@@ -501,7 +502,8 @@ router.post('/blank', authenticate, async (req, res) => {
         config: { designElements: [], canvasWidth: CANVAS_WIDTH_DEFAULT, canvasHeight: CANVAS_HEIGHT_DEFAULT },
         canvasWidth: CANVAS_WIDTH_DEFAULT,
         canvasHeight: CANVAS_HEIGHT_DEFAULT,
-        isPremium: false,
+        // Templates owned by a creator are premium.
+        isPremium: !!req.user.isCreator,
         isActive: true,
         allowBackgroundChange: true,
         userId: req.user.id,

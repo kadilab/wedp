@@ -76,6 +76,7 @@ export default function TemplatePreview({ template, className = '', weddingData 
       guest_name: 'Prénom Nom',
       invitation_type: template?.config?.invitationType === 'couple' ? 'Couple' : 'Singleton',
       custom_message: weddingData?.customMessage || '',
+      additional_info: weddingData?.additionalInfo || '',
       wedding_date: fmt(weddingData?.weddingDate) || '25-12-2026 00:00',
       ceremony_time: weddingData?.ceremonyTime || weddingData?.communeTime || '',
       venue_name: weddingData?.venueName || weddingData?.receptionVenue || weddingData?.communeVenue || 'Château des Roses',

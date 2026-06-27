@@ -694,6 +694,7 @@ function generateDesignBasedHTML(options) {
     event_type: EVENT_TYPE_LABELS[wedding.eventType] || 'Mariage',
     guest_name: guest ? `${guest.firstName} ${guest.lastName}` : '',
     custom_message: wedding.customMessage || '',
+    additional_info: wedding.additionalInfo || '',
     wedding_date: formatDate(wedding.weddingDate),
     ceremony_time: wedding.ceremonyTime || wedding.communeTime || '',
     venue_name: wedding.venueName || wedding.receptionVenue || '',

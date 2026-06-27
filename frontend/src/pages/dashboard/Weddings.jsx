@@ -134,7 +134,7 @@ export default function Weddings() {
         </div>
       ) : weddings.length === 0 ? (
         <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-          <HeartIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <CalendarDaysIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <h2 className="text-xl font-medium text-gray-900 mb-2">
             Aucun événement trouvé
           </h2>
@@ -174,7 +174,7 @@ export default function Weddings() {
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <HeartIcon className="h-14 w-14 text-white/40" />
+                    <CalendarDaysIcon className="h-14 w-14 text-white/40" />
                   </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent pointer-events-none" />

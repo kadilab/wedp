@@ -29,7 +29,8 @@ const authenticate = async (req, res, next) => {
         role: true,
         status: true,
         preferredLanguage: true,
-        darkMode: true
+        darkMode: true,
+        isCreator: true
       }
     });
 
