@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
 import { EyeIcon, EyeSlashIcon, EnvelopeIcon, LockClosedIcon, ArrowRightIcon } from '@heroicons/react/24/outline'
+import GoogleAuthButton from '../../components/auth/GoogleAuthButton'
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
@@ -136,6 +137,8 @@ export default function Login() {
           )}
         </button>
       </form>
+
+      <GoogleAuthButton />
 
       <p className="mt-8 text-center text-gray-600">
         Pas encore de compte ?{' '}

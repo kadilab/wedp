@@ -32,3 +32,6 @@ Thumbs.db
 # Misc caches
 .eslintcache
 *.tmp
+
+# Google OAuth client secret (ne jamais committer)
+client_secret_*.json

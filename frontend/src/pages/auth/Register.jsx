@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
 import { EyeIcon, EyeSlashIcon, EnvelopeIcon, LockClosedIcon, UserIcon, PhoneIcon, ArrowRightIcon } from '@heroicons/react/24/outline'
+import GoogleAuthButton from '../../components/auth/GoogleAuthButton'
 
 export default function Register() {
   const [showPassword, setShowPassword] = useState(false)
@@ -221,6 +222,8 @@ export default function Register() {
           )}
         </button>
       </form>
+
+      <GoogleAuthButton label="ou s'inscrire avec" />
 
       <p className="mt-8 text-center text-gray-600">
         Déjà un compte ?{' '}

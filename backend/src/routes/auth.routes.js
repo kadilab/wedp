@@ -10,6 +10,10 @@ const { generateToken } = require('../utils/helpers');
 const logger = require('../utils/logger');
 const { createNotification, NotificationTemplates } = require('../utils/notifications');
 const { recordSecurityEvent } = require('../utils/supervision');
+const { OAuth2Client } = require('google-auth-library');
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 const prisma = new PrismaClient();
 
@@ -169,6 +173,100 @@ router.post('/login', loginValidation, async (req, res) => {
   } catch (error) {
     logger.error('Login error:', error);
     res.status(500).json({ error: 'Erreur lors de la connexion' });
+  }
+});
+
+/**
+ * @route   POST /api/auth/google
+ * @desc    Sign in / sign up with a Google ID token (from @react-oauth/google).
+ * @access  Public
+ */
+router.post('/google', async (req, res) => {
+  try {
+    if (!GOOGLE_CLIENT_ID) {
+      return res.status(503).json({ error: 'Connexion Google non configurée' });
+    }
+    const { credential } = req.body;
+    if (!credential) {
+      return res.status(400).json({ error: 'Jeton Google manquant' });
+    }
+
+    // Verify the ID token against our client id (audience).
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
+      payload = ticket.getPayload();
+    } catch (err) {
+      logger.warn('Google token verification failed:', err.message);
+      return res.status(401).json({ error: 'Jeton Google invalide' });
+    }
+
+    const email = (payload.email || '').toLowerCase();
+    if (!email || payload.email_verified === false) {
+      return res.status(400).json({ error: 'Compte Google sans email vérifié' });
+    }
+
+    let user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      // Create a new account. Google users have no local password, so we store
+      // a random hashed one (they sign in via Google).
+      const randomPassword = await bcrypt.hash(`google_${payload.sub}_${Date.now()}`, 12);
+      user = await prisma.user.create({
+        data: {
+          email,
+          password: randomPassword,
+          firstName: payload.given_name || (payload.name ? payload.name.split(' ')[0] : 'Utilisateur'),
+          lastName: payload.family_name || (payload.name ? payload.name.split(' ').slice(1).join(' ') : ''),
+          avatar: payload.picture || null,
+          role: 'CLIENT',
+          status: 'ACTIVE',
+          emailVerified: true,
+          preferredLanguage: 'fr'
+        }
+      });
+      sendWelcomeEmail(user).catch(() => {});
+    }
+
+    if (user.status !== 'ACTIVE') {
+      return res.status(403).json({ error: 'Votre compte est désactivé' });
+    }
+
+    // Backfill avatar if missing.
+    if (!user.avatar && payload.picture) {
+      user = await prisma.user.update({ where: { id: user.id }, data: { avatar: payload.picture } });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    );
+
+    await prisma.log.create({
+      data: { userId: user.id, action: 'LOGIN', entity: 'user', entityId: user.id, ipAddress: req.ip, userAgent: req.get('user-agent'), details: { provider: 'google' } }
+    }).catch(() => {});
+
+    res.json({
+      message: 'Connexion réussie',
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+        avatar: user.avatar,
+        role: user.role,
+        isCreator: user.isCreator,
+        creatorProfileId: user.creatorProfileId,
+        preferredLanguage: user.preferredLanguage,
+        darkMode: user.darkMode
+      },
+      token
+    });
+  } catch (error) {
+    logger.error('Google auth error:', error);
+    res.status(500).json({ error: 'Erreur lors de la connexion Google' });
   }
 });
 

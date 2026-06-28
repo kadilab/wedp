@@ -58,6 +58,23 @@ export const useAuthStore = create(
         }
       },
 
+      loginWithGoogle: async (credential) => {
+        set({ isLoading: true })
+        try {
+          const response = await api.post('/auth/google', { credential })
+          const { token, user } = response.data
+          set({ user, token, isAuthenticated: true, isLoading: false })
+          api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+          return { success: true, user }
+        } catch (error) {
+          set({ isLoading: false })
+          return {
+            success: false,
+            error: error.response?.data?.error || 'Erreur de connexion Google'
+          }
+        }
+      },
+
       logout: () => {
         set({
           user: null,
