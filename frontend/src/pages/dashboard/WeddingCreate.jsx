@@ -5,7 +5,8 @@ import { useMutation, useQuery } from 'react-query'
 import api, { weddingAPI, templateAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import TemplatePreview from '../../components/templates/TemplatePreview'
-import { eventUsesCouple, eventUsesHonoree, eventUsesFreeTitle, honoreeFieldLabel } from '../../utils/eventTypes'
+import TablesEditor from '../../components/TablesEditor'
+import { eventUsesCouple, eventUsesHonoree, eventUsesFreeTitle, eventUsesTables, honoreeFieldLabel } from '../../utils/eventTypes'
 import {
   ArrowLeftIcon,
   HeartIcon,
@@ -103,6 +104,7 @@ export default function WeddingCreate() {
   } = useForm({
     defaultValues: {
       eventType: 'WEDDING',
+      tables: [],
       templateId: preselectedTemplateId || '',
       qrCodeStyle: 'classic',
       qrCodeColor: '#000000',
@@ -330,6 +332,8 @@ export default function WeddingCreate() {
       ...(isCouple ? { brideName: data.brideName, groomName: data.groomName } : {}),
       ...(isHonoree ? { honoreeName: data.honoreeName } : {}),
       ...(isFreeTitle ? { eventTitle: data.eventTitle } : {}),
+      // Predefined tables (only for events that seat guests)
+      ...(eventUsesTables(eventType) ? { tables: data.tables || [] } : {}),
       templateId: cleanValue(data.templateId),
       customMessage: cleanValue(data.customMessage),
       // QR Code
@@ -702,6 +706,13 @@ export default function WeddingCreate() {
                   <textarea className="input" rows={2} placeholder="Parking disponible, dress code..." {...register('additionalInfo')} />
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ===================== STEP INFO: Tables (événements à places assises) ===================== */}
+          {step === STEP_INFO && eventUsesTables(eventType) && (
+            <div className="mt-6">
+              <TablesEditor value={watch('tables') || []} onChange={(v) => setValue('tables', v)} />
             </div>
           )}
 

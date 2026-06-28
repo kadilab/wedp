@@ -101,7 +101,9 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
       eventTheme,
       rsvpDeadline,
       additionalInfo,
-      socialLinks
+      socialLinks,
+      // Seated tables (predefined table names)
+      tables
     } = req.body;
 
     // Generate unique slug from whatever names the event type provides:
@@ -127,6 +129,8 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
         venueAddress,
         venueCity,
         venueCountry,
+        // Seated tables (deduped, trimmed) — only meaningful for events with tables
+        tables: Array.isArray(tables) ? [...new Set(tables.map(t => String(t).trim()).filter(Boolean))] : undefined,
         customMessage,
         primaryColor,
         secondaryColor,

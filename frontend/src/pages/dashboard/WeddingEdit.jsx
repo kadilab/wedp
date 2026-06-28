@@ -6,7 +6,8 @@ import { weddingAPI, templateAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import TemplatePreview from '../../components/templates/TemplatePreview'
 import ImageUpload from '../../components/common/ImageUpload'
-import { eventUsesCouple, eventUsesHonoree, eventUsesFreeTitle, honoreeFieldLabel, getEventDisplayTitle } from '../../utils/eventTypes'
+import TablesEditor from '../../components/TablesEditor'
+import { eventUsesCouple, eventUsesHonoree, eventUsesFreeTitle, eventUsesTables, honoreeFieldLabel, getEventDisplayTitle } from '../../utils/eventTypes'
 import {
   ArrowLeftIcon, TrashIcon, BuildingLibraryIcon, MusicalNoteIcon,
   CalendarDaysIcon, HeartIcon,
@@ -88,6 +89,7 @@ export default function WeddingEdit() {
       groomName: wedding.groomName || '',
       eventTitle: wedding.eventTitle || '',
       honoreeName: wedding.honoreeName || '',
+      tables: Array.isArray(wedding.tables) ? wedding.tables : [],
       weddingDate: wedding.weddingDate?.split('T')[0],
       ceremonyTime: wedding.ceremonyTime || '',
       venueName: wedding.venueName || '',
@@ -225,6 +227,7 @@ export default function WeddingEdit() {
       ...(isCouple ? { brideName: data.brideName, groomName: data.groomName } : {}),
       ...(isHonoree ? { honoreeName: data.honoreeName } : {}),
       ...(isFreeTitle ? { eventTitle: data.eventTitle } : {}),
+      ...(eventUsesTables(wedding?.eventType) ? { tables: data.tables || [] } : {}),
       // Programme — weddings only
       ...(isWedding ? {
         communeDate: data.communeDate ? new Date(data.communeDate).toISOString() : null,
@@ -491,6 +494,13 @@ export default function WeddingEdit() {
               <textarea className="input" rows={2} placeholder="Parking, dress code..." {...register('additionalInfo')} />
             </div>
           </div>
+        </div>
+        )}
+
+        {/* ==================== Tables (événements à places assises) ==================== */}
+        {eventUsesTables(wedding?.eventType) && (
+        <div className="bg-white rounded-xl shadow-lg p-8">
+          <TablesEditor value={watch('tables') || []} onChange={(v) => setValue('tables', v)} />
         </div>
         )}
 

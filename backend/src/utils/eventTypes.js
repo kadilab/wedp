@@ -30,6 +30,21 @@ const eventUsesFreeTitle = (eventType) =>
 // Full 3-step programme (commune / église / réception) — weddings only.
 const eventUsesProgramme = (eventType) => normalize(eventType) === 'WEDDING';
 
+// Seated tables (sit-down meal): weddings, dots, ceremonies.
+const eventUsesTables = (eventType) =>
+  eventUsesCouple(eventType) || normalize(eventType) === 'CEREMONY';
+
+// Couple / plus-one (accompagnants) invitations: weddings & dots only.
+const eventUsesPlusOnes = (eventType) => eventUsesCouple(eventType);
+
+const GUEST_CATEGORY_OPTIONS = {
+  WEDDING: ['Famille mariée', 'Famille marié', 'Amis mariée', 'Amis marié', 'Collègues', 'VIP'],
+  DEFAULT: ['Famille', 'Amis', 'Collègues', 'VIP']
+};
+
+const getGuestCategoryOptions = (eventType) =>
+  GUEST_CATEGORY_OPTIONS[normalize(eventType)] || GUEST_CATEGORY_OPTIONS.DEFAULT;
+
 /**
  * Human-readable title for an event, coherent across event types.
  * - couple   → "Bride & Groom"
@@ -57,5 +72,8 @@ module.exports = {
   eventUsesHonoree,
   eventUsesFreeTitle,
   eventUsesProgramme,
+  eventUsesTables,
+  eventUsesPlusOnes,
+  getGuestCategoryOptions,
   getEventDisplayTitle
 };

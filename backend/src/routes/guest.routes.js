@@ -7,7 +7,8 @@ const { createGuestValidation, paginationValidation } = require('../middleware/v
 const { uploadSingle, handleUploadError } = require('../middleware/upload.middleware');
 const { paginate, buildPaginationMeta, parseCSV, mapCSVToGuest } = require('../utils/helpers');
 const { generateQRCode, generateUniqueCode } = require('../utils/qrcode');
-const { buildGuestShare } = require('../utils/guestMessaging');
+const { buildGuestShare, NoInvitationError } = require('../utils/guestMessaging');
+const { eventUsesTables, eventUsesPlusOnes, getGuestCategoryOptions } = require('../utils/eventTypes');
 const logger = require('../utils/logger');
 const fs = require('fs').promises;
 
@@ -250,6 +251,68 @@ router.get('/:weddingId', authenticate, paginationValidation, async (req, res) =
   } catch (error) {
     logger.error('Get guests error:', error);
     res.status(500).json({ error: 'Erreur lors de la rÃ©cupÃ©ration des invitÃ©s' });
+  }
+});
+
+/**
+ * @route   GET /api/guests/:weddingId/template
+ * @desc    Download an Excel (.xlsx) import template, columns adapted to the
+ *          event type, with an "Instructions" sheet (column meanings, valid
+ *          categories, and the event's predefined tables).
+ * @access  Private
+ * NB: declared BEFORE GET /:weddingId/:guestId so "template" isn't read as a guestId.
+ */
+router.get('/:weddingId/template', authenticate, async (req, res) => {
+  try {
+    const wedding = await findOwnedWedding(req, req.params.weddingId);
+    if (!wedding) return res.status(404).json({ error: 'Événement non trouvé' });
+
+    const usesTables = eventUsesTables(wedding.eventType);
+    const usesPlusOnes = eventUsesPlusOnes(wedding.eventType);
+    const categories = getGuestCategoryOptions(wedding.eventType);
+    const tables = Array.isArray(wedding.tables) ? wedding.tables : [];
+
+    // Columns + one example row, matching the keys mapCSVToGuest understands.
+    const headers = ['Prénom', 'Nom', 'Email', 'Téléphone', 'Catégorie'];
+    const example = { 'Prénom': 'Jean', 'Nom': 'Dupont', 'Email': 'jean@email.com', 'Téléphone': '+221770000000', 'Catégorie': categories[0] || 'Amis' };
+    if (usesTables) { headers.push('Table'); example['Table'] = tables[0] || '1'; }
+    if (usesPlusOnes) { headers.push('Accompagnants'); example['Accompagnants'] = 1; }
+    headers.push('Notes'); example['Notes'] = 'Invité VIP';
+
+    const guestSheet = XLSX.utils.json_to_sheet([example], { header: headers });
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, guestSheet, 'Invités');
+
+    // Human-readable instructions so the file is self-explanatory.
+    const instr = [
+      ['Comment remplir ce fichier'],
+      ['1) Une ligne = un invité. Remplissez sous chaque colonne, gardez la 1re ligne (en-têtes).'],
+      ['2) Enregistrez en .xlsx puis importez-le depuis la page Invités (bouton « Importer »).'],
+      [''],
+      ['Colonne', 'Description', 'Obligatoire'],
+      ['Prénom', "Prénom de l'invité", 'Oui'],
+      ['Nom', "Nom de l'invité", 'Oui'],
+      ['Email', 'Adresse email (sert à éviter les doublons)', 'Non'],
+      ['Téléphone', 'Numéro au format international, ex. +221770000000', 'Non'],
+      ['Catégorie', 'Une des catégories valides ci-dessous', 'Non'],
+      ...(usesTables ? [['Table', 'Nom/numéro de la table où placer l\'invité', 'Non']] : []),
+      ...(usesPlusOnes ? [['Accompagnants', "Nombre d'accompagnants (0, 1, 2...)", 'Non']] : []),
+      ['Notes', 'Remarque libre (régime, VIP, etc.)', 'Non'],
+      [''],
+      ['Catégories valides', categories.join(', ')],
+      ...(usesTables ? [['Tables de l\'événement', tables.length ? tables.join(', ') : '(aucune table définie — ajoutez-les dans l\'édition de l\'événement)']] : [])
+    ];
+    const instrSheet = XLSX.utils.aoa_to_sheet(instr);
+    instrSheet['!cols'] = [{ wch: 22 }, { wch: 60 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(workbook, instrSheet, 'Instructions');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=modele-invites-${(wedding.eventType || 'evenement').toLowerCase()}.xlsx`);
+    res.send(buffer);
+  } catch (error) {
+    logger.error('Guest template error:', error);
+    res.status(500).json({ error: 'Erreur lors de la génération du modèle' });
   }
 });
 
@@ -566,6 +629,9 @@ router.get('/:weddingId/:guestId/whatsapp', authenticate, async (req, res) => {
     const share = await buildGuestShare(wedding, guest);
     res.json(share);
   } catch (error) {
+    if (error instanceof NoInvitationError || error.code === 'NO_INVITATION') {
+      return res.status(400).json({ error: 'Générez d\'abord l\'invitation de cet invité (page Invitations) avant de l\'envoyer.', code: 'NO_INVITATION' });
+    }
     logger.error('Guest whatsapp link error:', error);
     res.status(500).json({ error: 'Erreur lors de la génération du lien WhatsApp' });
   }
@@ -601,7 +667,10 @@ router.get('/:weddingId/whatsapp/bulk', authenticate, async (req, res) => {
       try {
         shares.push(await buildGuestShare(wedding, guest));
       } catch (err) {
-        logger.error(`Bulk whatsapp share failed for guest ${guest.id}:`, err);
+        // Guests without a generated invitation are expected — skip quietly.
+        if (!(err instanceof NoInvitationError) && err.code !== 'NO_INVITATION') {
+          logger.error(`Bulk whatsapp share failed for guest ${guest.id}:`, err);
+        }
       }
     }
     res.json({ count: shares.length, shares });

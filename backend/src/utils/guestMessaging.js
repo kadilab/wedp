@@ -86,9 +86,22 @@ function buildWaUrl(phone, message) {
   return p ? `https://wa.me/${p}?text=${text}` : `https://wa.me/?text=${text}`;
 }
 
+// Raised when a guest has no generated invitation yet. Callers turn this into a
+// 400 (single send) or skip the guest (bulk) instead of silently creating one.
+class NoInvitationError extends Error {
+  constructor(guest) {
+    super(`L'invitation de ${guest?.firstName || 'cet invité'} n'a pas encore été générée`);
+    this.code = 'NO_INVITATION';
+  }
+}
+
 // Build everything needed to share a guest's invitation over WhatsApp.
+// Anti-fraud: never create an invitation here — it must already exist (generated
+// from the Invitations page). Otherwise links could be sent before generation.
 async function buildGuestShare(wedding, guest) {
-  const invitation = await ensureInvitation(wedding, guest);
+  const invitation = guest.invitation
+    || await prisma.invitation.findUnique({ where: { guestId: guest.id } });
+  if (!invitation) throw new NoInvitationError(guest);
   const invitationUrl = buildInvitationUrl(wedding, invitation);
   const message = buildMessage(wedding, guest, invitationUrl);
   const phone = normalizePhone(guest.phone);
@@ -110,5 +123,6 @@ module.exports = {
   buildMessage,
   normalizePhone,
   buildWaUrl,
-  buildGuestShare
+  buildGuestShare,
+  NoInvitationError
 };
