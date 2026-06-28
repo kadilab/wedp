@@ -12,6 +12,7 @@ import AutoFitText from '../../components/templates/AutoFitText'
 import FontStyles from '../../components/templates/FontStyles'
 import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars } from '../../utils/dateFormats'
 import { getEventDisplayTitle } from '../../utils/eventTypes'
+import { getEntranceMotion, getLoopMotion, isAnimated } from '../../utils/animations'
 // Format date: JJ-MM-YYYY HH:mm
 import {
   CalendarIcon,
@@ -33,6 +34,38 @@ const ChurchIcon = ({ className }) => (
     <path d="M18 12.22V9l-5-2.5V5h1V3h-1V1h-2v2h-1v2h1v1.5L6 9v3.22l-2 1V22h8v-3c0-1.1.9-2 2-2s2 .9 2 2v3h8v-8.78l-2-1zM12 13.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" />
   </svg>
 )
+
+// Positioned wrapper for a design element. Renders a plain <div> when the
+// element has no animation (zero overhead, identical to before), otherwise an
+// outer motion.div for the entrance and an inner motion.div for the loop.
+// Animations only run here (public invitation), never in the editor.
+function AnimatedElement({ el, style, className, children }) {
+  const anim = el.animation
+  if (!isAnimated(anim)) {
+    return <div className={className} style={style}>{children}</div>
+  }
+  const entrance = getEntranceMotion(anim)
+  const loop = getLoopMotion(anim)
+  return (
+    <motion.div
+      className={className}
+      style={style}
+      initial={entrance?.initial}
+      animate={entrance?.animate}
+      transition={entrance?.transition}
+    >
+      {loop ? (
+        <motion.div
+          style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'inherit', justifyContent: 'inherit' }}
+          animate={loop.animate}
+          transition={loop.transition}
+        >
+          {children}
+        </motion.div>
+      ) : children}
+    </motion.div>
+  )
+}
 
 export default function InvitationView() {
   const { weddingSlug, invitationCode } = useParams()
@@ -408,8 +441,9 @@ export default function InvitationView() {
               // QR code element
               if (el.type === 'qrcode' && invitationInfo?.qrCodeData) {
                 return (
-                  <div
+                  <AnimatedElement
                     key={el.id || idx}
+                    el={el}
                     className="absolute flex items-center justify-center"
                     style={{
                       left: elLeft, top: elTop,
@@ -422,7 +456,7 @@ export default function InvitationView() {
                       alt="QR Code"
                       className="max-w-full max-h-full object-contain"
                     />
-                  </div>
+                  </AnimatedElement>
                 )
               }
 
@@ -445,8 +479,9 @@ export default function InvitationView() {
                   ? { clipPath, background: el.borderWidth ? photoBorderColor : 'transparent', padding: el.borderWidth || 0 }
                   : { border: el.borderWidth ? `${el.borderWidth}px solid ${photoBorderColor}` : 'none', borderRadius: el.borderRadius || 0 }
                 return (
-                  <div
+                  <AnimatedElement
                     key={el.id || idx}
+                    el={el}
                     className="absolute overflow-hidden"
                     style={{
                       left: elLeft, top: elTop,
@@ -466,7 +501,7 @@ export default function InvitationView() {
                         />
                       )}
                     </div>
-                  </div>
+                  </AnimatedElement>
                 )
               }
 
@@ -479,8 +514,9 @@ export default function InvitationView() {
               if (textShadow === '2px 2px 4px') textShadow = '3px 3px 8px'; // Moyenne → plus visible
               if (textShadow === '3px 3px 6px') textShadow = '4px 4px 12px'; // Forte → plus visible
               return (
-                <div
+                <AnimatedElement
                   key={el.id || idx}
+                  el={el}
                   className={`absolute break-words ${hasArc(el) ? 'overflow-visible' : 'overflow-hidden'}`}
                   style={{
                     left: elLeft, top: elTop,
@@ -518,7 +554,7 @@ export default function InvitationView() {
                           }}
                         />
                       : <span className="w-full">{content}</span>}
-                </div>
+                </AnimatedElement>
               )
             })}
         </div>

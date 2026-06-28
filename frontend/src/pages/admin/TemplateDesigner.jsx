@@ -3,8 +3,10 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { adminAPI, templateAPI } from '../../services/api'
 import toast from 'react-hot-toast'
+import { motion } from 'framer-motion'
 import { processImage } from '../../utils/imageProcessor'
 import { EVENT_TYPES, EVENT_TYPE_LABELS, eventUsesCouple, eventUsesProgramme, eventUsesTables } from '../../utils/eventTypes'
+import { ENTRANCE_OPTIONS, LOOP_OPTIONS, DEFAULT_ANIMATION, getEntranceMotion, getLoopMotion, isAnimated } from '../../utils/animations'
 import { PHOTO_SHAPES, getClipPath, getImageStyle, DEFAULT_CUSTOM_CLIP_PATH, OBJECT_FIT_OPTIONS, OBJECT_POSITION_OPTIONS } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
 import AutoFitText from '../../components/templates/AutoFitText'
@@ -649,6 +651,10 @@ export default function TemplateDesigner({ clientMode = false }) {
   const [elementStart, setElementStart] = useState({ x: 0, y: 0, w: 0, h: 0 })
   const [showGrid, setShowGrid] = useState(true)
   const [zoom, setZoom] = useState(0.65)
+  // Animation preview: when on, the canvas plays each element's entrance + loop
+  // (like the public invitation). previewKey bumps to replay the entrance.
+  const [previewAnim, setPreviewAnim] = useState(false)
+  const [previewKey, setPreviewKey] = useState(0)
   const [saving, setSaving] = useState(false)
 
   // ---- Fonts: Google list + admin-uploaded custom fonts ----
@@ -1488,7 +1494,9 @@ export default function TemplateDesigner({ clientMode = false }) {
         borderOpacity: el.borderOpacity ?? 100,
         borderRadius: el.borderRadius ?? 0,
         shape: el.shape || 'rect',
-        customClipPath: el.customClipPath || ''  // Free-form shape (clip-path CSS)
+        customClipPath: el.customClipPath || '',  // Free-form shape (clip-path CSS)
+        // Per-element animation (played only on the public invitation view)
+        animation: el.animation || null
       }))
 
       // Debug: verify clean elements
@@ -1808,6 +1816,25 @@ export default function TemplateDesigner({ clientMode = false }) {
           >
             <Squares2X2Icon className="h-5 w-5" />
           </button>
+
+          {/* Animation preview */}
+          <button
+            onClick={() => { setPreviewAnim(p => !p); setPreviewKey(k => k + 1) }}
+            className={`px-2.5 py-2 rounded-lg text-sm font-medium flex items-center gap-1 ${previewAnim ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-primary-600 hover:bg-primary-50'}`}
+            title="Prévisualiser les animations (comme sur l'invitation publiée)"
+          >
+            <span>{previewAnim ? '⏹' : '▶'}</span>
+            <span className="hidden sm:inline">{previewAnim ? 'Arrêter' : 'Aperçu anim.'}</span>
+          </button>
+          {previewAnim && (
+            <button
+              onClick={() => setPreviewKey(k => k + 1)}
+              className="p-2 text-gray-400 hover:text-primary-600 rounded-lg"
+              title="Rejouer les animations"
+            >
+              <ArrowPathIcon className="h-5 w-5" />
+            </button>
+          )}
 
           {/* Reset */}
           <button onClick={resetLayout} className="p-2 text-gray-400 hover:text-orange-500 rounded-lg" title="Réinitialiser les éléments">
@@ -2693,6 +2720,60 @@ export default function TemplateDesigner({ clientMode = false }) {
                       </div>
                     </div>
 
+                    {/* Animation (jouée uniquement sur l'invitation publiée) */}
+                    {(() => {
+                      const anim = { ...DEFAULT_ANIMATION, ...(selectedElement.animation || {}) }
+                      const setAnim = (patch) => updateElement(selectedId, { animation: { ...anim, ...patch } })
+                      return (
+                        <div className="border-t pt-3">
+                          <label className="block text-xs font-medium text-gray-700 mb-2">
+                            ✨ Animation
+                            <span className="block text-[10px] font-normal text-gray-400">Visible uniquement sur l'invitation publiée (le lien partagé)</span>
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] text-gray-500 mb-0.5">Entrée</label>
+                              <select
+                                value={anim.in}
+                                onChange={(e) => setAnim({ in: e.target.value })}
+                                className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500"
+                              >
+                                {ENTRANCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-gray-500 mb-0.5">Boucle continue</label>
+                              <select
+                                value={anim.loop}
+                                onChange={(e) => setAnim({ loop: e.target.value })}
+                                className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500"
+                              >
+                                {LOOP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-gray-500 mb-0.5">Durée entrée (s)</label>
+                              <input
+                                type="number" min="0" step="0.1"
+                                value={anim.duration}
+                                onChange={(e) => setAnim({ duration: parseFloat(e.target.value) || 0 })}
+                                className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-gray-500 mb-0.5">Délai (s)</label>
+                              <input
+                                type="number" min="0" step="0.1"
+                                value={anim.delay}
+                                onChange={(e) => setAnim({ delay: parseFloat(e.target.value) || 0 })}
+                                className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })()}
+
                     {(selectedElement.type === 'photo' || selectedElement.type === 'image') && (
                       <>
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -3387,6 +3468,31 @@ export default function TemplateDesigner({ clientMode = false }) {
                 if (!el || !el.id) return null
                 const isSelected = selectedId === el.id
                 const isMultiSelected = selectedIds.includes(el.id)
+
+                // Preview mode: play this element's entrance + loop like the
+                // public invitation. No drag handlers / selection chrome.
+                if (previewAnim) {
+                  const entrance = getEntranceMotion(el.animation)
+                  const loop = getLoopMotion(el.animation)
+                  const inner = renderElementContent(el)
+                  return (
+                    <motion.div
+                      key={`${el.id}-${previewKey}`}
+                      className="absolute"
+                      style={{ left: el.x, top: el.y, width: el.width, height: el.height, pointerEvents: 'none' }}
+                      initial={isAnimated(el.animation) ? entrance?.initial : undefined}
+                      animate={isAnimated(el.animation) ? entrance?.animate : undefined}
+                      transition={isAnimated(el.animation) ? entrance?.transition : undefined}
+                    >
+                      {loop ? (
+                        <motion.div style={{ width: '100%', height: '100%' }} animate={loop.animate} transition={loop.transition}>
+                          {inner}
+                        </motion.div>
+                      ) : inner}
+                    </motion.div>
+                  )
+                }
+
                 return (
                 <div
                   key={el.id}

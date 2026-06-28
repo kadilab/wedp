@@ -358,7 +358,9 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       borderOpacity: el.borderOpacity ?? 100,
       borderRadius: el.borderRadius ?? 0,
       shape: el.shape || 'rect',
-      customClipPath: el.customClipPath || ''
+      customClipPath: el.customClipPath || '',
+      // Per-element animation (played only on the public invitation view)
+      animation: el.animation || null
     }));
 
     const config = {
@@ -587,7 +589,9 @@ router.put('/:id/design', authenticate, async (req, res) => {
       borderOpacity: el.borderOpacity ?? 100,
       borderRadius: el.borderRadius ?? 0,
       shape: el.shape || 'rect',
-      customClipPath: el.customClipPath || ''
+      customClipPath: el.customClipPath || '',
+      // Per-element animation (played only on the public invitation view)
+      animation: el.animation || null
     }));
 
     const updatedConfig = {
