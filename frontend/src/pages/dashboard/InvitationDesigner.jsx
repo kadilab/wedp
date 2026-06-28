@@ -4,6 +4,7 @@ import { useQuery, useMutation } from 'react-query'
 import { templateAPI, weddingAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import { processImage } from '../../utils/imageProcessor'
+import { eventUsesCouple, eventUsesProgramme, eventUsesTables } from '../../utils/eventTypes'
 import {
   ArrowLeftIcon,
   EyeIcon,
@@ -282,10 +283,29 @@ const DEFAULT_ELEMENTS = [
   }
 ]
 
+// Element types specific to a wedding-style event - filtered out of the starter
+// layout when the invitation belongs to a non-wedding event type.
+const COUPLE_ELEMENT_TYPES = ['names']
+const PROGRAMME_ELEMENT_TYPES = [
+  'communeLabel', 'communeDate', 'communeVenue', 'communeAddress',
+  'egliseLabel', 'egliseDate', 'egliseVenue', 'egliseAddress',
+  'receptionLabel', 'receptionDate', 'receptionVenue', 'receptionAddress'
+]
+const TABLE_ELEMENT_TYPES = ['table']
+
+const starterElementsForEventType = (eventType) =>
+  DEFAULT_ELEMENTS.filter((el) => {
+    if (COUPLE_ELEMENT_TYPES.includes(el.type) && !eventUsesCouple(eventType)) return false
+    if (PROGRAMME_ELEMENT_TYPES.includes(el.type) && !eventUsesProgramme(eventType)) return false
+    if (TABLE_ELEMENT_TYPES.includes(el.type) && !eventUsesTables(eventType)) return false
+    return true
+  })
+
 // Sample data for preview
 const SAMPLE_DATA = {
   bride_name: 'Marie',
   groom_name: 'Jean',
+  honoree_name: 'Sophie',
   guest_name: 'Sophie Dupont',
   custom_message: 'Nous serions honorés de votre présence pour célébrer notre union',
   wedding_date: 'Samedi 20 Juin 2026',
@@ -408,6 +428,17 @@ export default function InvitationDesigner() {
       }
     }
   }, [template])
+
+  // Fresh design (no saved layout) for a specific event: start from the element
+  // set that matches the event type, so e.g. an anniversaire doesn't inherit the
+  // bride & groom names or the commune/église/réception programme.
+  useEffect(() => {
+    const savedLayout = template?.config?.designElements
+    const hasSavedLayout = Array.isArray(savedLayout) && savedLayout.length > 0
+    if (wedding && !hasSavedLayout) {
+      setElements(starterElementsForEventType(wedding.eventType))
+    }
+  }, [wedding, template])
 
   // Selected element
   const selectedElement = elements.find(el => el.id === selectedId)

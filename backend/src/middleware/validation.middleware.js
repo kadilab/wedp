@@ -1,4 +1,10 @@
 const { body, param, query, validationResult } = require('express-validator');
+const {
+  EVENT_TYPES,
+  eventUsesCouple,
+  eventUsesHonoree,
+  eventUsesFreeTitle
+} = require('../utils/eventTypes');
 
 // Validation result handler
 const validate = (req, res, next) => {
@@ -45,8 +51,10 @@ const loginValidation = [
   validate
 ];
 
-const EVENT_TYPES = ['WEDDING', 'BIRTHDAY', 'DOT', 'CEREMONY', 'CONFERENCE', 'OTHER'];
-const isWeddingType = (req) => !req.body.eventType || req.body.eventType === 'WEDDING';
+// Conditional predicates per event type (shared taxonomy in utils/eventTypes.js)
+const usesCouple = (value, { req }) => eventUsesCouple(req.body.eventType);
+const usesHonoree = (value, { req }) => eventUsesHonoree(req.body.eventType);
+const usesFreeTitle = (value, { req }) => eventUsesFreeTitle(req.body.eventType);
 
 // Wedding validations
 const createWeddingValidation = [
@@ -54,17 +62,22 @@ const createWeddingValidation = [
     .optional({ nullable: true })
     .isIn(EVENT_TYPES).withMessage('Type d\'événement invalide'),
   body('eventTitle')
-    .if((value, { req }) => !isWeddingType(req))
+    .if(usesFreeTitle)
     .trim()
     .notEmpty().withMessage('Le titre de l\'événement est requis')
     .isLength({ max: 150 }).withMessage('Le titre ne doit pas dépasser 150 caractères'),
+  body('honoreeName')
+    .if(usesHonoree)
+    .trim()
+    .notEmpty().withMessage('Le nom de la personne à l\'honneur est requis')
+    .isLength({ max: 100 }).withMessage('Le nom ne doit pas dépasser 100 caractères'),
   body('brideName')
-    .if(isWeddingType)
+    .if(usesCouple)
     .trim()
     .notEmpty().withMessage('Le nom de la mariée est requis')
     .isLength({ max: 100 }).withMessage('Le nom ne doit pas dépasser 100 caractères'),
   body('groomName')
-    .if(isWeddingType)
+    .if(usesCouple)
     .trim()
     .notEmpty().withMessage('Le nom du marié est requis')
     .isLength({ max: 100 }).withMessage('Le nom ne doit pas dépasser 100 caractères'),
@@ -141,6 +154,10 @@ const updateWeddingValidation = [
     .optional({ nullable: true })
     .trim()
     .isLength({ max: 150 }).withMessage('Le titre ne doit pas dépasser 150 caractères'),
+  body('honoreeName')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 100 }).withMessage('Le nom ne doit pas dépasser 100 caractères'),
   body('brideName')
     .optional()
     .trim()

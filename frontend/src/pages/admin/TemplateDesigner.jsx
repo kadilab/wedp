@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { adminAPI, templateAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import { processImage } from '../../utils/imageProcessor'
-import { EVENT_TYPES, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
+import { EVENT_TYPES, EVENT_TYPE_LABELS, eventUsesCouple, eventUsesProgramme, eventUsesTables } from '../../utils/eventTypes'
 import { PHOTO_SHAPES, getClipPath, getImageStyle, DEFAULT_CUSTOM_CLIP_PATH, OBJECT_FIT_OPTIONS, OBJECT_POSITION_OPTIONS } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
 import AutoFitText from '../../components/templates/AutoFitText'
@@ -443,10 +443,48 @@ const SIMPLE_EVENT_ELEMENTS = [
   }
 ]
 
-// Pick the right starter layout for the event type - WEDDING gets the full
-// programme (commune/église/réception), everything else gets the simple set.
-const getDefaultElements = (eventType) =>
-  eventType && eventType !== 'WEDDING' ? SIMPLE_EVENT_ELEMENTS : DEFAULT_ELEMENTS
+// Element types that only make sense for a wedding-style event. When the user
+// switches the template's event type, these are pulled off the canvas (and
+// re-added if they switch back) so e.g. an "Anniversaire" no longer carries the
+// bride & groom names or the commune/église/réception programme.
+const COUPLE_ELEMENT_TYPES = ['names']
+const PROGRAMME_ELEMENT_TYPES = [
+  'communeLabel', 'communeDate', 'communeVenue', 'communeAddress',
+  'egliseLabel', 'egliseDate', 'egliseVenue', 'egliseAddress',
+  'receptionLabel', 'receptionDate', 'receptionVenue', 'receptionAddress'
+]
+const TABLE_ELEMENT_TYPES = ['table']
+// The free-title headline ({{event_title}}) and the couple names headline are
+// mutually exclusive: a couple event uses the names, every other type the title.
+const TITLE_HEADLINE_IDS = ['eventTitle']
+
+// Pick the right starter layout for the event type:
+//  - WEDDING → full programme (commune/église/réception), no standalone address
+//  - DOT (couple, no programme) → the simple layout (incl. main address) but
+//    with the bride & groom names instead of the free title headline
+//  - everything else → the simple layout (title + date/heure + main address)
+const getDefaultElements = (eventType) => {
+  if (eventUsesProgramme(eventType)) return DEFAULT_ELEMENTS
+  if (eventUsesCouple(eventType)) {
+    const namesEl = DEFAULT_ELEMENTS.find((e) => e.type === 'names')
+    return SIMPLE_EVENT_ELEMENTS.map((el) =>
+      el.id === 'eventTitle' && namesEl ? { ...namesEl } : el
+    )
+  }
+  return SIMPLE_EVENT_ELEMENTS
+}
+
+// Keep only the elements that are relevant for the given event type, leaving
+// every other (shared) element exactly as the user arranged it.
+const filterElementsForEventType = (els, eventType) =>
+  (els || []).filter((el) => {
+    if (COUPLE_ELEMENT_TYPES.includes(el.type) && !eventUsesCouple(eventType)) return false
+    if (PROGRAMME_ELEMENT_TYPES.includes(el.type) && !eventUsesProgramme(eventType)) return false
+    if (TABLE_ELEMENT_TYPES.includes(el.type) && !eventUsesTables(eventType)) return false
+    // Drop the free-title headline on couple events (the names headline replaces it).
+    if (TITLE_HEADLINE_IDS.includes(el.id) && eventUsesCouple(eventType)) return false
+    return true
+  })
 
 // Helper: parse date to separate components (day name, day num, month, year)
 const parseDateComponents = (dateStr) => {
@@ -499,6 +537,7 @@ const SAMPLE_RAW_DATES = {
 const SAMPLE_DATA = {
   bride_name: 'Marie',
   groom_name: 'Jean',
+  honoree_name: 'Sophie',
   // Non-WEDDING event types (anniversaire, dot, cérémonie, conférence, autre)
   // use these instead of bride/groom names + the commune/église/réception programme
   event_title: 'Anniversaire de Sophie',
@@ -1281,9 +1320,20 @@ export default function TemplateDesigner({ clientMode = false }) {
   // Existing templates keep their elements untouched when re-categorized.
   const handleEventTypeChange = (newType) => {
     setTemplateEventType(newType)
-    if (!isEditing) {
-      setElements(scaleElementsToCanvas(getDefaultElements(newType), canvasWidth, canvasHeight))
-    }
+    // Switching the event type adapts the canvas in place (works while editing
+    // too): drop the elements that are specific to the previous type and add
+    // the ones the new type needs but that aren't on the canvas yet. Shared
+    // elements (title, guest, date, venue, QR, message...) are left untouched.
+    setElements((prev) => {
+      const kept = filterElementsForEventType(prev, newType)
+      const presentIds = new Set(kept.map((e) => e.id))
+      // Re-add any element the new type's default layout needs but the canvas is
+      // missing (e.g. the main address block when coming from a wedding, or the
+      // bride & groom names when switching back to a couple event).
+      const defaults = scaleElementsToCanvas(getDefaultElements(newType), canvasWidth, canvasHeight)
+      const missing = defaults.filter((d) => !presentIds.has(d.id))
+      return [...kept, ...missing]
+    })
   }
 
   // ===================== BACKGROUND UPLOAD =====================

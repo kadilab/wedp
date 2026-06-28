@@ -921,6 +921,7 @@ router.post('/:id/preview', async (req, res) => {
     const sampleData = {
       bride_name: req.body.brideName || 'Marie',
       groom_name: req.body.groomName || 'Jean',
+      honoree_name: req.body.honoreeName || 'Sophie',
       date: req.body.date || new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
       time: req.body.time || '15:00',
       venue_name: req.body.venueName || 'Château de Versailles',

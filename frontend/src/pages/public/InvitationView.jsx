@@ -11,6 +11,7 @@ import CurvedText, { hasArc } from '../../components/templates/CurvedText'
 import AutoFitText from '../../components/templates/AutoFitText'
 import FontStyles from '../../components/templates/FontStyles'
 import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars } from '../../utils/dateFormats'
+import { getEventDisplayTitle } from '../../utils/eventTypes'
 // Format date: JJ-MM-YYYY HH:mm
 import {
   CalendarIcon,
@@ -76,9 +77,7 @@ export default function InvitationView() {
   }
   const eventTypeLabel = EVENT_TYPE_LABELS[wedding?.eventType] || 'Mariage'
   const eventIntroLabel = EVENT_INTRO_LABELS[wedding?.eventType] || EVENT_INTRO_LABELS.WEDDING
-  const eventDisplayTitle = isWedding
-    ? `${wedding?.brideName || ''} & ${wedding?.groomName || ''}`
-    : (wedding?.eventTitle || eventTypeLabel)
+  const eventDisplayTitle = getEventDisplayTitle(wedding)
 
   // Extract template colors with fallbacks
   const getTemplateColors = () => {
@@ -297,6 +296,7 @@ export default function InvitationView() {
     return {
       bride_name: wedding?.brideName || '',
       groom_name: wedding?.groomName || '',
+      honoree_name: wedding?.honoreeName || '',
       event_title: eventDisplayTitle,
       event_type: eventTypeLabel,
       guest_name: guest ? `${guest.firstName} ${guest.lastName}` : '',

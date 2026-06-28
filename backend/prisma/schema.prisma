@@ -236,7 +236,8 @@ model Wedding {
   // (WEDDING gets the full programme; everything else is a simple
   // date/heure/lieu/titre event)
   eventType         EventType     @default(WEDDING) @map("event_type")
-  eventTitle        String?       @map("event_title") // used when eventType != WEDDING
+  eventTitle        String?       @map("event_title") // free title (CONFERENCE, OTHER)
+  honoreeName       String?       @map("honoree_name") // person celebrated (BIRTHDAY, CEREMONY)
 
   // Wedding Details (eventType = WEDDING)
   brideName         String?       @map("bride_name")

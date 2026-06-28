@@ -5,6 +5,7 @@ const { authenticate, isOwner } = require('../middleware/auth.middleware');
 const { createWeddingValidation, updateWeddingValidation, paginationValidation } = require('../middleware/validation.middleware');
 const { uploadSingle, handleUploadError } = require('../middleware/upload.middleware');
 const { generateWeddingSlug, paginate, buildPaginationMeta, daysUntilWedding } = require('../utils/helpers');
+const { getEventDisplayTitle, eventUsesCouple } = require('../utils/eventTypes');
 const { generateQRCode } = require('../utils/qrcode');
 const { safeDeleteUploads } = require('../utils/fileCleanup');
 const { recordTemplateUsage } = require('../utils/marketplace');
@@ -19,12 +20,10 @@ const PRINT_PRICING = {
   size: { A6: 2.00, A5: 3.00, custom: 4.50 }
 };
 
-// Display name used in notifications/logs - couple names for weddings,
-// the generic event title for everything else.
+// Display name used in notifications/logs - couple names for couple events,
+// "Anniversaire de X" for honoree events, the free title otherwise.
 function eventDisplayName(wedding) {
-  if (wedding.eventTitle) return wedding.eventTitle;
-  if (wedding.brideName && wedding.groomName) return `${wedding.brideName} & ${wedding.groomName}`;
-  return 'Événement';
+  return getEventDisplayTitle(wedding);
 }
 
 function calculatePrintPrice(quantity, paperType, finish, size) {
@@ -50,6 +49,7 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
     const {
       eventType,
       eventTitle,
+      honoreeName,
       brideName,
       groomName,
       weddingDate,
@@ -104,11 +104,12 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
       socialLinks
     } = req.body;
 
-    // Generate unique slug - wedding events use bride & groom names,
-    // everything else uses the generic event title
-    const slug = (eventType && eventType !== 'WEDDING')
-      ? generateWeddingSlug(eventTitle, eventType.toLowerCase())
-      : generateWeddingSlug(brideName, groomName);
+    // Generate unique slug from whatever names the event type provides:
+    // couple → bride/groom, honoree → that person's name, otherwise the title.
+    const slug = generateWeddingSlug(
+      getEventDisplayTitle({ eventType, brideName, groomName, honoreeName, eventTitle }),
+      (eventType || 'WEDDING').toLowerCase()
+    );
 
     // Create wedding
     const wedding = await prisma.wedding.create({
@@ -116,6 +117,7 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
         userId: req.user.id,
         eventType: eventType || 'WEDDING',
         eventTitle: eventTitle || null,
+        honoreeName: honoreeName || null,
         brideName: brideName || null,
         groomName: groomName || null,
         weddingDate: new Date(weddingDate),
@@ -188,7 +190,7 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
         action: 'CREATE',
         entity: 'wedding',
         entityId: wedding.id,
-        details: { eventType: wedding.eventType, brideName, groomName, eventTitle }
+        details: { eventType: wedding.eventType, brideName, groomName, honoreeName, eventTitle }
       }
     });
 
@@ -267,6 +269,7 @@ router.get('/', authenticate, paginationValidation, async (req, res) => {
         OR: [
           { brideName: { contains: search } },
           { groomName: { contains: search } },
+          { honoreeName: { contains: search } },
           { eventTitle: { contains: search } }
         ]
       })
@@ -383,6 +386,7 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
     const {
       eventType,
       eventTitle,
+      honoreeName,
       brideName,
       groomName,
       weddingDate,
@@ -446,7 +450,7 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
     // Get current wedding state before update
     const currentWedding = await prisma.wedding.findUnique({
       where: { id: req.params.id },
-      select: { wantsPrintService: true, brideName: true, groomName: true, eventTitle: true }
+      select: { wantsPrintService: true, eventType: true, brideName: true, groomName: true, honoreeName: true, eventTitle: true }
     });
 
     // Anti-fraud: once invitations have been generated for this event, its
@@ -469,6 +473,7 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
       data: {
         ...(eventType && { eventType }),
         ...(eventTitle !== undefined && { eventTitle }),
+        ...(honoreeName !== undefined && { honoreeName }),
         ...(brideName && { brideName }),
         ...(groomName && { groomName }),
         ...(weddingDate && { weddingDate: new Date(weddingDate) }),
@@ -573,7 +578,9 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
         });
 
         const displayName = eventDisplayName({
+          eventType: eventType || currentWedding.eventType,
           eventTitle: eventTitle ?? currentWedding.eventTitle,
+          honoreeName: honoreeName ?? currentWedding.honoreeName,
           brideName: brideName || currentWedding.brideName,
           groomName: groomName || currentWedding.groomName
         });

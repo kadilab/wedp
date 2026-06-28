@@ -5,6 +5,7 @@ import CurvedText, { hasArc } from './CurvedText'
 import AutoFitText from './AutoFitText'
 import FontStyles from './FontStyles'
 import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars } from '../../utils/dateFormats'
+import { getEventDisplayTitle } from '../../utils/eventTypes'
 
 const hexToRgba = (hex, alpha = 1) => {
   const h = (hex || '#FFFFFF').replace('#', '')
@@ -65,13 +66,19 @@ export default function TemplatePreview({ template, className = '', weddingData 
       } catch { return String(dateStr) }
     }
     const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
-    const isWeddingEvent = !weddingData?.eventType || weddingData.eventType === 'WEDDING'
+    // Sample fallbacks keep the preview populated even before the form is filled.
+    const sampleEv = {
+      eventType: weddingData?.eventType,
+      brideName: weddingData?.brideName || 'Marie',
+      groomName: weddingData?.groomName || 'Jean',
+      honoreeName: weddingData?.honoreeName || 'Sophie',
+      eventTitle: weddingData?.eventTitle
+    }
     return {
       bride_name: weddingData?.brideName || 'Marie',
       groom_name: weddingData?.groomName || 'Jean',
-      event_title: isWeddingEvent
-        ? `${weddingData?.brideName || 'Marie'} & ${weddingData?.groomName || 'Jean'}`
-        : (weddingData?.eventTitle || EVENT_TYPE_LABELS[weddingData?.eventType] || 'Événement'),
+      honoree_name: weddingData?.honoreeName || 'Sophie',
+      event_title: getEventDisplayTitle(sampleEv),
       event_type: EVENT_TYPE_LABELS[weddingData?.eventType] || 'Mariage',
       guest_name: 'Prénom Nom',
       invitation_type: template?.config?.invitationType === 'couple' ? 'Couple' : 'Singleton',

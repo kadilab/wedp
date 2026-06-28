@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
+const { getEventDisplayTitle } = require('./eventTypes');
 
 /**
  * Generate a URL-friendly slug
@@ -146,17 +147,12 @@ function sanitizeObject(obj) {
 
 /**
  * Human-readable name for an event, coherent across event types:
- * weddings show "Bride & Groom", everything else shows its event title.
- * Falls back gracefully so notifications never print "undefined & undefined".
- * @param {{eventType?: string, brideName?: string, groomName?: string, eventTitle?: string}} wedding
+ * couple events show "Bride & Groom", honoree events "Anniversaire de X",
+ * everything else its free title. Delegates to the shared taxonomy so the
+ * rule stays in one place (utils/eventTypes.js).
  */
 function eventDisplayName(wedding) {
-  if (!wedding) return 'Événement';
-  const isWedding = !wedding.eventType || wedding.eventType === 'WEDDING';
-  if (isWedding && (wedding.brideName || wedding.groomName)) {
-    return `${wedding.brideName || ''} & ${wedding.groomName || ''}`.trim();
-  }
-  return wedding.eventTitle || 'Événement';
+  return getEventDisplayTitle(wedding);
 }
 
 module.exports = {

@@ -5,6 +5,7 @@ import { useMutation, useQuery } from 'react-query'
 import api, { weddingAPI, templateAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import TemplatePreview from '../../components/templates/TemplatePreview'
+import { eventUsesCouple, eventUsesHonoree, eventUsesFreeTitle, honoreeFieldLabel } from '../../utils/eventTypes'
 import {
   ArrowLeftIcon,
   HeartIcon,
@@ -118,6 +119,9 @@ export default function WeddingCreate() {
 
   const eventType = watch('eventType')
   const isWedding = eventType === 'WEDDING'
+  const isCouple = eventUsesCouple(eventType)       // WEDDING + DOT → bride/groom
+  const isHonoree = eventUsesHonoree(eventType)     // BIRTHDAY + CEREMONY → honoree name
+  const isFreeTitle = eventUsesFreeTitle(eventType) // CONFERENCE + OTHER → free title
   const selectedEventMeta = EVENT_TYPES_META.find(t => t.id === eventType) || EVENT_TYPES_META[0]
 
   // Only show templates designed for the selected event type - a Mariage
@@ -163,6 +167,7 @@ export default function WeddingCreate() {
     templateImages: templateImagePreviews,
     eventType,
     eventTitle: watch('eventTitle'),
+    honoreeName: watch('honoreeName'),
     brideName: watch('brideName'),
     groomName: watch('groomName'),
     weddingDate: watch('weddingDate'),
@@ -201,7 +206,7 @@ export default function WeddingCreate() {
       { num: STEP_PREVIEW, label: 'Aperçu' },
       { num: STEP_PRINT, label: 'Impression' }
     ] : [
-      { num: STEP_INFO, label: 'Infos' },
+      { num: STEP_INFO, label: isCouple ? 'Mariés' : 'Infos' },
       { num: STEP_DESIGN, label: 'Design' },
       { num: STEP_QR, label: 'QR Code' },
       { num: STEP_PREVIEW, label: 'Aperçu' },
@@ -219,7 +224,8 @@ export default function WeddingCreate() {
     qrCodeStyle: STEP_QR, qrCodeColor: STEP_QR, qrCodeBgColor: STEP_QR, qrCodeSize: STEP_QR, qrCodeTransparentBg: STEP_QR,
     printQuantity: STEP_PRINT, printPaperType: STEP_PRINT, printFinish: STEP_PRINT, printSize: STEP_PRINT, printNotes: STEP_PRINT
   } : {
-    eventTitle: STEP_INFO, weddingDate: STEP_INFO, ceremonyTime: STEP_INFO,
+    eventTitle: STEP_INFO, honoreeName: STEP_INFO, brideName: STEP_INFO, groomName: STEP_INFO,
+    weddingDate: STEP_INFO, ceremonyTime: STEP_INFO,
     venueName: STEP_INFO, venueAddress: STEP_INFO, venueCity: STEP_INFO,
     customMessage: STEP_INFO, rsvpDeadline: STEP_INFO, additionalInfo: STEP_INFO,
     templateId: STEP_DESIGN,
@@ -315,6 +321,15 @@ export default function WeddingCreate() {
     const base = {
       eventType: data.eventType || 'WEDDING',
       weddingDate: new Date(data.weddingDate).toISOString(),
+      ceremonyTime: cleanValue(data.ceremonyTime),
+      // Main address — every event type has one
+      venueName: cleanValue(data.venueName),
+      venueAddress: cleanValue(data.venueAddress),
+      venueCity: cleanValue(data.venueCity),
+      // Identity fields, per event type
+      ...(isCouple ? { brideName: data.brideName, groomName: data.groomName } : {}),
+      ...(isHonoree ? { honoreeName: data.honoreeName } : {}),
+      ...(isFreeTitle ? { eventTitle: data.eventTitle } : {}),
       templateId: cleanValue(data.templateId),
       customMessage: cleanValue(data.customMessage),
       // QR Code
@@ -334,11 +349,9 @@ export default function WeddingCreate() {
       additionalInfo: cleanValue(data.additionalInfo)
     }
 
+    // Only weddings carry the full 3-step programme (commune/église/réception).
     const formattedData = isWedding ? {
       ...base,
-      brideName: data.brideName,
-      groomName: data.groomName,
-      // Programme
       communeDate: data.communeDate ? new Date(data.communeDate).toISOString() : null,
       communeTime: cleanValue(data.communeTime),
       communeVenue: cleanValue(data.communeVenue),
@@ -351,14 +364,7 @@ export default function WeddingCreate() {
       receptionStartTime: cleanValue(data.receptionStartTime),
       receptionVenue: cleanValue(data.receptionVenue),
       receptionAddress: cleanValue(data.receptionAddress)
-    } : {
-      ...base,
-      eventTitle: data.eventTitle,
-      ceremonyTime: cleanValue(data.ceremonyTime),
-      venueName: cleanValue(data.venueName),
-      venueAddress: cleanValue(data.venueAddress),
-      venueCity: cleanValue(data.venueCity)
-    }
+    } : base
 
     createMutation.mutate(formattedData)
   }
@@ -489,8 +495,8 @@ export default function WeddingCreate() {
             </div>
           )}
 
-          {/* ===================== STEP INFO (Mariage): Mariés ===================== */}
-          {step === STEP_INFO && isWedding && (
+          {/* ===================== STEP INFO (Couple: Mariage / Mariage coutumier) ===================== */}
+          {step === STEP_INFO && isCouple && (
             <div className="space-y-6">
               <h2 className="text-xl font-serif font-bold text-gray-900 mb-6 flex items-center">
                 <HeartIcon className="h-6 w-6 mr-2 text-primary-500" />
@@ -514,15 +520,45 @@ export default function WeddingCreate() {
                 </div>
               </div>
 
-              <div>
-                <label className="label">Date principale du mariage *</label>
-                <input type="date" className={`input ${errors.weddingDate || getServerError('weddingDate') ? 'input-error' : ''}`} {...register('weddingDate', { required: 'Ce champ est requis' })} />
-                {(errors.weddingDate || getServerError('weddingDate')) && (
-                  <p className="mt-1 text-sm text-red-600">{errors.weddingDate?.message || getServerError('weddingDate')?.message}</p>
-                )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="label">Date principale de l'événement *</label>
+                  <input type="date" className={`input ${errors.weddingDate || getServerError('weddingDate') ? 'input-error' : ''}`} {...register('weddingDate', { required: 'Ce champ est requis' })} />
+                  {(errors.weddingDate || getServerError('weddingDate')) && (
+                    <p className="mt-1 text-sm text-red-600">{errors.weddingDate?.message || getServerError('weddingDate')?.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="label">Heure{isWedding ? ' (les heures détaillées se règlent dans le programme)' : ''}</label>
+                  <input type="time" className="input" {...register('ceremonyTime')} />
+                </div>
               </div>
 
-              <div>
+              {/* Adresse principale — pour le mariage coutumier c'est le seul lieu ;
+                  pour le mariage, le programme détaillé (commune/église/réception)
+                  se renseigne à l'étape suivante. */}
+              <div className="border-t pt-6 space-y-4">
+                <h3 className="font-medium text-gray-900 flex items-center">
+                  <MapPinIcon className="h-5 w-5 mr-2 text-primary-500" />
+                  Lieu principal{isWedding ? ' (facultatif si le programme est détaillé)' : ''}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="label text-sm">Nom du lieu</label>
+                    <input type="text" className="input" placeholder="Salle des fêtes, domicile familial..." {...register('venueName')} />
+                  </div>
+                  <div>
+                    <label className="label text-sm">Ville</label>
+                    <input type="text" className="input" placeholder="Dakar" {...register('venueCity')} />
+                  </div>
+                </div>
+                <div>
+                  <label className="label text-sm">Adresse</label>
+                  <input type="text" className="input" placeholder="Adresse complète" {...register('venueAddress')} />
+                </div>
+              </div>
+
+              <div className="border-t pt-6">
                 <label className="label">Message personnalisé</label>
                 <textarea className="input" rows={3} placeholder="Nous avons le plaisir de vous inviter à célébrer notre union..." {...register('customMessage')} />
               </div>
@@ -574,8 +610,8 @@ export default function WeddingCreate() {
             </div>
           )}
 
-          {/* ===================== STEP INFO (simple): titre/date/heure/lieu ===================== */}
-          {step === STEP_INFO && !isWedding && (
+          {/* ===================== STEP INFO (honoree / titre libre) ===================== */}
+          {step === STEP_INFO && !isCouple && (
             <div className="space-y-6">
               <h2 className="text-xl font-serif font-bold text-gray-900 mb-2 flex items-center">
                 <selectedEventMeta.icon className="h-6 w-6 mr-2 text-primary-500" />
@@ -583,23 +619,36 @@ export default function WeddingCreate() {
               </h2>
               <p className="text-gray-600 mb-2">{selectedEventMeta.label} — date, heure, lieu et message suffisent.</p>
 
-              <div>
-                <label className="label">Titre / Nom de l'événement *</label>
-                <input
-                  type="text"
-                  className={`input ${errors.eventTitle || getServerError('eventTitle') ? 'input-error' : ''}`}
-                  placeholder={
-                    eventType === 'BIRTHDAY' ? 'Anniversaire de Fatou' :
-                    eventType === 'DOT' ? 'Mariage coutumier de Awa & Moussa' :
-                    eventType === 'CONFERENCE' ? 'Conférence Tech 2026' :
-                    'Cérémonie de Jean'
-                  }
-                  {...register('eventTitle', { required: 'Ce champ est requis' })}
-                />
-                {(errors.eventTitle || getServerError('eventTitle')) && (
-                  <p className="mt-1 text-sm text-red-600">{errors.eventTitle?.message || getServerError('eventTitle')?.message}</p>
-                )}
-              </div>
+              {isHonoree ? (
+                <div>
+                  <label className="label">{honoreeFieldLabel(eventType)} *</label>
+                  <input
+                    type="text"
+                    className={`input ${errors.honoreeName || getServerError('honoreeName') ? 'input-error' : ''}`}
+                    placeholder={eventType === 'BIRTHDAY' ? 'Fatou' : 'Jean'}
+                    {...register('honoreeName', { required: 'Ce champ est requis' })}
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Le titre s'affiche automatiquement : « {selectedEventMeta.label} de {watch('honoreeName') || '…'} »
+                  </p>
+                  {(errors.honoreeName || getServerError('honoreeName')) && (
+                    <p className="mt-1 text-sm text-red-600">{errors.honoreeName?.message || getServerError('honoreeName')?.message}</p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label className="label">Titre / Nom de l'événement *</label>
+                  <input
+                    type="text"
+                    className={`input ${errors.eventTitle || getServerError('eventTitle') ? 'input-error' : ''}`}
+                    placeholder={eventType === 'CONFERENCE' ? 'Conférence Tech 2026' : 'Soirée de gala 2026'}
+                    {...register('eventTitle', { required: 'Ce champ est requis' })}
+                  />
+                  {(errors.eventTitle || getServerError('eventTitle')) && (
+                    <p className="mt-1 text-sm text-red-600">{errors.eventTitle?.message || getServerError('eventTitle')?.message}</p>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
