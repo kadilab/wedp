@@ -46,7 +46,7 @@ export default function PublicLayout() {
               <a href="#contact" className="text-gray-600 hover:text-primary-600 transition-colors">
                 Contact
               </a>
-              <a href="/checkin" className="inline-flex items-center gap-1 text-gray-600 hover:text-primary-600 transition-colors">
+              <a href="/checkin/" className="inline-flex items-center gap-1 text-gray-600 hover:text-primary-600 transition-colors">
                 <QrCodeIcon className="h-4 w-4" /> Check-in
               </a>
             </nav>
@@ -109,7 +109,7 @@ export default function PublicLayout() {
               <ul className="space-y-2 text-gray-400">
                 <li><a href="#features" className="hover:text-white transition-colors">Fonctionnalités</a></li>
                 <li><a href="#templates" className="hover:text-white transition-colors">Templates</a></li>
-                <li><a href="/checkin" className="hover:text-white transition-colors">App Check-in</a></li>
+                <li><a href="/checkin/" className="hover:text-white transition-colors">App Check-in</a></li>
               </ul>
             </div>
 

@@ -10,6 +10,11 @@
 
 	# Check-in mobile PWA, served under the same domain/port so users never
 	# need to type a different port - https://yourdomain/checkin/
+	# Bare /checkin (no trailing slash) doesn't match /checkin/* below, so
+	# redirect it first - otherwise the link from the homepage falls through
+	# to the frontend and the check-in app is never reached.
+	redir /checkin /checkin/ 308
+
 	handle_path /checkin/* {
 		reverse_proxy checkin:80
 	}

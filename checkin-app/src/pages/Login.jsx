@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { GoogleLogin } from '@react-oauth/google'
 import { HeartIcon, WifiIcon } from '@heroicons/react/24/solid'
 import { useAuthStore } from '../stores/authStore'
 import useOnlineStatus from '../hooks/useOnlineStatus'
 
 export default function Login() {
-  const { login, isLoading, isAuthenticated } = useAuthStore()
+  const { login, loginWithGoogle, isLoading, isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
   const isOnline = useOnlineStatus()
   const [email, setEmail] = useState('')
@@ -19,6 +20,18 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     const result = await login(email, password)
+    if (result.success) {
+      toast.success('Connecté !')
+      navigate('/')
+    } else {
+      toast.error(result.error)
+    }
+  }
+
+  const handleGoogleSuccess = async (resp) => {
+    const credential = resp?.credential
+    if (!credential) return toast.error('Connexion Google échouée')
+    const result = await loginWithGoogle(credential)
     if (result.success) {
       toast.success('Connecté !')
       navigate('/')
@@ -73,6 +86,26 @@ export default function Login() {
           <button type="submit" disabled={isLoading} className="btn-primary btn-lg w-full">
             {isLoading ? 'Connexion...' : 'Se connecter'}
           </button>
+
+          {isOnline && (
+            <>
+              <div className="flex items-center gap-3 pt-1">
+                <div className="flex-1 border-t border-gray-200" />
+                <span className="text-xs text-gray-400 uppercase tracking-wider">ou</span>
+                <div className="flex-1 border-t border-gray-200" />
+              </div>
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => toast.error('Connexion Google échouée')}
+                  text="continue_with"
+                  shape="pill"
+                  locale="fr"
+                  width="288"
+                />
+              </div>
+            </>
+          )}
         </form>
 
         <p className="text-center text-xs text-gray-400 mt-6">
