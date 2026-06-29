@@ -6,6 +6,7 @@ const { createWeddingValidation, updateWeddingValidation, paginationValidation }
 const { uploadSingle, handleUploadError } = require('../middleware/upload.middleware');
 const { generateWeddingSlug, paginate, buildPaginationMeta, daysUntilWedding } = require('../utils/helpers');
 const { getEventDisplayTitle, eventUsesCouple } = require('../utils/eventTypes');
+const { normalizeTables } = require('../utils/tables');
 const { generateQRCode } = require('../utils/qrcode');
 const { safeDeleteUploads } = require('../utils/fileCleanup');
 const { recordTemplateUsage } = require('../utils/marketplace');
@@ -129,8 +130,8 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
         venueAddress,
         venueCity,
         venueCountry,
-        // Seated tables (deduped, trimmed) — only meaningful for events with tables
-        tables: Array.isArray(tables) ? [...new Set(tables.map(t => String(t).trim()).filter(Boolean))] : undefined,
+        // Seated tables (strings or {name,seats,x,y}) — only for events with tables
+        tables: Array.isArray(tables) ? normalizeTables(tables) : undefined,
         customMessage,
         primaryColor,
         secondaryColor,
@@ -534,7 +535,7 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
         ...(printSize !== undefined && { printSize }),
         ...(printNotes !== undefined && { printNotes }),
         // Tables
-        ...(tables !== undefined && { tables }),
+        ...(tables !== undefined && { tables: Array.isArray(tables) ? normalizeTables(tables) : tables }),
         // Multi-image templates
         ...(templateImages !== undefined && { templateImages })
       },
@@ -635,7 +636,7 @@ router.get('/:id/tables', authenticate, isOwner(), async (req, res) => {
       select: { tables: true }
     });
 
-    res.json({ tables: wedding?.tables || [] });
+    res.json({ tables: normalizeTables(wedding?.tables || []) });
   } catch (error) {
     logger.error('Get tables error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -655,8 +656,8 @@ router.put('/:id/tables', authenticate, isOwner(), async (req, res) => {
       return res.status(400).json({ error: 'Les tables doivent être un tableau' });
     }
 
-    // Clean & deduplicate
-    const cleanTables = [...new Set(tables.map(t => String(t).trim()).filter(Boolean))];
+    // Accept strings (legacy) or objects { name, seats, x, y }; normalize.
+    const cleanTables = normalizeTables(tables);
 
     await prisma.wedding.update({
       where: { id: req.params.id },

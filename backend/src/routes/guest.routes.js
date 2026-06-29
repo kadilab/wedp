@@ -9,6 +9,7 @@ const { paginate, buildPaginationMeta, parseCSV, mapCSVToGuest } = require('../u
 const { generateQRCode, generateUniqueCode } = require('../utils/qrcode');
 const { buildGuestShare, NoInvitationError } = require('../utils/guestMessaging');
 const { eventUsesTables, eventUsesPlusOnes, getGuestCategoryOptions } = require('../utils/eventTypes');
+const { normalizeTables, tableName } = require('../utils/tables');
 const logger = require('../utils/logger');
 const fs = require('fs').promises;
 
@@ -255,6 +256,34 @@ router.get('/:weddingId', authenticate, paginationValidation, async (req, res) =
 });
 
 /**
+ * @route   GET /api/guests/:weddingId/seating
+ * @desc    Seating-plan data: normalized tables + ALL guests (no pagination,
+ *          minimal fields). NB: declared before GET /:weddingId/:guestId.
+ * @access  Private
+ */
+router.get('/:weddingId/seating', authenticate, async (req, res) => {
+  try {
+    const wedding = await findOwnedWedding(req, req.params.weddingId);
+    if (!wedding) return res.status(404).json({ error: 'Événement non trouvé' });
+
+    const guests = await prisma.guest.findMany({
+      where: { weddingId: req.params.weddingId },
+      select: { id: true, firstName: true, lastName: true, tableNumber: true, category: true, plusOnes: true },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }]
+    });
+
+    res.json({
+      eventType: wedding.eventType,
+      tables: normalizeTables(wedding.tables),
+      guests
+    });
+  } catch (error) {
+    logger.error('Seating data error:', error);
+    res.status(500).json({ error: 'Erreur lors du chargement du plan de table' });
+  }
+});
+
+/**
  * @route   GET /api/guests/:weddingId/template
  * @desc    Download an Excel (.xlsx) import template, columns adapted to the
  *          event type, with an "Instructions" sheet (column meanings, valid
@@ -267,17 +296,13 @@ router.get('/:weddingId/template', authenticate, async (req, res) => {
     const wedding = await findOwnedWedding(req, req.params.weddingId);
     if (!wedding) return res.status(404).json({ error: 'Événement non trouvé' });
 
-    const usesTables = eventUsesTables(wedding.eventType);
     const usesPlusOnes = eventUsesPlusOnes(wedding.eventType);
-    const categories = getGuestCategoryOptions(wedding.eventType);
-    const tables = Array.isArray(wedding.tables) ? wedding.tables : [];
 
-    // Columns + one example row, matching the keys mapCSVToGuest understands.
-    const headers = ['Prénom', 'Nom', 'Email', 'Téléphone', 'Catégorie'];
-    const example = { 'Prénom': 'Jean', 'Nom': 'Dupont', 'Email': 'jean@email.com', 'Téléphone': '+221770000000', 'Catégorie': categories[0] || 'Amis' };
-    if (usesTables) { headers.push('Table'); example['Table'] = tables[0] || '1'; }
+    // Import = les bases seulement. La table, la catégorie et les notes se
+    // règlent ensuite dans l'application (plan de table, fiche invité).
+    const headers = ['Prénom', 'Nom', 'Email', 'Téléphone'];
+    const example = { 'Prénom': 'Jean', 'Nom': 'Dupont', 'Email': 'jean@email.com', 'Téléphone': '+221770000000' };
     if (usesPlusOnes) { headers.push('Accompagnants'); example['Accompagnants'] = 1; }
-    headers.push('Notes'); example['Notes'] = 'Invité VIP';
 
     const guestSheet = XLSX.utils.json_to_sheet([example], { header: headers });
     const workbook = XLSX.utils.book_new();
@@ -288,19 +313,14 @@ router.get('/:weddingId/template', authenticate, async (req, res) => {
       ['Comment remplir ce fichier'],
       ['1) Une ligne = un invité. Remplissez sous chaque colonne, gardez la 1re ligne (en-têtes).'],
       ['2) Enregistrez en .xlsx puis importez-le depuis la page Invités (bouton « Importer »).'],
+      ['3) La table, la catégorie et les notes se règlent ensuite dans l\'application.'],
       [''],
       ['Colonne', 'Description', 'Obligatoire'],
       ['Prénom', "Prénom de l'invité", 'Oui'],
       ['Nom', "Nom de l'invité", 'Oui'],
       ['Email', 'Adresse email (sert à éviter les doublons)', 'Non'],
       ['Téléphone', 'Numéro au format international, ex. +221770000000', 'Non'],
-      ['Catégorie', 'Une des catégories valides ci-dessous', 'Non'],
-      ...(usesTables ? [['Table', 'Nom/numéro de la table où placer l\'invité', 'Non']] : []),
-      ...(usesPlusOnes ? [['Accompagnants', "Nombre d'accompagnants (0, 1, 2...)", 'Non']] : []),
-      ['Notes', 'Remarque libre (régime, VIP, etc.)', 'Non'],
-      [''],
-      ['Catégories valides', categories.join(', ')],
-      ...(usesTables ? [['Tables de l\'événement', tables.length ? tables.join(', ') : '(aucune table définie — ajoutez-les dans l\'édition de l\'événement)']] : [])
+      ...(usesPlusOnes ? [['Accompagnants', "Nombre d'accompagnants (0, 1, 2...). Un couple = 1.", 'Non']] : [])
     ];
     const instrSheet = XLSX.utils.aoa_to_sheet(instr);
     instrSheet['!cols'] = [{ wch: 22 }, { wch: 60 }, { wch: 12 }];

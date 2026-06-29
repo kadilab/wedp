@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { guestAPI, weddingAPI, invitationOrderAPI } from '../../services/api'
 import BuyQuotaModal from '../../components/invitations/BuyQuotaModal'
 import { getGuestCategoryOptions, eventUsesTables, eventUsesPlusOnes } from '../../utils/eventTypes'
+import { tableName } from '../../utils/tables'
 import toast from 'react-hot-toast'
 import {
   PlusIcon,
@@ -61,7 +62,7 @@ export default function Guests() {
     {
       onSuccess: () => {
         toast.success('Invité supprimé')
-        queryClient.invalidateQueries(['guests', weddingId])
+        queryClient.invalidateQueries(['guests', weddingId]); queryClient.invalidateQueries(['seating', weddingId])
       }
     }
   )
@@ -81,7 +82,7 @@ export default function Guests() {
       if (win) win.location.href = share.waUrl
       else window.location.href = share.waUrl
       await guestAPI.markSent(weddingId, guest.id)
-      queryClient.invalidateQueries(['guests', weddingId])
+      queryClient.invalidateQueries(['guests', weddingId]); queryClient.invalidateQueries(['seating', weddingId])
     } catch (error) {
       if (win) win.close()
       toast.error('Échec de la génération du lien WhatsApp')
@@ -117,7 +118,7 @@ export default function Guests() {
     try {
       const res = await guestAPI.import(weddingId, file)
       const r = res.data?.results || {}
-      queryClient.invalidateQueries(['guests', weddingId])
+      queryClient.invalidateQueries(['guests', weddingId]); queryClient.invalidateQueries(['seating', weddingId])
       toast.success(`Import terminé : ${r.created || 0} ajouté(s)${r.skipped ? `, ${r.skipped} ignoré(s)` : ''}`)
     } catch (error) {
       toast.error(error.response?.data?.error || "Erreur lors de l'import")
@@ -415,7 +416,7 @@ export default function Guests() {
       {showWaBulk && (
         <WhatsAppBulkModal
           weddingId={weddingId}
-          onClose={() => { setShowWaBulk(false); queryClient.invalidateQueries(['guests', weddingId]) }}
+          onClose={() => { setShowWaBulk(false); queryClient.invalidateQueries(['guests', weddingId]); queryClient.invalidateQueries(['seating', weddingId]) }}
         />
       )}
     </div>
@@ -446,7 +447,7 @@ function WhatsAppBulkModal({ weddingId, onClose }) {
       else window.location.href = share.waUrl
       await guestAPI.markSent(weddingId, share.guestId)
       setSentIds(prev => new Set(prev).add(share.guestId))
-      queryClient.invalidateQueries(['guests', weddingId])
+      queryClient.invalidateQueries(['guests', weddingId]); queryClient.invalidateQueries(['seating', weddingId])
     } catch {
       if (win) win.close()
       toast.error('Échec de l\'envoi')
@@ -564,7 +565,7 @@ function GuestModal({ guest, weddingId, eventType, usesTables = true, usesPlusOn
     {
       onSuccess: () => {
         toast.success('Invité ajouté')
-        queryClient.invalidateQueries(['guests', weddingId])
+        queryClient.invalidateQueries(['guests', weddingId]); queryClient.invalidateQueries(['seating', weddingId])
         onClose()
       }
     }
@@ -575,7 +576,7 @@ function GuestModal({ guest, weddingId, eventType, usesTables = true, usesPlusOn
     {
       onSuccess: () => {
         toast.success('Invité mis à jour')
-        queryClient.invalidateQueries(['guests', weddingId])
+        queryClient.invalidateQueries(['guests', weddingId]); queryClient.invalidateQueries(['seating', weddingId])
         onClose()
       }
     }
@@ -654,9 +655,10 @@ function GuestModal({ guest, weddingId, eventType, usesTables = true, usesPlusOn
                     onChange={(e) => setFormData({ ...formData, tableNumber: e.target.value })}
                   >
                     <option value="">-- Sélectionner une table --</option>
-                    {tables.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
+                    {tables.map((t) => {
+                      const name = tableName(t)
+                      return <option key={name} value={name}>{name}</option>
+                    })}
                   </select>
                 ) : (
                   <div>

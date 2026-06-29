@@ -1,6 +1,8 @@
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { weddingAPI } from '../../services/api'
+import { eventUsesTables } from '../../utils/eventTypes'
+import { tableName } from '../../utils/tables'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import toast from 'react-hot-toast'
@@ -97,6 +99,13 @@ export default function WeddingDetail() {
       href: `/weddings/${id}/guests`,
       color: 'bg-blue-100 text-blue-600'
     },
+    ...(eventUsesTables(wedding?.eventType) ? [{
+      name: 'Plan de table',
+      description: 'Placer les invités par glisser-déposer',
+      icon: TableCellsIcon,
+      href: `/weddings/${id}/seating`,
+      color: 'bg-indigo-100 text-indigo-600'
+    }] : []),
     {
       name: 'Invitations',
       description: 'Générer et envoyer les invitations',
@@ -479,6 +488,7 @@ function TableManager({ weddingId }) {
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['weddingTables', weddingId])
+        queryClient.invalidateQueries(['seating', weddingId])
         toast.success('Tables enregistrées')
       },
       onError: () => toast.error('Erreur lors de la sauvegarde')
@@ -488,15 +498,15 @@ function TableManager({ weddingId }) {
   const addTable = () => {
     const name = newTable.trim()
     if (!name) return
-    if (tables.includes(name)) {
+    if (tables.some(t => tableName(t) === name)) {
       return toast.error('Cette table existe déjà')
     }
     saveMutation.mutate([...tables, name])
     setNewTable('')
   }
 
-  const removeTable = (tableName) => {
-    saveMutation.mutate(tables.filter(t => t !== tableName))
+  const removeTable = (name) => {
+    saveMutation.mutate(tables.filter(t => tableName(t) !== name))
   }
 
   const handleKeyDown = (e) => {
@@ -546,22 +556,25 @@ function TableManager({ weddingId }) {
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          {tables.map((table) => (
+          {tables.map((table) => {
+            const name = tableName(table)
+            return (
             <div
-              key={table}
+              key={name}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-full text-sm font-medium border border-primary-200"
             >
-              <span>{table}</span>
+              <span>{name}{typeof table === 'object' && table?.seats != null ? ` (${table.seats})` : ''}</span>
               {isEditing && (
                 <button
-                  onClick={() => removeTable(table)}
+                  onClick={() => removeTable(name)}
                   className="p-0.5 hover:bg-primary-200 rounded-full transition-colors"
                 >
                   <XMarkIcon className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
 

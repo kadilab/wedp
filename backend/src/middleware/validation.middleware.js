@@ -189,15 +189,15 @@ const createGuestValidation = [
     .notEmpty().withMessage('Le nom est requis')
     .isLength({ max: 50 }).withMessage('Le nom ne doit pas dépasser 50 caractères'),
   body('email')
-    .optional()
+    .optional({ checkFalsy: true })
     .isEmail().withMessage('Email invalide')
     .normalizeEmail(),
   body('phone')
-    .optional()
+    .optional({ checkFalsy: true })
     .isMobilePhone('any').withMessage('Numéro de téléphone invalide'),
   body('tableNumber')
-    .optional()
-    .isLength({ max: 20 }).withMessage('Le numéro de table ne doit pas dépasser 20 caractères'),
+    .optional({ checkFalsy: true })
+    .isLength({ max: 50 }).withMessage('Le nom de table ne doit pas dépasser 50 caractères'),
   body('plusOnes')
     .optional()
     .isInt({ min: 0, max: 10 }).withMessage('Nombre d\'accompagnants invalide'),

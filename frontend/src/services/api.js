@@ -164,6 +164,8 @@ export const guestAPI = {
   // Excel import template (.xlsx) adapted to the event type
   downloadTemplate: (weddingId) =>
     api.get(`/guests/${weddingId}/template`, { responseType: 'blob' }),
+  // Seating plan: normalized tables + all guests (minimal fields)
+  getSeating: (weddingId) => api.get(`/guests/${weddingId}/seating`),
   // WhatsApp 1-click sharing
   whatsappLink: (weddingId, guestId) => api.get(`/guests/${weddingId}/${guestId}/whatsapp`),
   whatsappBulk: (weddingId, params) => api.get(`/guests/${weddingId}/whatsapp/bulk`, { params }),
