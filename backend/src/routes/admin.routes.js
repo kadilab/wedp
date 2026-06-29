@@ -15,6 +15,7 @@ const { recordOrderCommission } = require('../utils/marketplace');
 const { approveInvitationOrder } = require('../utils/invitationOrders');
 const { getVisitStats, getSecurityEvents } = require('../utils/supervision');
 const kpay = require('../utils/kpay');
+const { markPayoutPaid, markPayoutFailed } = require('../utils/payouts');
 
 const prisma = new PrismaClient();
 
@@ -2238,7 +2239,9 @@ router.post('/payouts/:payoutId/kpay', authenticate, isAdmin, async (req, res) =
     if (!payout) return res.status(404).json({ message: 'Payout not found' });
     if (payout.status === 'PAID') return res.status(400).json({ message: 'Payout déjà payé' });
 
-    const amount = Math.round(parseFloat(payout.totalAmount));
+    // Amount is in the K-PAY account currency (USD), 2 decimals — no `currency`
+    // field (forbidden), no conversion. Keep the cents (don't round to whole $).
+    const amount = Math.round(parseFloat(payout.totalAmount) * 100) / 100;
     const result = await kpay.withdraw({
       amount,
       provider,
@@ -2269,6 +2272,39 @@ router.post('/payouts/:payoutId/kpay', authenticate, isAdmin, async (req, res) =
     const apiErr = error.response?.data;
     logger.error('K-PAY withdraw error:', apiErr || error.message);
     res.status(502).json({ message: apiErr?.message || 'Erreur lors du reversement K-PAY' });
+  }
+});
+
+/**
+ * @route   GET /api/admin/payouts/:payoutId/kpay/status
+ * @desc    Poll the live K-PAY withdrawal status; marks the payout PAID as soon
+ *          as it is COMPLETED (idempotent, same effects as the webhook) so the
+ *          admin sees the result without refreshing / waiting for the webhook.
+ * @access  Private/Admin
+ */
+router.get('/payouts/:payoutId/kpay/status', authenticate, isAdmin, async (req, res) => {
+  try {
+    const payout = await prisma.creatorPayout.findUnique({ where: { id: req.params.payoutId } });
+    if (!payout) return res.status(404).json({ message: 'Payout not found' });
+    if (payout.status === 'PAID') return res.json({ payoutStatus: 'COMPLETED', orderStatus: 'PAID' });
+    if (!payout.transactionId) return res.json({ payoutStatus: 'UNKNOWN', orderStatus: payout.status });
+
+    const wd = await kpay.getWithdraw(payout.transactionId);
+    const status = String(wd?.status || wd?.data?.status || 'UNKNOWN').toUpperCase();
+
+    if (status === 'COMPLETED' || status === 'SUCCESS') {
+      await markPayoutPaid(payout.id, payout.transactionId);
+      return res.json({ payoutStatus: 'COMPLETED', orderStatus: 'PAID' });
+    }
+    if (status === 'FAILED' || status === 'CANCELLED') {
+      await markPayoutFailed(payout.id, `payout.${status.toLowerCase()}`, wd?.failureReason);
+      return res.json({ payoutStatus: status, orderStatus: 'REJECTED' });
+    }
+    res.json({ payoutStatus: status, orderStatus: payout.status });
+  } catch (error) {
+    const apiErr = error.response?.data;
+    logger.error('K-PAY payout status error:', apiErr || error.message);
+    res.status(502).json({ message: apiErr?.message || 'Erreur lors de la vérification du reversement' });
   }
 });
 

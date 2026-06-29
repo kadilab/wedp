@@ -343,6 +343,14 @@ router.get('/:weddingId/orders/:orderId/kpay/status', authenticate, async (req, 
     const paymentStatus = String(payment?.status || payment?.data?.status || 'UNKNOWN').toUpperCase();
 
     if (paymentStatus === 'COMPLETED' || paymentStatus === 'SUCCESS') {
+      // Anti-fraud: never approve unless the amount actually paid covers the
+      // order total (avoids "pay $0.01, unlock everything"). 1-cent tolerance.
+      const paid = Number(payment?.amount ?? payment?.data?.amount ?? NaN);
+      const due = Number(order.totalAmount);
+      if (Number.isFinite(paid) && paid + 0.01 < due) {
+        logger.warn(`K-PAY underpayment: order ${order.id} due ${due}, paid ${paid} — not approving`);
+        return res.status(409).json({ paymentStatus: 'UNDERPAID', orderStatus: order.status, error: 'Montant payé insuffisant' });
+      }
       await approveInvitationOrder(order.id, { processedBy: null, io: req.app.get('io') });
       return res.json({ paymentStatus: 'COMPLETED', orderStatus: 'APPROVED' });
     }

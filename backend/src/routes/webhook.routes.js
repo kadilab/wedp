@@ -4,6 +4,7 @@ const { PrismaClient } = require('@prisma/client');
 const logger = require('../utils/logger');
 const kpay = require('../utils/kpay');
 const { approveInvitationOrder } = require('../utils/invitationOrders');
+const { markPayoutPaid, markPayoutFailed } = require('../utils/payouts');
 
 const prisma = new PrismaClient();
 
@@ -40,43 +41,10 @@ async function handlePayoutEvent(event, payload, io) {
   }
   const payoutId = externalId.slice(PAYOUT_PREFIX.length);
 
-  const payout = await prisma.creatorPayout.findUnique({ where: { id: payoutId } });
-  if (!payout) {
-    logger.warn(`K-PAY payout webhook: payout ${payoutId} not found`);
-    return;
-  }
-  if (payout.status === 'PAID') return; // idempotent
-
   if (event === 'payout.completed') {
-    await prisma.creatorPayout.update({
-      where: { id: payoutId },
-      data: { status: 'PAID', processedAt: new Date(), transactionId: payload.paymentId || payload.reference }
-    });
-    const ids = Array.isArray(payout.usageTracksIncluded) ? payout.usageTracksIncluded : [];
-    if (ids.length) {
-      await prisma.templateUsageTrack.updateMany({ where: { id: { in: ids } }, data: { status: 'PAID' } });
-    }
-    await prisma.notification.create({
-      data: {
-        userId: payout.userId,
-        type: 'PAYOUT_PAID',
-        title: 'Retrait effectué',
-        message: `Votre retrait de $${parseFloat(payout.totalAmount).toFixed(2)} a été envoyé.`,
-        data: { payoutId }
-      }
-    }).catch(() => {});
-    logger.info(`K-PAY: payout ${payoutId} marked PAID`);
+    await markPayoutPaid(payoutId, payload.paymentId || payload.reference);
   } else if (event === 'payout.failed' || event === 'payout.cancelled') {
-    // Release the linked earnings so the creator can request again.
-    await prisma.creatorPayout.update({
-      where: { id: payoutId },
-      data: { status: 'REJECTED', processedAt: new Date(), adminNote: `K-PAY ${event}: ${payload.failureReason || 'n/a'}` }
-    });
-    const ids = Array.isArray(payout.usageTracksIncluded) ? payout.usageTracksIncluded : [];
-    if (ids.length) {
-      await prisma.templateUsageTrack.updateMany({ where: { id: { in: ids } }, data: { payoutId: null } });
-    }
-    logger.info(`K-PAY: payout ${payoutId} ${event}`);
+    await markPayoutFailed(payoutId, event, payload.failureReason);
   }
 }
 
