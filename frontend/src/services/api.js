@@ -191,7 +191,9 @@ export const invitationOrderAPI = {
   createOrder: (weddingId, quantity, couponCode) => api.post(`/invitation-orders/${weddingId}`, { quantity, couponCode }),
   submitTransaction: (weddingId, orderId, data) => api.put(`/invitation-orders/${weddingId}/orders/${orderId}/submit`, data),
   // K-PAY automatic Mobile Money payment (GATEWAY): returns { gatewayUrl }
-  payKpay: (weddingId, orderId, data = {}) => api.post(`/invitation-orders/${weddingId}/orders/${orderId}/kpay`, data)
+  payKpay: (weddingId, orderId, data = {}) => api.post(`/invitation-orders/${weddingId}/orders/${orderId}/kpay`, data),
+  // Poll the live K-PAY status; auto-approves the order when COMPLETED (no admin)
+  kpayStatus: (weddingId, orderId) => api.get(`/invitation-orders/${weddingId}/orders/${orderId}/kpay/status`)
 }
 
 // Custom fonts API

@@ -41,22 +41,56 @@ export default function Invitations() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   // K-PAY return/cancel handling: the client is redirected back here after the
-  // hosted payment page. The order is confirmed server-side by the webhook, so
-  // here we only inform the client and refresh the quota.
+  // hosted payment page. Confirmation is fully automatic — we actively poll
+  // K-PAY (the source of truth) which approves the order as soon as the payment
+  // is COMPLETED, with no admin action required (the webhook is a 2nd path).
   useEffect(() => {
     const kpay = searchParams.get('kpay')
     if (!kpay) return
-    if (kpay === 'return') {
-      toast.success('Paiement reçu — confirmation en cours. Vos invitations seront débloquées dès validation.', { duration: 7000 })
-      queryClient.invalidateQueries(['quota', weddingId])
-      queryClient.invalidateQueries(['invitation-orders', weddingId])
-    } else if (kpay === 'cancel') {
-      toast('Paiement annulé.', { icon: 'ℹ️' })
-    }
+    const orderId = searchParams.get('order')
+
     // Clean the query params so the message doesn't reappear on refresh.
     const next = new URLSearchParams(searchParams)
     next.delete('kpay'); next.delete('order')
     setSearchParams(next, { replace: true })
+
+    if (kpay === 'cancel') {
+      toast('Paiement annulé.', { icon: 'ℹ️' })
+      return
+    }
+    if (kpay !== 'return') return
+
+    const toastId = toast.loading('Confirmation du paiement en cours…')
+    let cancelled = false
+    let attempts = 0
+
+    const poll = async () => {
+      attempts++
+      try {
+        const { data } = await invitationOrderAPI.kpayStatus(weddingId, orderId)
+        if (cancelled) return
+        if (data.orderStatus === 'APPROVED' || data.paymentStatus === 'COMPLETED') {
+          toast.success('Paiement confirmé — vos invitations sont débloquées 🎉', { id: toastId, duration: 6000 })
+          queryClient.invalidateQueries(['quota', weddingId])
+          queryClient.invalidateQueries(['invitation-orders', weddingId])
+          return
+        }
+        if (data.paymentStatus === 'FAILED' || data.paymentStatus === 'CANCELLED') {
+          toast.error('Le paiement a échoué ou a été annulé.', { id: toastId })
+          return
+        }
+      } catch {
+        // transient — keep trying
+      }
+      if (attempts >= 10) {
+        toast('Paiement en cours de vérification. Vos invitations seront débloquées dès validation.', { id: toastId, icon: '⏳', duration: 7000 })
+        queryClient.invalidateQueries(['quota', weddingId])
+        return
+      }
+      setTimeout(poll, 3000) // poll every 3s, up to ~30s; webhook covers the rest
+    }
+    poll()
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

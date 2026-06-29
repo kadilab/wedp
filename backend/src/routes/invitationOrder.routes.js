@@ -6,6 +6,7 @@ const { getWeddingQuota } = require('../utils/invitationQuota');
 const { sendTelegramNotification } = require('../utils/telegram');
 const { notifyAdmins, NotificationTemplates } = require('../utils/notifications');
 const kpay = require('../utils/kpay');
+const { approveInvitationOrder } = require('../utils/invitationOrders');
 const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
@@ -262,14 +263,13 @@ router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) =
       return res.status(400).json({ error: 'Cette commande a déjà été traitée' });
     }
 
-    // The order amount is stored in USD but the K-PAY account is in XAF
-    // (minimum 100, and NO `currency` field is allowed). Convert here.
-    const usdToXaf = parseFloat(String(process.env.KPAY_USD_TO_XAF || '600').replace(',', '.')) || 600;
-    let amount = Math.round(parseFloat(order.totalAmount) * usdToXaf);
+    // The amount is ALWAYS in the K-PAY account's currency, and the `currency`
+    // field is forbidden (rejected). The live account is in USD (RDC), so send
+    // the order's USD total directly — no conversion.
+    const amount = Math.round(parseFloat(order.totalAmount) * 100) / 100;
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Montant de la commande invalide' });
     }
-    if (amount < 100) amount = 100; // K-PAY minimum
 
     const { provider, phoneNumber } = req.body || {};
     const frontendUrl = process.env.FRONTEND_URL || '';
@@ -309,6 +309,49 @@ router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) =
     const apiErr = error.response?.data;
     logger.error('K-PAY init payment error:', apiErr || error.message);
     res.status(502).json({ error: apiErr?.message || 'Erreur lors de l\'initiation du paiement' });
+  }
+});
+
+/**
+ * @route   GET /api/invitation-orders/:weddingId/orders/:orderId/kpay/status
+ * @desc    Automatic confirmation: ask K-PAY (the source of truth) for the live
+ *          payment status via GET /payments/:id. When COMPLETED, approve the
+ *          order right away — no admin action needed. Idempotent (also safe if
+ *          the webhook already approved it). The frontend polls this after pay.
+ * @access  Private (owner)
+ */
+router.get('/:weddingId/orders/:orderId/kpay/status', authenticate, async (req, res) => {
+  try {
+    const wedding = await findOwnedWedding(req.params.weddingId, req.user);
+    if (!wedding) return res.status(404).json({ error: 'Mariage non trouvé' });
+
+    const order = await prisma.invitationOrder.findFirst({
+      where: { id: req.params.orderId, weddingId: wedding.id }
+    });
+    if (!order) return res.status(404).json({ error: 'Commande non trouvée' });
+
+    // Already settled — nothing to poll.
+    if (order.status === 'APPROVED') {
+      return res.json({ paymentStatus: 'COMPLETED', orderStatus: 'APPROVED' });
+    }
+    if (!order.transactionId) {
+      return res.json({ paymentStatus: 'UNKNOWN', orderStatus: order.status });
+    }
+
+    // K-PAY is authoritative: confirm the real status before approving anything.
+    const payment = await kpay.getPayment(order.transactionId);
+    const paymentStatus = String(payment?.status || payment?.data?.status || 'UNKNOWN').toUpperCase();
+
+    if (paymentStatus === 'COMPLETED' || paymentStatus === 'SUCCESS') {
+      await approveInvitationOrder(order.id, { processedBy: null, io: req.app.get('io') });
+      return res.json({ paymentStatus: 'COMPLETED', orderStatus: 'APPROVED' });
+    }
+
+    res.json({ paymentStatus, orderStatus: order.status });
+  } catch (error) {
+    const apiErr = error.response?.data;
+    logger.error('K-PAY status check error:', apiErr || error.message);
+    res.status(502).json({ error: apiErr?.message || 'Erreur lors de la vérification du paiement' });
   }
 });
 
