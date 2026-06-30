@@ -50,13 +50,17 @@ function hexToRgba(hex, alphaPercent = 100) {
 // Shape options for "photo"/"image" design elements - mirrors
 // frontend/src/utils/imageShapes.js. 'rect' (default/null) keeps the
 // existing border-radius behavior; every other shape clips via clip-path.
-function getClipPath(shape) {
+// 'custom' (Forme libre) uses the per-element customClipPath string.
+const DEFAULT_CUSTOM_CLIP_PATH = 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)';
+function getClipPath(shape, customValue) {
   switch (shape) {
     case 'circle': return 'circle(50% at 50% 50%)';
     case 'hexagon': return 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)';
     case 'diamond': return 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)';
     case 'octagon': return 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)';
     case 'star': return 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
+    case 'heart': return 'polygon(50% 100%, 12% 62%, 0% 36%, 4% 17%, 20% 6%, 36% 8%, 50% 22%, 64% 8%, 80% 6%, 96% 17%, 100% 36%, 88% 62%)';
+    case 'custom': return (customValue && customValue.trim()) || DEFAULT_CUSTOM_CLIP_PATH;
     default: return null;
   }
 }
@@ -816,16 +820,26 @@ function generateDesignBasedHTML(options) {
         const photoSrc = isDecorative ? resolveImageToDataUri(el.iconUrl) : resolveImageToDataUri(photoForElement);
         const borderColor = hexToRgba(el.borderColor || '#FFFFFF', el.borderOpacity ?? 100);
         const objectFit = el.objectFit || (isDecorative ? 'contain' : 'cover');
-        const clipPath = getClipPath(el.shape);
+        const clipPath = getClipPath(el.shape, el.customClipPath);
         // No gray placeholder fill once a real image is set - many decorative
         // uploads (PNG logos, ornaments) rely on transparency.
         const placeholderBg = photoSrc ? 'transparent' : '#f3f4f6';
+
+        // Mirror frontend getImageStyle(el): fit, anchor, zoom, rotation, opacity
+        // so the crop inside a shape looks identical to the editor/public view.
+        const imgScale = (el.imageScale ?? 100) / 100;
+        const imgRotation = el.rotation ?? 0;
+        const imgTransform = [
+          imgRotation ? `rotate(${imgRotation}deg)` : '',
+          imgScale !== 1 ? `scale(${imgScale})` : ''
+        ].filter(Boolean).join(' ');
+        const imgStyle = `width:100%;height:100%;object-fit:${objectFit};object-position:${el.objectPosition || 'center'};opacity:${(el.opacity ?? 100) / 100};${imgTransform ? `transform:${imgTransform};transform-origin:center center;` : ''}display:block;`;
 
         if (clipPath) {
           const pad = el.borderWidth || 0;
           return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};box-sizing:border-box;clip-path:${clipPath};background:${pad ? borderColor : 'transparent'};padding:${pad}px;">
             <div style="width:100%;height:100%;clip-path:${clipPath};background:${placeholderBg};overflow:hidden;">
-              ${photoSrc ? `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:${objectFit};display:block;" />` : ''}
+              ${photoSrc ? `<img src="${photoSrc}" style="${imgStyle}" />` : ''}
             </div>
           </div>`;
         }
@@ -833,7 +847,7 @@ function generateDesignBasedHTML(options) {
         const borderStyle = el.borderWidth ? `border:${el.borderWidth}px solid ${borderColor};` : '';
         const radiusStyle = el.borderRadius ? `border-radius:${el.borderRadius}px;overflow:hidden;` : '';
         return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};box-sizing:border-box;${borderStyle}${radiusStyle}background:${placeholderBg};">
-          ${photoSrc ? `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:${objectFit};display:block;" />` : ''}
+          ${photoSrc ? `<img src="${photoSrc}" style="${imgStyle}" />` : ''}
         </div>`;
       }
 
