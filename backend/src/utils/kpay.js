@@ -1,12 +1,13 @@
 const crypto = require('crypto');
-const { Agent, fetch } = require('undici');
+const https = require('https');
 const logger = require('./logger');
 const fx = require('./fx');
 
-// Force IPv4 — avoids UND_ERR_CONNECT_TIMEOUT when the host's IPv6 is broken
-// (common on VPS / VPN). The native fetch refuses an external dispatcher, so we
-// import fetch FROM undici. See README-USSD-CDF.md §3.
-const ipv4Dispatcher = new Agent({ connect: { family: 4 } });
+// Force IPv4 — avoids connect timeouts when the host's IPv6 is broken (common on
+// VPS / VPN). We use Node's built-in `https` module to stay dependency-free:
+// undici 8.x crashes on the Node 20 runtime in the container
+// (`webidl.util.markAsUncloneable is not a function`). See README-USSD-CDF.md §3.
+const ipv4Agent = new https.Agent({ family: 4, keepAlive: true });
 
 // K-PAY Mobile Money client.
 // Docs: https://kpay.site/documentation
@@ -38,33 +39,58 @@ async function toAccountAmount(usd) {
   return amount;
 }
 
-// Single HTTP helper for all K-PAY calls: IPv4 dispatcher + retry on connect
-// timeouts. Throws an Error with `.status` and `.data` on non-2xx responses.
+// Low-level HTTPS request over the IPv4 agent. Resolves with { status, data }
+// (data = parsed JSON, or {} when the body isn't JSON). Rejects only on
+// transport errors (DNS, connect timeout, socket reset) — HTTP error statuses
+// resolve so the caller can read the K-PAY error body.
+function httpsRequest(url, { method, headers, body, timeoutMs = 20000 }) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, { method, headers, agent: ipv4Agent }, (res) => {
+      let raw = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => { raw += chunk; });
+      res.on('end', () => {
+        let data = {};
+        try { data = raw ? JSON.parse(raw) : {}; } catch (_) { data = { message: raw }; }
+        resolve({ status: res.statusCode, data });
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(Object.assign(new Error('K-PAY request timeout'), { code: 'ETIMEDOUT' }));
+    });
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+// Single HTTP helper for all K-PAY calls: IPv4 + retry on transient transport
+// errors. Throws an Error with `.status` and `.data` on non-2xx responses.
 async function kpayFetch(path, { method = 'GET', body, retries = 2 } = {}) {
+  const url = `${BASE_URL}/api/v1${path}`;
+  const payload = body ? JSON.stringify(body) : undefined;
+  const headers = {
+    'X-API-Key': API_KEY,
+    'X-Secret-Key': SECRET_KEY,
+    'Content-Type': 'application/json'
+  };
+  if (payload) headers['Content-Length'] = Buffer.byteLength(payload);
+
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const res = await fetch(`${BASE_URL}/api/v1${path}`, {
-        method,
-        headers: {
-          'X-API-Key': API_KEY,
-          'X-Secret-Key': SECRET_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: body ? JSON.stringify(body) : undefined,
-        dispatcher: ipv4Dispatcher
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const err = new Error(data?.message || `KPay ${res.status}`);
-        err.status = res.status;
+      const { status, data } = await httpsRequest(url, { method, headers, body: payload });
+      if (status < 200 || status >= 300) {
+        const err = new Error(data?.message || `KPay ${status}`);
+        err.status = status;
         err.data = data;
         throw err;
       }
       return data;
     } catch (err) {
       lastErr = err;
-      const transient = err?.cause?.code === 'UND_ERR_CONNECT_TIMEOUT';
+      // Retry only on transport-level failures (no HTTP status attached).
+      const transient = !err.status && ['ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'EAI_AGAIN', 'UND_ERR_CONNECT_TIMEOUT'].includes(err.code);
       if (!transient || attempt === retries) throw err;
       await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
     }
