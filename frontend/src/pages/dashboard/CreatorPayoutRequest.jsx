@@ -5,8 +5,8 @@ import toast from 'react-hot-toast';
 import { formatMoney } from '../../utils/currency';
 import { CurrencyDollarIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
-// Minimum payout amount (FC). Adjust to your real policy.
-const MIN_PAYOUT = 10;
+// Minimum payout amount (FC).
+const MIN_PAYOUT = 5000;
 
 export default function CreatorPayoutRequest() {
   const [selectedBankAccount, setSelectedBankAccount] = useState('');
@@ -67,6 +67,11 @@ export default function CreatorPayoutRequest() {
 
     if (!amount || parseFloat(amount) <= 0) {
       toast.error('Veuillez entrer un montant valide');
+      return;
+    }
+
+    if (parseFloat(amount) < MIN_PAYOUT) {
+      toast.error(`Le montant minimum de retrait est de ${formatMoney(MIN_PAYOUT)}`);
       return;
     }
 
@@ -133,18 +138,9 @@ export default function CreatorPayoutRequest() {
               {bankAccounts.map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.accountHolderName} - {account.bankName} ({account.accountNumber?.replace(/(\d)(?=\d{2})/g, '*')})
-                  {!account.isVerified && ' - NON VÉRIFIÉ'}
                 </option>
               ))}
             </select>
-            {selectedBankAccount && (() => {
-              const selectedAcct = bankAccounts.find(a => a.id === selectedBankAccount);
-              return !selectedAcct?.isVerified && (
-                <p className="mt-2 text-sm text-amber-600">
-                  ⚠️ Ce compte n'est pas vérifié. Veuillez le vérifier avant de demander un retrait.
-                </p>
-              );
-            })()}
           </div>
 
           {/* Amount */}

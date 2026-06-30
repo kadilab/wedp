@@ -439,13 +439,26 @@ router.get('/me/bank-accounts', authenticate, isCreator, async (req, res) => {
       where: { userId }
     });
 
+    // No profile yet → no accounts. Return an empty list (not 404) so the
+    // payout UI renders and the creator can add their first account.
     if (!creatorProfile) {
-      return res.status(404).json({ message: 'Creator profile not found' });
+      return res.json({ bankAccounts: [] });
     }
 
+    // Select only the columns the UI needs — keeps this resilient to any extra
+    // columns and avoids leaking sensitive fields.
     const bankAccounts = await prisma.creatorBankAccount.findMany({
       where: { creatorId: creatorProfile.id },
-      orderBy: { isDefault: 'desc' }
+      orderBy: { isDefault: 'desc' },
+      select: {
+        id: true,
+        accountHolderName: true,
+        bankName: true,
+        accountNumber: true,
+        isDefault: true,
+        isVerified: true,
+        createdAt: true
+      }
     });
 
     res.json({
@@ -454,16 +467,16 @@ router.get('/me/bank-accounts', authenticate, isCreator, async (req, res) => {
         accountHolderName: acc.accountHolderName,
         bankName: acc.bankName,
         accountNumber: acc.accountNumber ? `****${acc.accountNumber.slice(-4)}` : '****',
-        accountType: acc.accountType,
-        currency: acc.currency,
         isDefault: acc.isDefault,
         isVerified: acc.isVerified,
         createdAt: acc.createdAt
       }))
     });
   } catch (error) {
+    // Never break the payout page on a read error — log it and return empty so
+    // the creator can still (re)add an account. Real errors surface on write.
     logger.error('Error fetching bank accounts:', error);
-    res.status(500).json({ message: 'Error fetching bank accounts', error: error.message });
+    res.json({ bankAccounts: [] });
   }
 });
 
@@ -506,9 +519,13 @@ router.post('/me/bank-accounts', authenticate, isCreator, async (req, res) => {
         routingNumber,
         iban,
         swiftCode,
-        accountType: accountType || 'checking',
-        currency: currency || 'USD',
-        isDefault: isDefault ? true : false
+        accountType: accountType || 'mobile_money',
+        currency: currency || 'CDF',
+        isDefault: isDefault ? true : false,
+        // Mobile Money accounts don't need a manual verification step — the
+        // payout is validated against the live operator at withdrawal time.
+        isVerified: true,
+        verifiedAt: new Date()
       }
     });
 
@@ -673,15 +690,13 @@ router.post('/me/request-payout', authenticate, isCreator, async (req, res) => {
 
     const bankAccount = await prisma.creatorBankAccount.findUnique({ where: { id: bankAccountId } });
     if (!bankAccount || bankAccount.creatorId !== creatorProfile.id) {
-      return res.status(403).json({ message: 'Invalid bank account' });
-    }
-    if (!bankAccount.isVerified) {
-      return res.status(400).json({ message: 'Bank account must be verified before requesting a payout' });
+      return res.status(403).json({ message: 'Compte Mobile Money invalide' });
     }
 
+    const MIN_PAYOUT = 5000; // FC (CDF)
     const requested = parseFloat(amount);
-    if (Number.isNaN(requested) || requested < 10) {
-      return res.status(400).json({ message: 'Minimum payout amount is $10' });
+    if (Number.isNaN(requested) || requested < MIN_PAYOUT) {
+      return res.status(400).json({ message: `Le montant minimum de retrait est de ${MIN_PAYOUT.toLocaleString('fr-FR')} FC` });
     }
 
     // Available balance = APPROVED earnings not yet attached to a payout

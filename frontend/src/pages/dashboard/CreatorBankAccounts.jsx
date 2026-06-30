@@ -80,7 +80,7 @@ export default function CreatorBankAccounts() {
     setFormData({
       accountHolderName: account.accountHolderName,
       phoneNumber: account.accountNumber || '',
-      mobileMoneyProvider: account.bankName?.toLowerCase() || 'airtel',
+      mobileMoneyProvider: providerFor(account.bankName).value,
       isDefault: account.isDefault
     });
     setIsAddingAccount(true);
@@ -115,11 +115,14 @@ export default function CreatorBankAccounts() {
   };
 
   const mobileMoneyProviders = [
-    { value: 'airtel', label: 'Airtel Money' },
-    { value: 'orangemoney', label: 'Orange Money' },
-    { value: 'mtn', label: 'MTN Mobile Money' },
-    { value: 'wave', label: 'Wave' }
+    { value: 'airtel', label: 'Airtel Money', logo: '/providers/airtel.png' },
+    { value: 'orange', label: 'Orange Money', logo: '/providers/orange.png' },
+    { value: 'mpesa', label: 'M-Pesa', logo: '/providers/mpesa.png' }
   ];
+  const providerFor = (v) => {
+    const k = String(v || '').toLowerCase();
+    return mobileMoneyProviders.find((p) => k.includes(p.value)) || mobileMoneyProviders.find((p) => p.value === 'airtel');
+  };
 
   return (
     <div className="space-y-6">
@@ -161,19 +164,22 @@ export default function CreatorBankAccounts() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Opérateur Mobile Money *
                   </label>
-                  <select
-                    required
-                    value={formData.mobileMoneyProvider}
-                    onChange={(e) => setFormData({ ...formData, mobileMoneyProvider: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
-                  >
-                    <option value="">Sélectionnez un opérateur</option>
-                    {mobileMoneyProviders.map(provider => (
-                      <option key={provider.value} value={provider.value}>
-                        {provider.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="grid grid-cols-3 gap-2">
+                    {mobileMoneyProviders.map(provider => {
+                      const active = formData.mobileMoneyProvider === provider.value;
+                      return (
+                        <button
+                          key={provider.value}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, mobileMoneyProvider: provider.value })}
+                          className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border-2 transition ${active ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200' : 'border-gray-200 bg-white hover:border-primary-300'}`}
+                        >
+                          <img src={provider.logo} alt={provider.label} className="h-9 w-9 object-contain" />
+                          <span className={`text-[11px] font-medium ${active ? 'text-primary-700' : 'text-gray-600'}`}>{provider.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div>
@@ -183,12 +189,12 @@ export default function CreatorBankAccounts() {
                   <input
                     type="tel"
                     required
-                    placeholder="Ex: +237123456789 ou 123456789"
+                    placeholder="Ex: 0970000000 ou 243970000000"
                     value={formData.phoneNumber}
                     onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Format: +237123456789 ou 123456789</p>
+                  <p className="text-xs text-gray-500 mt-1">Le numéro Mobile Money qui recevra vos retraits.</p>
                 </div>
 
                 <label className="flex items-center gap-2 pt-2">
@@ -268,7 +274,10 @@ export default function CreatorBankAccounts() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                         <div>
                           <p className="text-xs text-gray-500 font-medium">Opérateur</p>
-                          <p className="text-sm text-gray-900 mt-1">{account.bankName || 'Non spécifié'}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <img src={providerFor(account.bankName).logo} alt="" className="h-6 w-6 object-contain" />
+                            <p className="text-sm text-gray-900">{providerFor(account.bankName).label}</p>
+                          </div>
                         </div>
                         <div>
                           <p className="text-xs text-gray-500 font-medium">Numéro de Téléphone</p>
