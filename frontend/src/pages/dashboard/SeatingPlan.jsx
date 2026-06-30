@@ -112,7 +112,7 @@ function TableCard({ table, guests, usesPlusOnes, zoom, onEdit, onDelete }) {
 function UnassignedZone({ guests, usesPlusOnes, search, setSearch }) {
   const drop = useDroppable({ id: 'unassigned', data: { type: 'unassigned' } })
   return (
-    <div className="w-64 shrink-0 bg-white rounded-2xl shadow-lg flex flex-col max-h-[75vh] ring-1 ring-gray-200">
+    <div className="w-full lg:w-64 lg:shrink-0 bg-white rounded-2xl shadow-lg flex flex-col max-h-[40vh] lg:max-h-[75vh] ring-1 ring-gray-200">
       <div className="p-3 border-b">
         <h3 className="font-semibold text-gray-900 flex items-center gap-2">
           <UsersIcon className="h-5 w-5 text-primary-500" />
@@ -126,10 +126,10 @@ function UnassignedZone({ guests, usesPlusOnes, search, setSearch }) {
           className="input mt-2 text-sm"
         />
       </div>
-      <div ref={drop.setNodeRef} className={`p-2 flex flex-col gap-1.5 overflow-auto flex-1 rounded-b-2xl ${drop.isOver ? 'bg-primary-50' : ''}`}>
+      <div ref={drop.setNodeRef} className={`p-2 flex flex-wrap lg:flex-col gap-1.5 overflow-auto flex-1 rounded-b-2xl ${drop.isOver ? 'bg-primary-50' : ''}`}>
         {guests.length === 0
-          ? <p className="text-xs text-gray-400 p-3 text-center">Tous les invités sont placés 🎉</p>
-          : guests.map((g) => <GuestChip key={g.id} guest={g} usesPlusOnes={usesPlusOnes} />)}
+          ? <p className="text-xs text-gray-400 p-3 text-center w-full">Tous les invités sont placés 🎉</p>
+          : guests.map((g) => <GuestChip key={g.id} guest={g} usesPlusOnes={usesPlusOnes} compact />)}
       </div>
     </div>
   )
@@ -355,11 +355,11 @@ export default function SeatingPlan() {
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex gap-4 items-start">
+        <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-start">
           <UnassignedZone guests={filteredUnassigned} usesPlusOnes={usesPlusOnes} search={search} setSearch={setSearch} />
 
           {/* Canvas */}
-          <div className="flex-1 overflow-auto rounded-2xl border border-dashed border-gray-300 bg-gray-50" style={{ height: '75vh' }}>
+          <div className="flex-1 w-full overflow-auto rounded-2xl border border-dashed border-gray-300 bg-gray-50 h-[60vh] lg:h-[75vh]">
             {/* Sizer matches the scaled content so scrollbars stay correct */}
             <div style={{ width: 820 * zoom, height: 780 * zoom }}>
               <div
