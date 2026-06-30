@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from 'react-query'
 import { weddingAPI, invitationOrderAPI } from '../../services/api'
 import BuyQuotaModal from '../../components/invitations/BuyQuotaModal'
+import { formatMoney } from '../../utils/currency'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
@@ -117,7 +118,7 @@ export default function Payments() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center gap-3">
           <div className="p-2.5 bg-primary-50 rounded-lg"><CurrencyDollarIcon className="h-5 w-5 text-primary-600" /></div>
           <div>
-            <p className="text-xl font-bold text-gray-900">{totalSpent.toLocaleString()} $</p>
+            <p className="text-xl font-bold text-gray-900">{formatMoney(totalSpent)}</p>
             <p className="text-xs text-gray-500">Total dépensé</p>
           </div>
         </div>
@@ -219,7 +220,7 @@ export default function Payments() {
                       ) : '-'}
                     </td>
                     <td className="font-medium">{order.quantity}</td>
-                    <td className="font-medium">{Number(order.totalAmount).toLocaleString()} $</td>
+                    <td className="font-medium">{formatMoney(order.totalAmount)}</td>
                     <td className="font-mono text-sm text-gray-600">
                       {order.transactionId || <span className="text-gray-400 italic">non soumise</span>}
                     </td>

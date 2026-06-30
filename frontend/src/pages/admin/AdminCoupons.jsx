@@ -308,12 +308,12 @@ export default function AdminCoupons() {
                     onChange={(e) => setFormData({ ...formData, discountType: e.target.value })}
                   >
                     <option value="percentage">Pourcentage (%)</option>
-                    <option value="fixed">Montant fixe ($)</option>
+                    <option value="fixed">Montant fixe (FC)</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Valeur {formData.discountType === 'percentage' ? '(%)' : '($)'}
+                    Valeur {formData.discountType === 'percentage' ? '(%)' : '(FC)'}
                   </label>
                   <input
                     type="number"
@@ -345,7 +345,7 @@ export default function AdminCoupons() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Achat minimum $ (optionnel)
+                    Achat minimum FC (optionnel)
                   </label>
                   <input
                     type="number"

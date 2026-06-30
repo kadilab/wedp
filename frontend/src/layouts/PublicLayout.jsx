@@ -1,7 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, Link } from 'react-router-dom'
 import { HeartIcon } from '@heroicons/react/24/solid'
-import { QrCodeIcon } from '@heroicons/react/24/outline'
+import { QrCodeIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline'
 import api from '../services/api'
 import { useAuthStore } from '../stores/authStore'
 import useSiteSettingsStore from '../stores/siteSettingsStore'
@@ -9,6 +9,7 @@ import useSiteSettingsStore from '../stores/siteSettingsStore'
 export default function PublicLayout() {
   const { isAuthenticated, user } = useAuthStore()
   const { siteName, siteLogo, logoHeight, contactEmail, supportPhone } = useSiteSettingsStore()
+  const [menuOpen, setMenuOpen] = useState(false)
 
   // Count a visit once per browser session (non-blocking).
   useEffect(() => {
@@ -16,6 +17,8 @@ export default function PublicLayout() {
     sessionStorage.setItem('visit-tracked', '1')
     api.post('/public/track-visit').catch(() => {})
   }, [])
+
+  const dashboardLink = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' ? '/admin' : '/dashboard'
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -51,13 +54,10 @@ export default function PublicLayout() {
               </a>
             </nav>
 
-            {/* Auth buttons */}
-            <div className="flex items-center space-x-4">
+            {/* Auth buttons (desktop) */}
+            <div className="hidden md:flex items-center space-x-4">
               {isAuthenticated ? (
-                <Link
-                  to={user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' ? '/admin' : '/dashboard'}
-                  className="btn-primary"
-                >
+                <Link to={dashboardLink} className="btn-primary">
                   Tableau de bord
                 </Link>
               ) : (
@@ -74,8 +74,56 @@ export default function PublicLayout() {
                 </>
               )}
             </div>
+
+            {/* Mobile menu toggle */}
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="md:hidden inline-flex items-center justify-center p-2 -mr-2 text-gray-600 hover:text-primary-600"
+              aria-label="Menu"
+              aria-expanded={menuOpen}
+            >
+              {menuOpen ? <XMarkIcon className="h-7 w-7" /> : <Bars3Icon className="h-7 w-7" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile menu panel */}
+        {menuOpen && (
+          <div className="md:hidden border-t border-gray-100 bg-white">
+            <nav className="px-4 py-3 space-y-1">
+              <Link to="/" onClick={() => setMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-50">
+                Accueil
+              </Link>
+              <a href="#features" onClick={() => setMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-50">
+                Fonctionnalités
+              </a>
+              <a href="#contact" onClick={() => setMenuOpen(false)} className="block px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-50">
+                Contact
+              </a>
+              <a href="/checkin/" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-50">
+                <QrCodeIcon className="h-5 w-5" /> Check-in
+              </a>
+
+              <div className="pt-3 mt-2 border-t border-gray-100 space-y-2">
+                {isAuthenticated ? (
+                  <Link to={dashboardLink} onClick={() => setMenuOpen(false)} className="btn-primary w-full justify-center">
+                    Tableau de bord
+                  </Link>
+                ) : (
+                  <>
+                    <Link to="/login" onClick={() => setMenuOpen(false)} className="block w-full text-center px-3 py-2.5 rounded-lg border border-gray-200 text-gray-700 font-medium hover:bg-gray-50">
+                      Connexion
+                    </Link>
+                    <Link to="/register" onClick={() => setMenuOpen(false)} className="btn-primary w-full justify-center">
+                      Commencer
+                    </Link>
+                  </>
+                )}
+              </div>
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* Main content */}

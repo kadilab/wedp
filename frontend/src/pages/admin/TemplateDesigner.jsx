@@ -2515,15 +2515,15 @@ export default function TemplateDesigner({ clientMode = false }) {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Prix par invitation ($)
+                  Prix par invitation (FC)
                 </label>
                 <input
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="1"
                   value={pricePerInvitation}
                   onChange={(e) => setPricePerInvitation(e.target.value)}
-                  placeholder="0.00"
+                  placeholder="Ex : 2500"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
                 <p className="text-xs text-gray-500 mt-1">Montant facturé au client par invitation générée. À <strong>0</strong>, les invitations de ce template sont gratuites.</p>

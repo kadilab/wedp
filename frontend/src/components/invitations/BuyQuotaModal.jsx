@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { invitationOrderAPI, couponAPI } from '../../services/api'
+import { formatMoney } from '../../utils/currency'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -8,8 +9,35 @@ import {
   XMarkIcon,
   CheckCircleIcon,
   ClockIcon,
-  XCircleIcon
+  XCircleIcon,
+  ShieldCheckIcon,
+  DevicePhoneMobileIcon
 } from '@heroicons/react/24/outline'
+
+// Mobile Money operators (RDC). Logos live in /public/providers.
+const OPERATORS = [
+  { code: 'AIRTEL_COD', label: 'Airtel Money', logo: '/providers/airtel.png', prefixes: ['097', '098', '099'] },
+  { code: 'ORANGE_COD', label: 'Orange Money', logo: '/providers/orange.png', prefixes: ['084', '085', '089', '080'] },
+  { code: 'VODACOM_MPESA_COD', label: 'M-Pesa', logo: '/providers/mpesa.png', prefixes: ['081', '082', '083'] }
+]
+
+// Turn whatever the user typed into the international RDC format 243XXXXXXXXX.
+// Accepts "097...", "97...", "0970000000", "+243970000000", "243970000000".
+function buildFullPhone(local) {
+  let p = String(local || '').replace(/\D/g, '')
+  p = p.replace(/^243/, '') // user already typed the country code
+  p = p.replace(/^0/, '')   // drop the national trunk 0
+  return p ? '243' + p : ''
+}
+
+// Guess the operator from the local prefix (after dropping 243 / 0).
+function detectOperator(local) {
+  const p = String(local || '').replace(/\D/g, '').replace(/^243/, '').replace(/^0/, '')
+  if (p.length < 3) return null
+  const three = p.slice(0, 3)
+  const match = OPERATORS.find((op) => op.prefixes.includes(three))
+  return match ? match.code : null
+}
 
 function getStatusBadge(status) {
   switch (status) {
@@ -26,18 +54,15 @@ function getStatusBadge(status) {
 
 export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
   const queryClient = useQueryClient()
-  const [view, setView] = useState('list') // list | order | submit
   const [quantity, setQuantity] = useState(10)
-  const [activeOrderId, setActiveOrderId] = useState(null)
-  const [transactionForm, setTransactionForm] = useState({ transactionId: '', paymentProvider: '', payerPhone: '' })
   const [couponCode, setCouponCode] = useState('')
   const [appliedCoupon, setAppliedCoupon] = useState(null) // { code, discount, finalAmount }
   const [couponError, setCouponError] = useState('')
+  // DIRECT (USSD) Mobile Money — RDC. The client picks an operator + enters their
+  // local number, then validates the push on the handset. Status is auto-polled.
+  const [provider, setProvider] = useState('')
+  const [localPhone, setLocalPhone] = useState('')
   const [payingOnline, setPayingOnline] = useState(false)
-  // DIRECT (USSD) Mobile Money — RDC. Client picks operator + enters phone, then
-  // validates the push on the handset. Status is polled automatically.
-  const [provider, setProvider] = useState('AIRTEL_COD')
-  const [momoPhone, setMomoPhone] = useState('243')
   const [ussdMsg, setUssdMsg] = useState('')
 
   const { data: pricingData } = useQuery(
@@ -55,6 +80,9 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
   const orders = ordersData?.data?.orders || []
   const total = Math.round(quantity * pricing.unitPrice * 100) / 100
   const finalTotal = appliedCoupon ? appliedCoupon.finalAmount : total
+
+  const fullPhone = useMemo(() => buildFullPhone(localPhone), [localPhone])
+  const phoneValid = /^243\d{9}$/.test(fullPhone)
 
   const validateCouponMutation = useMutation(
     () => couponAPI.validate(couponCode.trim(), total),
@@ -77,47 +105,24 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
     setCouponError('')
   }
 
-  const createOrderMutation = useMutation(
-    () => invitationOrderAPI.createOrder(weddingId, quantity, appliedCoupon?.code),
-    {
-      onSuccess: (res) => {
-        queryClient.invalidateQueries(['invitation-orders', weddingId])
-        setActiveOrderId(res.data.order.id)
-        setTransactionForm({ transactionId: '', paymentProvider: '', payerPhone: '' })
-        removeCoupon()
-        setView('submit')
-      },
-      onError: (err) => toast.error(err.response?.data?.error || 'Erreur lors de la création de la commande')
-    }
-  )
-
-  const submitTransactionMutation = useMutation(
-    () => invitationOrderAPI.submitTransaction(weddingId, activeOrderId, transactionForm),
-    {
-      onSuccess: () => {
-        toast.success('Numéro de transaction envoyé. En attente de validation.')
-        queryClient.invalidateQueries(['invitation-orders', weddingId])
-        queryClient.invalidateQueries(['quota', weddingId])
-        setView('list')
-      },
-      onError: (err) => toast.error(err.response?.data?.error || 'Erreur lors de l\'envoi')
-    }
-  )
-
+  const onPhoneChange = (value) => {
+    setLocalPhone(value)
+    const guessed = detectOperator(value)
+    if (guessed) setProvider(guessed)
+  }
 
   // DIRECT (USSD) payment: create the order, init with operator + phone, then
   // the client validates the push on their handset. We poll K-PAY for the live
   // status; the webhook stays the source of truth. No admin action needed.
   const payDirect = async () => {
-    const phone = momoPhone.replace(/\D/g, '')
     if (!provider) return toast.error('Choisissez votre opérateur Mobile Money')
-    if (!/^243\d{9}$/.test(phone)) return toast.error('Numéro RDC invalide (format 243XXXXXXXXX)')
+    if (!phoneValid) return toast.error('Numéro invalide. Saisissez votre numéro local (ex : 0970000000)')
     setPayingOnline(true)
     setUssdMsg('')
     try {
       const orderRes = await invitationOrderAPI.createOrder(weddingId, quantity, appliedCoupon?.code)
       const orderId = orderRes.data.order.id
-      await invitationOrderAPI.payKpay(weddingId, orderId, { provider, phoneNumber: phone })
+      await invitationOrderAPI.payKpay(weddingId, orderId, { provider, phoneNumber: fullPhone })
       setUssdMsg('📲 Validez la demande sur votre téléphone (code PIN Mobile Money)…')
 
       let attempts = 0
@@ -129,7 +134,7 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
             toast.success('Paiement réussi — invitations débloquées 🎉')
             queryClient.invalidateQueries(['quota', weddingId])
             queryClient.invalidateQueries(['invitation-orders', weddingId])
-            setPayingOnline(false); setUssdMsg(''); setView('list')
+            setPayingOnline(false); setUssdMsg(''); close()
             return
           }
           if (data.paymentStatus === 'FAILED' || data.paymentStatus === 'CANCELLED') {
@@ -138,7 +143,7 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
             return
           }
         } catch { /* transient — keep polling */ }
-        if (attempts >= 24) {
+        if (attempts >= 30) {
           setUssdMsg('Toujours en attente… La confirmation se fera automatiquement dès validation.')
           setPayingOnline(false)
           queryClient.invalidateQueries(['invitation-orders', weddingId])
@@ -156,257 +161,196 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
   if (!isOpen) return null
 
   const close = () => {
-    setView('list')
     removeCoupon()
+    setLocalPhone('')
+    setProvider('')
+    setUssdMsg('')
     onClose()
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b">
-          <h3 className="text-xl font-serif font-bold text-gray-900">
-            Acheter des invitations
-          </h3>
-          <button onClick={close} className="text-gray-500 hover:text-gray-700">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[92vh] overflow-y-auto">
+        {/* Header */}
+        <div className="relative bg-gradient-to-br from-primary-600 to-primary-500 px-6 pt-6 pb-8 text-white">
+          <button onClick={close} className="absolute top-4 right-4 text-white/80 hover:text-white">
             <XMarkIcon className="h-6 w-6" />
           </button>
+          <h3 className="text-xl font-serif font-bold">Acheter des invitations</h3>
+          <p className="text-primary-100 text-sm mt-1">Paiement Mobile Money instantané — en FC</p>
         </div>
 
-        <div className="p-6 space-y-6">
-          {view === 'list' && (
-            <>
-              <div>
-                <label htmlFor="buyQty" className="block text-sm font-medium text-gray-700 mb-1">
-                  Combien d'invitations voulez-vous générer ?
-                </label>
-                <input
-                  id="buyQty"
-                  type="number"
-                  min="1"
-                  className="input"
-                  value={quantity}
-                  onChange={(e) => {
-                    setQuantity(Math.max(1, parseInt(e.target.value) || 1))
-                    removeCoupon()
-                  }}
-                />
-                <p className="text-sm text-gray-500 mt-2">
-                  Prix unitaire : {pricing.unitPrice}$ — Total :{' '}
-                  {appliedCoupon ? (
-                    <>
-                      <span className="line-through text-gray-400">{total}$</span>{' '}
-                      <span className="font-semibold text-green-600">{finalTotal}$</span>
-                    </>
-                  ) : (
-                    <span className="font-semibold text-gray-900">{total}$</span>
-                  )}
-                </p>
-              </div>
-
-              <div>
-                <label htmlFor="couponCode" className="block text-sm font-medium text-gray-700 mb-1">
-                  Code promo (optionnel)
-                </label>
+        <div className="p-6 space-y-6 -mt-4 bg-white rounded-t-2xl relative">
+          {/* Quantity + total card */}
+          <div className="rounded-xl border border-gray-100 shadow-sm p-4">
+            <label htmlFor="buyQty" className="block text-sm font-medium text-gray-700 mb-2">
+              Combien d'invitations voulez-vous générer ?
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                id="buyQty"
+                type="number"
+                min="1"
+                className="input w-24 text-center text-lg font-semibold"
+                value={quantity}
+                onChange={(e) => {
+                  setQuantity(Math.max(1, parseInt(e.target.value) || 1))
+                  removeCoupon()
+                }}
+              />
+              <div className="flex-1 text-right">
+                <p className="text-xs text-gray-400">Total à payer</p>
                 {appliedCoupon ? (
-                  <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <span className="text-sm text-green-700">
-                      Coupon <strong>{appliedCoupon.code}</strong> appliqué — réduction de {appliedCoupon.discount}$
-                    </span>
-                    <button onClick={removeCoupon} className="text-xs text-green-700 underline hover:text-green-900">
-                      Retirer
-                    </button>
-                  </div>
+                  <p>
+                    <span className="line-through text-gray-400 text-sm mr-1">{formatMoney(total)}</span>
+                    <span className="text-2xl font-bold text-green-600">{formatMoney(finalTotal)}</span>
+                  </p>
                 ) : (
-                  <div className="flex gap-2">
-                    <input
-                      id="couponCode"
-                      type="text"
-                      className="input flex-1 font-mono uppercase"
-                      placeholder="Ex: WEDX1Y2Z3"
-                      value={couponCode}
-                      onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError('') }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => validateCouponMutation.mutate()}
-                      disabled={!couponCode.trim() || validateCouponMutation.isLoading}
-                      className="btn-secondary whitespace-nowrap"
-                    >
-                      {validateCouponMutation.isLoading ? 'Vérification...' : 'Appliquer'}
-                    </button>
-                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{formatMoney(total)}</p>
                 )}
-                {couponError && <p className="text-xs text-red-600 mt-1">{couponError}</p>}
+                <p className="text-[11px] text-gray-400">{formatMoney(pricing.unitPrice)} / invitation</p>
               </div>
+            </div>
+          </div>
 
-              {pricing.paymentMethods.length > 0 ? (
-                <div className="p-4 bg-gray-50 rounded-xl space-y-3">
-                  <p className="text-sm font-medium text-gray-700">Moyens de paiement disponibles</p>
-                  {pricing.paymentMethods.map((m, i) => (
-                    <div key={i} className="text-sm flex items-start gap-2">
-                      {m.logo && (
-                        <img src={m.logo} alt={m.provider} className="w-8 h-8 object-contain rounded shrink-0" />
-                      )}
-                      <div>
-                        <span className="font-semibold text-gray-900">{m.provider}</span>{' '}
-                        <span className="font-mono text-gray-700">{m.number}</span>
-                        {m.instructions && <p className="text-gray-500 mt-0.5">{m.instructions}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-amber-600">
-                  Aucun moyen de paiement n'est configuré pour le moment. Contactez le support.
-                </p>
-              )}
-
-              {/* Online payment — DIRECT (USSD) Mobile Money RDC */}
-              <div className="rounded-xl border border-primary-100 bg-primary-50/40 p-3 space-y-3">
-                <p className="text-sm font-semibold text-gray-800">💳 Payer par Mobile Money</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { code: 'AIRTEL_COD', label: 'Airtel Money' },
-                    { code: 'ORANGE_COD', label: 'Orange Money' },
-                    { code: 'VODACOM_MPESA_COD', label: 'M-Pesa' }
-                  ].map((op) => (
-                    <button
-                      key={op.code}
-                      type="button"
-                      onClick={() => setProvider(op.code)}
-                      className={`text-xs px-2 py-2 rounded-lg border font-medium transition ${provider === op.code ? 'border-primary-500 bg-primary-100 text-primary-700' : 'border-gray-200 bg-white text-gray-600 hover:border-primary-300'}`}
-                    >
-                      {op.label}
-                    </button>
-                  ))}
-                </div>
+          {/* Coupon */}
+          <div>
+            <label htmlFor="couponCode" className="block text-sm font-medium text-gray-700 mb-1">
+              Code promo (optionnel)
+            </label>
+            {appliedCoupon ? (
+              <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                <span className="text-sm text-green-700">
+                  Coupon <strong>{appliedCoupon.code}</strong> — −{formatMoney(appliedCoupon.discount)}
+                </span>
+                <button onClick={removeCoupon} className="text-xs text-green-700 underline hover:text-green-900">
+                  Retirer
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
                 <input
-                  type="tel"
-                  inputMode="numeric"
-                  value={momoPhone}
-                  onChange={(e) => setMomoPhone(e.target.value)}
-                  placeholder="243XXXXXXXXX"
-                  className="input text-sm"
+                  id="couponCode"
+                  type="text"
+                  className="input flex-1 font-mono uppercase"
+                  placeholder="Ex: WEDX1Y2Z3"
+                  value={couponCode}
+                  onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError('') }}
                 />
                 <button
-                  onClick={payDirect}
-                  disabled={payingOnline || quantity < 1}
-                  className="btn-primary w-full flex items-center justify-center gap-2"
+                  type="button"
+                  onClick={() => validateCouponMutation.mutate()}
+                  disabled={!couponCode.trim() || validateCouponMutation.isLoading}
+                  className="btn-secondary whitespace-nowrap"
                 >
-                  {payingOnline ? 'Paiement en cours…' : `Payer — ${finalTotal}$`}
+                  {validateCouponMutation.isLoading ? '...' : 'Appliquer'}
                 </button>
-                {ussdMsg && <p className="text-xs text-gray-600 text-center">{ussdMsg}</p>}
-                <p className="text-[11px] text-gray-400 text-center">Vous validez le paiement sur votre téléphone (Mobile Money en FC).</p>
               </div>
+            )}
+            {couponError && <p className="text-xs text-red-600 mt-1">{couponError}</p>}
+          </div>
 
-              {/* Manual payment fallback */}
-              {pricing.paymentMethods.length > 0 && (
-                <button
-                  onClick={() => createOrderMutation.mutate()}
-                  disabled={createOrderMutation.isLoading}
-                  className="btn-outline w-full"
-                >
-                  {createOrderMutation.isLoading ? 'Création...' : 'Paiement manuel (saisir le n° de transaction)'}
-                </button>
-              )}
+          {/* Operator picker */}
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-2">Choisissez votre opérateur Mobile Money</p>
+            <div className="grid grid-cols-3 gap-2">
+              {OPERATORS.map((op) => {
+                const active = provider === op.code
+                return (
+                  <button
+                    key={op.code}
+                    type="button"
+                    onClick={() => setProvider(op.code)}
+                    className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border-2 transition ${active ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200' : 'border-gray-200 bg-white hover:border-primary-300'}`}
+                  >
+                    <img src={op.logo} alt={op.label} className="h-9 w-9 object-contain" />
+                    <span className={`text-[11px] font-medium ${active ? 'text-primary-700' : 'text-gray-600'}`}>{op.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
-              {orders.length > 0 && (
-                <div className="pt-4 border-t">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Mes commandes</p>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {orders.map((order) => (
-                      <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg text-sm">
-                        <div>
-                          <p className="font-medium text-gray-900">{order.quantity} invitation(s) — {order.totalAmount}$</p>
-                          <p className="text-gray-500 text-xs">
-                            {format(new Date(order.createdAt), 'd MMM yyyy', { locale: fr })}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {getStatusBadge(order.status)}
-                          {order.status === 'PENDING' && !order.transactionId && (
-                            <button
-                              onClick={() => {
-                                setActiveOrderId(order.id)
-                                setTransactionForm({ transactionId: '', paymentProvider: '', payerPhone: '' })
-                                setView('submit')
-                              }}
-                              className="text-primary-600 hover:text-primary-700 text-xs font-medium underline"
-                            >
-                              Soumettre
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+          {/* Phone input with flag + dial code */}
+          <div>
+            <label htmlFor="momoPhone" className="block text-sm font-medium text-gray-700 mb-1">
+              Numéro Mobile Money
+            </label>
+            <div className={`flex items-stretch rounded-lg border overflow-hidden transition ${localPhone && !phoneValid ? 'border-red-300 ring-1 ring-red-200' : 'border-gray-300 focus-within:ring-2 focus-within:ring-primary-500'}`}>
+              <span className="flex items-center gap-1.5 px-3 bg-gray-50 border-r border-gray-200 text-gray-700 font-medium select-none">
+                <span className="text-lg leading-none">🇨🇩</span>
+                <span className="text-sm">+243</span>
+              </span>
+              <input
+                id="momoPhone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
+                value={localPhone}
+                onChange={(e) => onPhoneChange(e.target.value)}
+                placeholder="097 000 0000"
+                className="flex-1 px-3 py-2.5 outline-none text-gray-900"
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1.5">
+              Commencez votre numéro par <strong>097</strong> ou <strong>97</strong> — le <strong>+243</strong> est ajouté automatiquement.
+            </p>
+            {phoneValid && (
+              <p className="text-xs text-green-600 mt-0.5">✓ Numéro complet : {fullPhone}</p>
+            )}
+          </div>
+
+          {/* Pay button */}
+          <button
+            onClick={payDirect}
+            disabled={payingOnline || quantity < 1 || !provider || !phoneValid}
+            className="btn-primary w-full flex items-center justify-center gap-2 py-3 text-base"
+          >
+            {payingOnline ? (
+              <>
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
+                </svg>
+                Paiement en cours…
+              </>
+            ) : (
+              <>
+                <DevicePhoneMobileIcon className="h-5 w-5" />
+                Payer {formatMoney(finalTotal)}
+              </>
+            )}
+          </button>
+
+          {ussdMsg && (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-center text-sm text-amber-800">
+              {ussdMsg}
+            </div>
           )}
 
-          {view === 'submit' && (
-            <>
-              <p className="text-sm text-gray-600">
-                Une fois le paiement envoyé, indiquez ci-dessous le numéro de transaction reçu pour que
-                nous puissions valider votre commande.
-              </p>
+          <p className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
+            <ShieldCheckIcon className="h-4 w-4" />
+            Paiement sécurisé — vous validez avec votre code PIN sur votre téléphone.
+          </p>
 
-              <div>
-                <label htmlFor="txProvider" className="block text-sm font-medium text-gray-700 mb-1">
-                  Moyen de paiement utilisé
-                </label>
-                <input
-                  id="txProvider"
-                  type="text"
-                  className="input"
-                  placeholder="Ex: Orange Money"
-                  value={transactionForm.paymentProvider}
-                  onChange={(e) => setTransactionForm(prev => ({ ...prev, paymentProvider: e.target.value }))}
-                />
+          {/* My orders */}
+          {orders.length > 0 && (
+            <div className="pt-4 border-t">
+              <p className="text-sm font-medium text-gray-700 mb-2">Mes commandes</p>
+              <div className="space-y-2 max-h-44 overflow-y-auto">
+                {orders.map((order) => (
+                  <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg text-sm">
+                    <div>
+                      <p className="font-medium text-gray-900">{order.quantity} invitation(s) — {formatMoney(order.totalAmount)}</p>
+                      <p className="text-gray-500 text-xs">
+                        {format(new Date(order.createdAt), 'd MMM yyyy', { locale: fr })}
+                      </p>
+                    </div>
+                    {getStatusBadge(order.status)}
+                  </div>
+                ))}
               </div>
-
-              <div>
-                <label htmlFor="txPhone" className="block text-sm font-medium text-gray-700 mb-1">
-                  Numéro depuis lequel l'argent a été envoyé (optionnel)
-                </label>
-                <input
-                  id="txPhone"
-                  type="tel"
-                  className="input"
-                  value={transactionForm.payerPhone}
-                  onChange={(e) => setTransactionForm(prev => ({ ...prev, payerPhone: e.target.value }))}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="txId" className="block text-sm font-medium text-gray-700 mb-1">
-                  Numéro de transaction
-                </label>
-                <input
-                  id="txId"
-                  type="text"
-                  className="input"
-                  placeholder="Ex: MP240619.1234.A56789"
-                  value={transactionForm.transactionId}
-                  onChange={(e) => setTransactionForm(prev => ({ ...prev, transactionId: e.target.value }))}
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setView('list')} className="flex-1 btn-outline">
-                  Retour
-                </button>
-                <button
-                  onClick={() => submitTransactionMutation.mutate()}
-                  disabled={submitTransactionMutation.isLoading || !transactionForm.transactionId.trim()}
-                  className="flex-1 btn-primary"
-                >
-                  {submitTransactionMutation.isLoading ? 'Envoi...' : 'Envoyer'}
-                </button>
-              </div>
-            </>
+            </div>
           )}
         </div>
       </div>

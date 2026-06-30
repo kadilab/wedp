@@ -19,19 +19,29 @@ const WEBHOOK_SECRET = process.env.KPAY_WEBHOOK_SECRET || '';
 const isConfigured = () => Boolean(API_KEY && SECRET_KEY);
 
 // K-PAY charges in the OPERATOR-COUNTRY currency (the `currency` field is
-// derived by K-PAY, never sent). Our prices are in USD, so convert to whatever
-// currency the K-PAY account/zone settles in:
-//   KPAY_ACCOUNT_CURRENCY = XAF (default) | CDF | XOF | KES | USD ...
-//   Exchange rate is fetched LIVE (fxapi.app, cached 1h) with env fallback
-//   (KPAY_USD_RATE / KPAY_USD_TO_XAF). KPAY_MIN_AMOUNT = minimum charge.
-// USD uses decimals; XAF/XOF/CDF/KES are whole units. Async (live rate lookup).
-async function toAccountAmount(usd) {
-  const value = Number(usd);
+// derived by K-PAY, never sent). Convert our stored price into the K-PAY
+// account/zone currency:
+//   KPAY_PRICE_CURRENCY   = currency our prices are stored in (default CDF — set
+//                           in the admin price inputs).
+//   KPAY_ACCOUNT_CURRENCY = currency K-PAY settles in (CDF for RDC operators).
+// When both match (the common RDC case) NO conversion happens — the price is
+// already in the right currency. Otherwise an FX rate is fetched LIVE
+// (fxapi.app, cached 1h) with env fallback (KPAY_USD_RATE / KPAY_USD_TO_XAF).
+// USD uses decimals; XAF/XOF/CDF/KES are whole units. KPAY_MIN_AMOUNT = floor.
+async function toAccountAmount(price) {
+  const value = Number(price);
   if (!Number.isFinite(value) || value <= 0) return 0;
-  const currency = (process.env.KPAY_ACCOUNT_CURRENCY || 'XAF').toUpperCase();
-  const isDecimal = currency === 'USD';
+  const account = (process.env.KPAY_ACCOUNT_CURRENCY || 'CDF').toUpperCase();
+  const priceCur = (process.env.KPAY_PRICE_CURRENCY || 'CDF').toUpperCase();
+  const isDecimal = account === 'USD';
 
-  const rate = isDecimal ? 1 : await fx.getUsdRate(currency);
+  // Rate to go from priceCur -> account. Same currency = no conversion.
+  let rate = 1;
+  if (priceCur !== account) {
+    if (priceCur === 'USD') rate = await fx.getUsdRate(account);
+    else if (account === 'USD') rate = 1 / (await fx.getUsdRate(priceCur));
+    // else: no cross-rate available — assume parity.
+  }
 
   let amount = isDecimal ? Math.round(value * rate * 100) / 100 : Math.round(value * rate);
   const min = parseFloat(process.env.KPAY_MIN_AMOUNT || (isDecimal ? '0.5' : '50')) || (isDecimal ? 0.5 : 50);

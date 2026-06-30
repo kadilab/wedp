@@ -132,7 +132,7 @@ export default function AdminInvitationOrders() {
                     </td>
                     <td className="font-semibold text-gray-900">{order.quantity}</td>
                     <td className="font-semibold text-gray-900">
-                      {Number(order.totalAmount).toLocaleString()} $
+                      {Number(order.totalAmount).toLocaleString('fr-FR')} FC
                     </td>
                     <td className="text-sm text-gray-600 font-mono">
                       {order.transactionId || <span className="text-gray-400 italic">non soumise</span>}
