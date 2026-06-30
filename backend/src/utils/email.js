@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const logger = require('./logger');
+const { getSiteName } = require('./settings');
 
 // Create transporter
 const transporter = nodemailer.createTransport({
@@ -18,8 +19,9 @@ const transporter = nodemailer.createTransport({
  */
 async function sendEmail({ to, subject, html, text, attachments = [] }) {
   try {
+    const siteName = await getSiteName();
     const mailOptions = {
-      from: `"WeddingInvite Pro" <${process.env.SMTP_USER}>`,
+      from: `"${siteName}" <${process.env.SMTP_USER}>`,
       to,
       subject,
       html,
@@ -40,6 +42,7 @@ async function sendEmail({ to, subject, html, text, attachments = [] }) {
  * Send welcome email
  */
 async function sendWelcomeEmail(user) {
+  const siteName = await getSiteName();
   const html = `
     <!DOCTYPE html>
     <html>
@@ -57,12 +60,12 @@ async function sendWelcomeEmail(user) {
     <body>
       <div class="container">
         <div class="header">
-          <h1>💍 WeddingInvite Pro</h1>
+          <h1>💍 ${siteName}</h1>
         </div>
         <div class="content">
           <h2>Bienvenue ${user.firstName} !</h2>
-          <p>Nous sommes ravis de vous accueillir sur WeddingInvite Pro, la plateforme premium pour créer des invitations de mariage digitales uniques.</p>
-          <p>Avec WeddingInvite Pro, vous pouvez :</p>
+          <p>Nous sommes ravis de vous accueillir sur ${siteName}, la plateforme premium pour créer des invitations de mariage digitales uniques.</p>
+          <p>Avec ${siteName}, vous pouvez :</p>
           <ul>
             <li>Créer des invitations personnalisées</li>
             <li>Générer des QR codes uniques pour chaque invité</li>
@@ -72,7 +75,7 @@ async function sendWelcomeEmail(user) {
           <a href="${process.env.FRONTEND_URL}/dashboard" class="button">Commencer maintenant</a>
         </div>
         <div class="footer">
-          <p>© ${new Date().getFullYear()} WeddingInvite Pro. Tous droits réservés.</p>
+          <p>© ${new Date().getFullYear()} ${siteName}. Tous droits réservés.</p>
         </div>
       </div>
     </body>
@@ -81,7 +84,7 @@ async function sendWelcomeEmail(user) {
 
   return sendEmail({
     to: user.email,
-    subject: 'Bienvenue sur WeddingInvite Pro ! 💍',
+    subject: `Bienvenue sur ${siteName} ! 💍`,
     html
   });
 }
@@ -90,8 +93,9 @@ async function sendWelcomeEmail(user) {
  * Send password reset email
  */
 async function sendPasswordResetEmail(user, resetToken) {
+  const siteName = await getSiteName();
   const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-  
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -123,7 +127,7 @@ async function sendPasswordResetEmail(user, resetToken) {
           <p>Si vous n'avez pas demandé cette réinitialisation, ignorez simplement cet email.</p>
         </div>
         <div class="footer">
-          <p>© ${new Date().getFullYear()} WeddingInvite Pro</p>
+          <p>© ${new Date().getFullYear()} ${siteName}</p>
         </div>
       </div>
     </body>
@@ -132,7 +136,7 @@ async function sendPasswordResetEmail(user, resetToken) {
 
   return sendEmail({
     to: user.email,
-    subject: 'Réinitialisation de votre mot de passe - WeddingInvite Pro',
+    subject: `Réinitialisation de votre mot de passe - ${siteName}`,
     html
   });
 }
@@ -141,6 +145,7 @@ async function sendPasswordResetEmail(user, resetToken) {
  * Send invitation email to guest
  */
 async function sendInvitationEmail(guest, wedding, invitationUrl, qrCodeDataUrl) {
+  const siteName = await getSiteName();
   const weddingDate = new Date(wedding.weddingDate).toLocaleDateString('fr-FR', {
     weekday: 'long',
     year: 'numeric',
@@ -202,7 +207,7 @@ async function sendInvitationEmail(guest, wedding, invitationUrl, qrCodeDataUrl)
             <a href="${invitationUrl}" class="button">Voir mon invitation</a>
           </div>
           <div class="footer">
-            <p>Créé avec ❤️ par WeddingInvite Pro</p>
+            <p>Créé avec ❤️ par ${siteName}</p>
           </div>
         </div>
       </div>
@@ -221,6 +226,7 @@ async function sendInvitationEmail(guest, wedding, invitationUrl, qrCodeDataUrl)
  * Send payment approved notification
  */
 async function sendPaymentApprovedEmail(user, wedding) {
+  const siteName = await getSiteName();
   const html = `
     <!DOCTYPE html>
     <html>
@@ -256,7 +262,7 @@ async function sendPaymentApprovedEmail(user, wedding) {
           <a href="${process.env.FRONTEND_URL}/dashboard/weddings/${wedding.id}" class="button">Accéder à mon projet</a>
         </div>
         <div class="footer">
-          <p>© ${new Date().getFullYear()} WeddingInvite Pro</p>
+          <p>© ${new Date().getFullYear()} ${siteName}</p>
         </div>
       </div>
     </body>

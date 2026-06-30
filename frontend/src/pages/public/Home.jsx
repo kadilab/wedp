@@ -17,7 +17,7 @@ import {
 } from '@heroicons/react/24/outline'
 
 export default function Home() {
-  const { contactEmail, supportPhone } = useSiteSettingsStore()
+  const { siteName, contactEmail, supportPhone } = useSiteSettingsStore()
 
   const features = [
     { icon: SparklesIcon, title: 'Templates élégants', description: 'Des dizaines de modèles raffinés, entièrement personnalisables (couleurs, polices, photos).', color: 'from-rose-500 to-pink-500' },
@@ -328,7 +328,7 @@ export default function Home() {
               Prêt à créer vos invitations ?
             </h2>
             <p className="text-xl text-primary-100 mb-8 max-w-2xl mx-auto">
-              Rejoignez les couples et organisateurs qui font confiance à WeddingInvite Pro.
+              Rejoignez les couples et organisateurs qui font confiance à {siteName}.
             </p>
             <Link
               to="/register"

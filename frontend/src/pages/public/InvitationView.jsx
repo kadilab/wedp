@@ -2,6 +2,7 @@ import { useState, useLayoutEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation } from 'react-query'
 import { publicAPI } from '../../services/api'
+import useSiteSettingsStore from '../../stores/siteSettingsStore'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
@@ -116,6 +117,7 @@ function ScaledCanvas({ width, height, className, children, hPadding = 24 }) {
 
 export default function InvitationView() {
   const { weddingSlug, invitationCode } = useParams()
+  const { siteName } = useSiteSettingsStore()
   const [rsvpStatus, setRsvpStatus] = useState(null)
   const [numberOfGuests, setNumberOfGuests] = useState(1)
   const [showRsvpForm, setShowRsvpForm] = useState(false)
@@ -322,7 +324,7 @@ export default function InvitationView() {
           </div>
         </motion.div>
         <div className="text-center mt-5 text-gray-400 text-sm absolute bottom-4">
-          <p>Créé avec ❤️ sur WeddingInvite Pro</p>
+          <p>Créé avec ❤️ sur {siteName}</p>
         </div>
       </div>
     )
@@ -667,7 +669,7 @@ export default function InvitationView() {
           )}
 
           <div className="text-center mt-4 text-gray-400 text-sm">
-            <p>Créé avec ❤️ sur WeddingInvite Pro</p>
+            <p>Créé avec ❤️ sur {siteName}</p>
           </div>
         </div>
       </div>
@@ -1084,7 +1086,7 @@ export default function InvitationView() {
         </motion.div>
 
         <div className="text-center mt-5 text-gray-400 text-base">
-          <p>Créé avec ❤️ sur WeddingInvite Pro</p>
+          <p>Créé avec ❤️ sur {siteName}</p>
         </div>
       </div>
     </div>

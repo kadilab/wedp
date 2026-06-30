@@ -181,7 +181,7 @@ const NotificationTemplates = {
   // Welcome
   welcome: (firstName) => ({
     type: 'info',
-    title: 'Bienvenue sur WeddingInvite Pro !',
+    title: 'Bienvenue ! 🎉',
     message: `Bonjour ${firstName} ! Créez votre premier mariage et commencez à envoyer des invitations élégantes.`
   }),
 

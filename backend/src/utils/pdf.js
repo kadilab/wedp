@@ -4,6 +4,7 @@ const path = require('path');
 const logger = require('./logger');
 const { DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, formatEventDate, componentVars } = require('./dateFormats');
 const { buildGoogleFontsHref, customFontFaceCss } = require('./fonts');
+const { getSiteName } = require('./settings');
 
 // Lazily read admin-uploaded custom fonts and build their @font-face CSS so the
 // puppeteer page can render them (absolute URLs fetched over the network).
@@ -89,7 +90,7 @@ function resolveImageToDataUri(imgPath) {
  * This HTML faithfully reproduces the InvitationView.jsx frontend component
  */
 function generateInvitationHTML(options) {
-  const { wedding, guest, invitation, template } = options;
+  const { wedding, guest, invitation, template, siteName = 'WeddingInvite Pro' } = options;
   
   // Extract template config with fallbacks
   const templateConfig = template?.config || {};
@@ -640,7 +641,7 @@ function generateInvitationHTML(options) {
 
         <!-- Footer -->
         <div class="footer">
-          <p>Créé avec ❤️ sur WeddingInvite Pro</p>
+          <p>Créé avec ❤️ sur ${siteName}</p>
         </div>
       </div>
     </div>
@@ -936,9 +937,10 @@ async function generateInvitationPDF(options) {
     const hasDesignElements = template?.config?.designElements && Array.isArray(template.config.designElements) && template.config.designElements.length > 0;
     
     const customFontCss = await getCustomFontCss();
+    const siteName = await getSiteName();
     const htmlContent = hasDesignElements
-      ? generateDesignBasedHTML({ wedding, guest, invitation: invitationWithQR, template, customFontCss })
-      : generateInvitationHTML({ wedding, guest, invitation: invitationWithQR, template });
+      ? generateDesignBasedHTML({ wedding, guest, invitation: invitationWithQR, template, customFontCss, siteName })
+      : generateInvitationHTML({ wedding, guest, invitation: invitationWithQR, template, siteName });
 
     const canvasW = template?.config?.canvasWidth || 800;
     const canvasH = template?.config?.canvasHeight || 1120;
@@ -1016,9 +1018,10 @@ async function generateInvitationImage(options) {
     const hasDesignElements = template?.config?.designElements && Array.isArray(template.config.designElements) && template.config.designElements.length > 0;
 
     const customFontCss = await getCustomFontCss();
+    const siteName = await getSiteName();
     const htmlContent = hasDesignElements
-      ? generateDesignBasedHTML({ wedding, guest, invitation: invitationWithQR, template, customFontCss })
-      : generateInvitationHTML({ wedding, guest, invitation: invitationWithQR, template });
+      ? generateDesignBasedHTML({ wedding, guest, invitation: invitationWithQR, template, customFontCss, siteName })
+      : generateInvitationHTML({ wedding, guest, invitation: invitationWithQR, template, siteName });
 
     const canvasW = template?.config?.canvasWidth || 800;
     const canvasH = template?.config?.canvasHeight || 1120;
@@ -1162,13 +1165,14 @@ async function generatePrintLayoutPDF(options) {
 
   // Generate individual invitation HTML snippets
   const customFontCss = await getCustomFontCss();
+  const siteName = await getSiteName();
   const snippets = [];
   for (const guest of guests) {
     if (guest.invitation) {
       // Use design-based layout if template has designElements
       const html = hasDesignElements
-        ? generateDesignBasedHTML({ wedding, guest, invitation: guest.invitation, template, customFontCss })
-        : generateInvitationHTML({ wedding, guest, invitation: guest.invitation, template });
+        ? generateDesignBasedHTML({ wedding, guest, invitation: guest.invitation, template, customFontCss, siteName })
+        : generateInvitationHTML({ wedding, guest, invitation: guest.invitation, template, siteName });
       snippets.push(html);
     }
   }
