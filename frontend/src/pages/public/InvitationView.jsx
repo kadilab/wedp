@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useLayoutEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation } from 'react-query'
 import { publicAPI } from '../../services/api'
@@ -64,6 +64,53 @@ function AnimatedElement({ el, style, className, children }) {
         </motion.div>
       ) : children}
     </motion.div>
+  )
+}
+
+// Renders a fixed-size design canvas (canvasWidth × canvasHeight) scaled DOWN to
+// fit the available width — so absolutely-positioned elements stay WYSIWYG on
+// every screen instead of overflowing/clipping on mobile. The reserved box
+// shrinks with the scale so there's no extra whitespace and no horizontal scroll.
+function ScaledCanvas({ width, height, className, children }) {
+  const wrapRef = useRef(null)
+  const [scale, setScale] = useState(1)
+
+  useLayoutEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    const compute = () => {
+      const avail = el.clientWidth
+      if (avail > 0) setScale(Math.min(1, avail / width))
+    }
+    compute()
+    const ro = new ResizeObserver(compute)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [width])
+
+  return (
+    <div ref={wrapRef} style={{ width: '100%', maxWidth: width }}>
+      <div
+        style={{
+          width: width * scale,
+          height: height * scale,
+          margin: '0 auto',
+          overflow: 'hidden'
+        }}
+      >
+        <div
+          className={className}
+          style={{
+            width,
+            height,
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left'
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -389,18 +436,15 @@ export default function InvitationView() {
     const mLeft = margins.left || 0
 
     return (
-      <div className="min-h-screen flex flex-col items-center justify-start bg-gray-100 py-6" style={{ fontFamily: bodyFont }}>
+      <div className="min-h-screen flex flex-col items-center justify-start bg-gray-100 py-6 px-3" style={{ fontFamily: bodyFont }}>
         {/* Google Fonts + custom uploaded fonts */}
         <FontStyles />
 
-        {/* Canvas container - matches template dimensions */}
-        <div
+        {/* Canvas - matches template dimensions, scaled to fit the screen width */}
+        <ScaledCanvas
+          width={canvasWidth}
+          height={canvasHeight}
           className="relative shadow-2xl overflow-hidden bg-white"
-          style={{
-            width: canvasWidth,
-            height: canvasHeight,
-            maxWidth: '100vw',
-          }}
         >
           {/* Background image */}
           {designBgImage && (
@@ -557,7 +601,7 @@ export default function InvitationView() {
                 </AnimatedElement>
               )
             })}
-        </div>
+        </ScaledCanvas>
 
         {/* RSVP section below the design canvas */}
         <div className="w-full max-w-lg mx-auto mt-6 px-4">
