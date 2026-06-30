@@ -138,7 +138,7 @@ export default function AdminCoupons() {
     return new Date(date) < new Date()
   }
 
-  const DISCOUNT_TYPE_LABELS = { percentage: '%', fixed: '$' }
+  const DISCOUNT_TYPE_LABELS = { percentage: '%', fixed: 'FC' }
 
   return (
     <div className="space-y-6">

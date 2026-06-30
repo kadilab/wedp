@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from 'react-query';
 import api from '../../services/api';
+import { formatMoney } from '../../utils/currency';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { ArrowTrendingUpIcon, CurrencyDollarIcon, CheckCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
 
@@ -71,7 +72,7 @@ export default function CreatorEarnings() {
             <h3 className="font-medium text-gray-600">Pending Earnings</h3>
             <ClockIcon className="w-5 h-5 text-amber-500" />
           </div>
-          <p className="text-3xl font-bold text-amber-600">${totalPending.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-amber-600">{formatMoney(totalPending)}</p>
           <p className="text-xs text-gray-500 mt-1">{statusCounts.PENDING} transactions</p>
         </div>
 
@@ -80,7 +81,7 @@ export default function CreatorEarnings() {
             <h3 className="font-medium text-gray-600">Available to Withdraw</h3>
             <CheckCircleIcon className="w-5 h-5 text-blue-500" />
           </div>
-          <p className="text-3xl font-bold text-blue-600">${(summary.available || 0).toFixed(2)}</p>
+          <p className="text-3xl font-bold text-blue-600">{formatMoney(summary.available || 0)}</p>
           <p className="text-xs text-gray-500 mt-1">approuvé non retiré</p>
         </div>
 
@@ -89,7 +90,7 @@ export default function CreatorEarnings() {
             <h3 className="font-medium text-gray-600">Total Withdrawn</h3>
             <CurrencyDollarIcon className="w-5 h-5 text-green-500" />
           </div>
-          <p className="text-3xl font-bold text-green-600">${totalPaid.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-green-600">{formatMoney(totalPaid)}</p>
           <p className="text-xs text-gray-500 mt-1">{statusCounts.PAID} transactions</p>
         </div>
       </div>
@@ -111,7 +112,7 @@ export default function CreatorEarnings() {
                   height={60}
                 />
                 <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(value) => `$${value.toFixed(2)}`} />
+                <Tooltip formatter={(value) => formatMoney(value)} />
                 <Line
                   type="monotone"
                   dataKey="revenue"
@@ -219,7 +220,7 @@ export default function CreatorEarnings() {
                       {earning.commissionPercentage}%
                     </td>
                     <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                      ${earning.commissionAmount.toFixed(2)}
+                      {formatMoney(earning.commissionAmount)}
                     </td>
                     <td className="px-6 py-4">
                       <span

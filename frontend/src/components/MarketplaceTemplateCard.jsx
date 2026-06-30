@@ -56,7 +56,7 @@ export default function MarketplaceTemplateCard({ template }) {
         {/* Price */}
         {priceUSD > 0 && (
           <span className="absolute top-3 right-3 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-gold-500 text-white shadow-sm">
-            ${priceUSD.toFixed(2)}
+            {priceUSD.toLocaleString('fr-FR')} FC
           </span>
         )}
 

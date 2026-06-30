@@ -157,7 +157,7 @@ export default function CreatorTemplates() {
 
                     {status === 'APPROVED' && (
                       <p className="text-xs text-green-700 mt-2 font-medium">
-                        ${parseFloat(template.marketplace.priceUSD).toFixed(2)} · commission {parseFloat(template.marketplace.commissionPercentage)}%
+                        {parseFloat(template.marketplace.priceUSD).toLocaleString('fr-FR')} FC · commission {parseFloat(template.marketplace.commissionPercentage)}%
                       </p>
                     )}
                     {status === 'REJECTED' && template.marketplace.adminNote && (

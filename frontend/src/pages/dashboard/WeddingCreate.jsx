@@ -862,7 +862,7 @@ export default function WeddingCreate() {
                                   <div className="flex items-center justify-between">
                                     <p className="text-xs text-primary-500">Personnalisé</p>
                                     <p className="text-xs font-bold text-primary-600">
-                                      {parseFloat(tmpl.pricePerInvitation) > 0 ? `${parseFloat(tmpl.pricePerInvitation).toFixed(2)}$/inv.` : 'Gratuit'}
+                                      {parseFloat(tmpl.pricePerInvitation) > 0 ? `${parseFloat(tmpl.pricePerInvitation).toLocaleString('fr-FR')} FC/inv.` : 'Gratuit'}
                                     </p>
                                   </div>
                                 </div>
@@ -909,7 +909,7 @@ export default function WeddingCreate() {
                               <div className="flex items-center justify-between">
                                 <p className="text-xs text-gray-500">{TEMPLATE_CATEGORIES[tmpl.category] || tmpl.category}</p>
                                 <p className="text-xs font-bold text-primary-600">
-                                  {parseFloat(tmpl.pricePerInvitation) > 0 ? `${parseFloat(tmpl.pricePerInvitation).toFixed(2)}$/inv.` : 'Gratuit'}
+                                  {parseFloat(tmpl.pricePerInvitation) > 0 ? `${parseFloat(tmpl.pricePerInvitation).toLocaleString('fr-FR')} FC/inv.` : 'Gratuit'}
                                 </p>
                               </div>
                             </div>
@@ -1351,7 +1351,7 @@ export default function WeddingCreate() {
               <div>
                 <h3 className="text-lg font-serif font-bold text-gray-900">{previewTmpl.name}</h3>
                 <p className="text-xs font-semibold text-primary-600">
-                  {parseFloat(previewTmpl.pricePerInvitation) > 0 ? `${parseFloat(previewTmpl.pricePerInvitation).toFixed(2)} $ / invitation` : 'Gratuit'}
+                  {parseFloat(previewTmpl.pricePerInvitation) > 0 ? `${parseFloat(previewTmpl.pricePerInvitation).toLocaleString('fr-FR')} FC / invitation` : 'Gratuit'}
                 </p>
               </div>
               <button onClick={() => setPreviewTmpl(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>

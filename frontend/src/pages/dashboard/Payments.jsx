@@ -138,7 +138,7 @@ export default function Payments() {
         </div>
       </div>
 
-      {/* Pricing & payment methods info */}
+      {/* Pricing & payment info */}
       <div className="bg-primary-50 border border-primary-100 rounded-xl p-5 flex items-start gap-3">
         <GiftIcon className="h-5 w-5 text-primary-600 mt-0.5 shrink-0" />
         <div className="text-sm text-primary-900">
@@ -146,21 +146,15 @@ export default function Payments() {
             <strong>1 invitation gratuite</strong> par événement. Au-delà, le prix par invitation
             <strong> dépend du design choisi</strong> pour votre événement.
           </p>
-          {pricing.paymentMethods?.length > 0 ? (
-            <div className="mt-1 text-primary-700">
-              <span>Paiement accepté via — cliquez sur "Acheter" pour les détails.</span>
-              <div className="flex flex-wrap items-center gap-3 mt-2">
-                {pricing.paymentMethods.map((m, i) => (
-                  <span key={i} className="inline-flex items-center gap-1.5 bg-white rounded-lg px-2 py-1 border border-primary-100">
-                    {m.logo && <img src={m.logo} alt={m.provider} className="w-5 h-5 object-contain" />}
-                    <span className="text-xs font-medium text-gray-700">{m.provider}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <p className="mt-1 text-amber-700">Aucun moyen de paiement configuré pour le moment - contactez le support.</p>
-          )}
+          <div className="mt-2 text-primary-700 flex flex-wrap items-center gap-2">
+            <span>Paiement <strong>Mobile Money</strong> instantané (en FC) :</span>
+            <span className="inline-flex items-center gap-2">
+              <img src="/providers/airtel.png" alt="Airtel Money" className="w-5 h-5 object-contain" />
+              <img src="/providers/orange.png" alt="Orange Money" className="w-5 h-5 object-contain" />
+              <img src="/providers/mpesa.png" alt="M-Pesa" className="w-5 h-5 object-contain" />
+            </span>
+            <span className="text-xs">— cliquez sur « Acheter » pour payer.</span>
+          </div>
         </div>
       </div>
 

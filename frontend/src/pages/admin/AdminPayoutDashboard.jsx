@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import api from '../../services/api';
+import { formatMoney } from '../../utils/currency';
 import toast from 'react-hot-toast';
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
 
@@ -169,7 +170,7 @@ export default function AdminPayoutDashboard() {
                           {new Date(payout.requestedAt).toLocaleDateString()}
                         </p>
                         <p className="text-lg font-semibold text-gray-900">
-                          ${parseFloat(payout.totalAmount).toFixed(2)}
+                          {formatMoney(payout.totalAmount)}
                         </p>
                       </div>
                     </div>
@@ -231,7 +232,7 @@ export default function AdminPayoutDashboard() {
             <div className="border-t pt-4">
               <p className="text-sm text-gray-600 mb-2">Amount</p>
               <p className="text-2xl font-bold text-gray-900">
-                ${parseFloat(payoutDetail.payout.totalAmount).toFixed(2)} {payoutDetail.payout.currency}
+                {formatMoney(payoutDetail.payout.totalAmount)}
               </p>
             </div>
 

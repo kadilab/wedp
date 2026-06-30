@@ -5,6 +5,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { templateAPI } from '../../services/api';
 import { confirmDialog } from '../../components/common/confirm';
+import { formatMoney } from '../../utils/currency';
 import CreatorOnboarding from '../../components/CreatorOnboarding';
 import TemplatePreview from '../../components/templates/TemplatePreview';
 import toast from 'react-hot-toast';
@@ -256,22 +257,22 @@ export default function CreatorDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <p className="text-gray-600 text-sm font-medium mb-2">Gains Totaux</p>
-              <p className="text-3xl font-bold text-primary-600">${totalEarnings.toFixed(2)}</p>
+              <p className="text-3xl font-bold text-primary-600">{formatMoney(totalEarnings)}</p>
             </div>
 
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <p className="text-gray-600 text-sm font-medium mb-2">En Attente</p>
-              <p className="text-3xl font-bold text-amber-600">${earnings.pending.toFixed(2)}</p>
+              <p className="text-3xl font-bold text-amber-600">{formatMoney(earnings.pending)}</p>
             </div>
 
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <p className="text-gray-600 text-sm font-medium mb-2">Disponible</p>
-              <p className="text-3xl font-bold text-emerald-600">${earnings.approved.toFixed(2)}</p>
+              <p className="text-3xl font-bold text-emerald-600">{formatMoney(earnings.approved)}</p>
             </div>
 
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <p className="text-gray-600 text-sm font-medium mb-2">Versé</p>
-              <p className="text-3xl font-bold text-primary-600">${earnings.paid.toFixed(2)}</p>
+              <p className="text-3xl font-bold text-primary-600">{formatMoney(earnings.paid)}</p>
             </div>
           </div>
 
@@ -433,7 +434,7 @@ export default function CreatorDashboard() {
             <ol className="list-decimal list-inside space-y-3 text-sm text-gray-700">
               <li>Ajoutez et vérifiez votre compte bancaire</li>
               <li>Les gains approuvés deviennent disponibles (après activation du mariage)</li>
-              <li>Demandez un retrait avec un minimum de 10 $</li>
+              <li>Demandez un retrait une fois le montant minimum atteint</li>
               <li>L'admin examine et traite votre demande (5-7 jours ouvrables)</li>
               <li>Les fonds sont transférés vers votre compte bancaire</li>
             </ol>

@@ -190,7 +190,7 @@ export default function MarketplaceTemplateDetail() {
               <div className="text-center py-4 border-y">
                 <p className="text-gray-600 text-sm">Commission Basis</p>
                 <p className="text-3xl font-bold text-gray-900">
-                  ${priceUSD.toFixed(2)}
+                  {priceUSD.toLocaleString('fr-FR')} FC
                 </p>
               </div>
             )}

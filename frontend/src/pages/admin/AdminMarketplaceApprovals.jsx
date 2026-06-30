@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { adminAPI } from '../../services/api'
+import { formatMoney } from '../../utils/currency'
 import toast from 'react-hot-toast'
 import {
   CheckIcon,
@@ -428,7 +429,7 @@ export default function AdminMarketplaceApprovals() {
                             </span>
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/70 text-gray-700 rounded-full text-xs font-semibold border border-gray-200">
                               <BanknotesIcon className="w-4 h-4 text-green-600" />
-                              ${totalValue.toFixed(2)} valeur catalogue
+                              {formatMoney(totalValue)} valeur catalogue
                             </span>
                           </div>
                         </div>

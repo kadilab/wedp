@@ -58,7 +58,7 @@ const CustomTooltip = ({ active, payload, label }) => {
         <p key={i} className="text-sm" style={{ color: p.color }}>
           <span className="font-medium">{p.name}: </span>
           <span className="font-bold">
-            {p.name === 'Revenus' ? `${Number(p.value).toLocaleString()} $` : p.value}
+            {p.name === 'Revenus' ? `${Number(p.value).toLocaleString('fr-FR')} FC` : p.value}
           </span>
         </p>
       ))}
@@ -146,7 +146,7 @@ export default function AdminDashboard() {
         />
         <StatCard
           label="Revenus invitations"
-          value={`${(stats.totalRevenue || 0).toLocaleString()} $`}
+          value={`${(stats.totalRevenue || 0).toLocaleString('fr-FR')} FC`}
           icon={CurrencyDollarIcon}
           gradient="bg-gradient-to-br from-emerald-500 to-green-700"
           subtitle={`${stats.approvedOrders || 0} commandes approuvées`}

@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import { formatMoney } from '../../utils/currency';
 import { CurrencyDollarIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+
+// Minimum payout amount (FC). Adjust to your real policy.
+const MIN_PAYOUT = 10;
 
 export default function CreatorPayoutRequest() {
   const [selectedBankAccount, setSelectedBankAccount] = useState('');
@@ -88,7 +92,7 @@ export default function CreatorPayoutRequest() {
             <CurrencyDollarIcon className="w-5 h-5 text-green-600" />
             <h3 className="font-medium text-gray-700">Disponible pour Retrait</h3>
           </div>
-          <p className="text-3xl font-bold text-green-600">${availableAmount.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-green-600">{formatMoney(availableAmount)}</p>
           <p className="text-xs text-gray-600 mt-2">Gains approuvés non encore retirés</p>
         </div>
 
@@ -97,7 +101,7 @@ export default function CreatorPayoutRequest() {
             <CheckCircleIcon className="w-5 h-5 text-blue-600" />
             <h3 className="font-medium text-gray-700">Montant Minimum</h3>
           </div>
-          <p className="text-3xl font-bold text-blue-600">$10.00</p>
+          <p className="text-3xl font-bold text-blue-600">{formatMoney(MIN_PAYOUT)}</p>
           <p className="text-xs text-gray-600 mt-2">Pas de limite maximale</p>
         </div>
       </div>
@@ -149,27 +153,27 @@ export default function CreatorPayoutRequest() {
               Montant à Retirer *
             </label>
             <div className="relative">
-              <span className="absolute left-4 top-3 text-gray-500">$</span>
+              <span className="absolute left-3 top-2.5 text-gray-500 text-sm font-medium">FC</span>
               <input
                 type="number"
-                step="0.01"
-                min="10"
+                step="1"
+                min={MIN_PAYOUT}
                 max={availableAmount}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
-                className="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
                 placeholder="0.00"
               />
             </div>
             {amount && parseFloat(amount) > availableAmount && (
               <p className="mt-1 text-sm text-red-600">
-                Le montant dépasse le solde disponible (${availableAmount.toFixed(2)})
+                Le montant dépasse le solde disponible ({formatMoney(availableAmount)})
               </p>
             )}
-            {amount && parseFloat(amount) < 10 && (
+            {amount && parseFloat(amount) < MIN_PAYOUT && (
               <p className="mt-1 text-sm text-amber-600">
-                Le montant minimum pour un retrait est $10.00
+                Le montant minimum pour un retrait est {formatMoney(MIN_PAYOUT)}
               </p>
             )}
           </div>
