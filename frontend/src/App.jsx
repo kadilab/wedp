@@ -59,6 +59,7 @@ import InvitationView from './pages/public/InvitationView'
 // Components
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import AdminRoute from './components/auth/AdminRoute'
+import { ConfirmRoot } from './components/common/confirm'
 
 function App() {
   const { isAuthenticated, user } = useAuthStore()
@@ -69,6 +70,8 @@ function App() {
   }, [fetchSettings])
 
   return (
+    <>
+    <ConfirmRoot />
     <Routes>
       {/* Public Routes */}
       <Route element={<PublicLayout />}>
@@ -162,6 +165,7 @@ function App() {
         </div>
       } />
     </Routes>
+    </>
   )
 }
 

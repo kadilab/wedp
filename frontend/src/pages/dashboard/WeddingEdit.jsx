@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { weddingAPI, templateAPI } from '../../services/api'
+import { confirmDialog } from '../../components/common/confirm'
 import toast from 'react-hot-toast'
 import TemplatePreview from '../../components/templates/TemplatePreview'
 import ImageUpload from '../../components/common/ImageUpload'
@@ -262,10 +263,13 @@ export default function WeddingEdit() {
     updateMutation.mutate(submitData)
   }
 
-  const handleDelete = () => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer cet événement ? Cette action est irréversible.')) {
-      deleteMutation.mutate()
-    }
+  const handleDelete = async () => {
+    const ok = await confirmDialog({
+      title: 'Supprimer l’événement',
+      message: 'Êtes-vous sûr de vouloir supprimer cet événement ? Cette action est irréversible.',
+      confirmText: 'Supprimer'
+    })
+    if (ok) deleteMutation.mutate()
   }
 
   if (isLoading) {

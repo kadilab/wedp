@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { guestAPI, weddingAPI, invitationOrderAPI } from '../../services/api'
 import BuyQuotaModal from '../../components/invitations/BuyQuotaModal'
+import { confirmDialog } from '../../components/common/confirm'
 import { getGuestCategoryOptions, eventUsesTables, eventUsesPlusOnes } from '../../utils/eventTypes'
 import { tableName } from '../../utils/tables'
 import toast from 'react-hot-toast'
@@ -373,10 +374,13 @@ export default function Guests() {
                           <PencilIcon className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (window.confirm('Supprimer cet invité ?')) {
-                              deleteMutation.mutate(guest.id)
-                            }
+                          onClick={async () => {
+                            const ok = await confirmDialog({
+                              title: 'Supprimer cet invité',
+                              message: `Voulez-vous vraiment supprimer ${guest.firstName} ${guest.lastName} ? Cette action est irréversible.`,
+                              confirmText: 'Supprimer'
+                            })
+                            if (ok) deleteMutation.mutate(guest.id)
                           }}
                           className="p-1 text-gray-500 hover:text-red-600"
                         >

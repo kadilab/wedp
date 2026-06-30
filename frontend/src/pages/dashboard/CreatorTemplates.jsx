@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from 'react-query'
 import { useNavigate } from 'react-router-dom'
 import { templateAPI } from '../../services/api'
+import { confirmDialog } from '../../components/common/confirm'
 import toast from 'react-hot-toast'
 import {
   PlusIcon,
@@ -70,7 +71,12 @@ export default function CreatorTemplates() {
   }
 
   const handleDeleteTemplate = async (templateId) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce template?')) return
+    const ok = await confirmDialog({
+      title: 'Supprimer ce template',
+      message: 'Êtes-vous sûr de vouloir supprimer ce template ?',
+      confirmText: 'Supprimer'
+    })
+    if (!ok) return
 
     try {
       await templateAPI.delete(templateId)

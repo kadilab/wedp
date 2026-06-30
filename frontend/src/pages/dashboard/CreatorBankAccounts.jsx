@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import api from '../../services/api';
+import { confirmDialog } from '../../components/common/confirm';
 import toast from 'react-hot-toast';
 import { TrashIcon, PencilIcon, PlusIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
@@ -104,10 +105,13 @@ export default function CreatorBankAccounts() {
     });
   };
 
-  const handleDelete = (accountId) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce compte?')) {
-      deleteMutation.mutate(accountId);
-    }
+  const handleDelete = async (accountId) => {
+    const ok = await confirmDialog({
+      title: 'Supprimer ce compte',
+      message: 'Êtes-vous sûr de vouloir supprimer ce compte ?',
+      confirmText: 'Supprimer'
+    });
+    if (ok) deleteMutation.mutate(accountId);
   };
 
   const mobileMoneyProviders = [

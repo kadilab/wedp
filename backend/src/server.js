@@ -222,9 +222,39 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler
+// 404 handler — content-negotiated. API clients (XHR/fetch, Accept: json) get
+// JSON; a human navigating in a browser (Accept: text/html) gets a styled 404
+// page instead of raw JSON. Same for unknown/unauthorized routes.
 app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+  res.status(404);
+  const frontendUrl = process.env.FRONTEND_URL || '/';
+  if (!req.path.startsWith('/api') && req.accepts('html')) {
+    return res.type('html').send(`<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>404 — Page introuvable</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,#fdf2f8,#fff,#fffbeb);color:#1f2937;padding:24px}
+  .card{text-align:center;max-width:420px}
+  .code{font-size:96px;font-weight:800;line-height:1;
+    background:linear-gradient(135deg,#df6746,#ec4899);-webkit-background-clip:text;
+    background-clip:text;-webkit-text-fill-color:transparent}
+  h1{font-size:22px;margin:12px 0 8px}
+  p{color:#6b7280;margin-bottom:24px}
+  a{display:inline-block;background:#df6746;color:#fff;text-decoration:none;
+    padding:12px 28px;border-radius:9999px;font-weight:600}
+</style></head>
+<body><div class="card">
+  <div class="code">404</div>
+  <h1>Page introuvable</h1>
+  <p>Cette page n'existe pas ou vous n'y avez pas accès.</p>
+  <a href="${frontendUrl}">Retour à l'accueil</a>
+</div></body></html>`);
+  }
+  res.json({ error: 'Route not found' });
 });
 
 const PORT = process.env.PORT || 5000;

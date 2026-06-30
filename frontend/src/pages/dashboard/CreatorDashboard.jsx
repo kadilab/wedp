@@ -4,6 +4,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { templateAPI } from '../../services/api';
+import { confirmDialog } from '../../components/common/confirm';
 import CreatorOnboarding from '../../components/CreatorOnboarding';
 import TemplatePreview from '../../components/templates/TemplatePreview';
 import toast from 'react-hot-toast';
@@ -48,8 +49,13 @@ export default function CreatorDashboard() {
     }
   );
 
-  const handleDeleteTemplate = (templateId) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce template?')) return;
+  const handleDeleteTemplate = async (templateId) => {
+    const ok = await confirmDialog({
+      title: 'Supprimer ce template',
+      message: 'Êtes-vous sûr de vouloir supprimer ce template ?',
+      confirmText: 'Supprimer'
+    });
+    if (!ok) return;
     deleteTemplateMutation.mutate(templateId);
   };
 

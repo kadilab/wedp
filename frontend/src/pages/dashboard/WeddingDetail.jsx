@@ -132,19 +132,19 @@ export default function WeddingDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start sm:items-center gap-3 min-w-0">
           <button
             onClick={() => navigate('/weddings')}
-            className="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100"
+            className="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 shrink-0"
           >
             <ArrowLeftIcon className="h-5 w-5" />
           </button>
-          <div>
-            <h1 className="text-3xl font-serif font-bold text-gray-900">
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-gray-900 break-words">
               {eventDisplayName}
             </h1>
-            <div className="flex items-center gap-4 mt-1 text-gray-500">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-gray-500">
               <span className="flex items-center">
                 <CalendarIcon className="h-4 w-4 mr-1" />
                 {format(new Date(wedding.weddingDate), 'd MMMM yyyy', { locale: fr })}
@@ -161,14 +161,14 @@ export default function WeddingDetail() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Link to={`/weddings/${id}/edit`} className="btn-primary">
+        <div className="flex items-center gap-3 shrink-0">
+          <Link to={`/weddings/${id}/edit`} className="btn-primary flex-1 sm:flex-none justify-center">
             <PencilIcon className="h-5 w-5 mr-2" />
             Modifier
           </Link>
           <button
             onClick={() => setShowDeleteModal(true)}
-            className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            className="inline-flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex-1 sm:flex-none"
           >
             <TrashIcon className="h-5 w-5 mr-2" />
             Supprimer

@@ -2,6 +2,7 @@
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { weddingAPI } from '../../services/api'
+import { confirmDialog } from '../../components/common/confirm'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import toast from 'react-hot-toast'
@@ -50,10 +51,13 @@ export default function Weddings() {
 
   const weddings = data?.data?.weddings || []
 
-  const handleDelete = (id, name) => {
-    if (window.confirm(`Êtes-vous sûr de vouloir supprimer le mariage "${name}" ?`)) {
-      deleteMutation.mutate(id)
-    }
+  const handleDelete = async (id, name) => {
+    const ok = await confirmDialog({
+      title: 'Supprimer l’événement',
+      message: `Voulez-vous vraiment supprimer « ${name} » ? Cette action est irréversible.`,
+      confirmText: 'Supprimer'
+    })
+    if (ok) deleteMutation.mutate(id)
   }
 
   // Effective status: a DRAFT event that already has invitations is live, and a
