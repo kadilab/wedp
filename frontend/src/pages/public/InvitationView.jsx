@@ -1,4 +1,4 @@
-import { useState, useRef, useLayoutEffect } from 'react'
+import { useState, useLayoutEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation } from 'react-query'
 import { publicAPI } from '../../services/api'
@@ -68,47 +68,47 @@ function AnimatedElement({ el, style, className, children }) {
 }
 
 // Renders a fixed-size design canvas (canvasWidth × canvasHeight) scaled DOWN to
-// fit the available width — so absolutely-positioned elements stay WYSIWYG on
-// every screen instead of overflowing/clipping on mobile. The reserved box
-// shrinks with the scale so there's no extra whitespace and no horizontal scroll.
-function ScaledCanvas({ width, height, className, children }) {
-  const wrapRef = useRef(null)
-  const [scale, setScale] = useState(1)
+// fit the screen width — so absolutely-positioned elements stay WYSIWYG on every
+// screen instead of overflowing/clipping on mobile. The reserved box shrinks
+// with the scale so there's no extra whitespace and no horizontal scroll.
+// Width is taken from the viewport (the canvas is full-bleed); `hPadding` is the
+// total horizontal page padding to subtract.
+function ScaledCanvas({ width, height, className, children, hPadding = 24 }) {
+  const [vw, setVw] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : width))
 
   useLayoutEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
-    const compute = () => {
-      const avail = el.clientWidth
-      if (avail > 0) setScale(Math.min(1, avail / width))
+    const onResize = () => setVw(window.innerWidth)
+    onResize()
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
     }
-    compute()
-    const ro = new ResizeObserver(compute)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [width])
+  }, [])
+
+  const avail = Math.max(0, Math.min(width, vw - hPadding))
+  const scale = avail > 0 ? Math.min(1, avail / width) : 1
 
   return (
-    <div ref={wrapRef} style={{ width: '100%', maxWidth: width }}>
+    <div
+      style={{
+        width: width * scale,
+        height: height * scale,
+        margin: '0 auto',
+        overflow: 'hidden'
+      }}
+    >
       <div
+        className={className}
         style={{
-          width: width * scale,
-          height: height * scale,
-          margin: '0 auto',
-          overflow: 'hidden'
+          width,
+          height,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left'
         }}
       >
-        <div
-          className={className}
-          style={{
-            width,
-            height,
-            transform: `scale(${scale})`,
-            transformOrigin: 'top left'
-          }}
-        >
-          {children}
-        </div>
+        {children}
       </div>
     </div>
   )
