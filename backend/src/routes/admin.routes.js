@@ -2239,9 +2239,9 @@ router.post('/payouts/:payoutId/kpay', authenticate, isAdmin, async (req, res) =
     if (!payout) return res.status(404).json({ message: 'Payout not found' });
     if (payout.status === 'PAID') return res.status(400).json({ message: 'Payout déjà payé' });
 
-    // Amount is in the K-PAY account currency (USD), 2 decimals — no `currency`
-    // field (forbidden), no conversion. Keep the cents (don't round to whole $).
-    const amount = Math.round(parseFloat(payout.totalAmount) * 100) / 100;
+    // Amount is in the K-PAY account currency (no `currency` field). Convert the
+    // USD payout total to that currency (live FX rate, KPAY_ACCOUNT_CURRENCY).
+    const amount = await kpay.toAccountAmount(parseFloat(payout.totalAmount));
     const result = await kpay.withdraw({
       amount,
       provider,
@@ -2269,9 +2269,8 @@ router.post('/payouts/:payoutId/kpay', authenticate, isAdmin, async (req, res) =
       status: result.status
     });
   } catch (error) {
-    const apiErr = error.response?.data;
-    logger.error('K-PAY withdraw error:', apiErr || error.message);
-    res.status(502).json({ message: apiErr?.message || 'Erreur lors du reversement K-PAY' });
+    logger.error('K-PAY withdraw error:', JSON.stringify(error.data) || error.message);
+    res.status(502).json({ message: kpay.extractApiError(error) });
   }
 });
 
@@ -2302,9 +2301,8 @@ router.get('/payouts/:payoutId/kpay/status', authenticate, isAdmin, async (req, 
     }
     res.json({ payoutStatus: status, orderStatus: payout.status });
   } catch (error) {
-    const apiErr = error.response?.data;
-    logger.error('K-PAY payout status error:', apiErr || error.message);
-    res.status(502).json({ message: apiErr?.message || 'Erreur lors de la vérification du reversement' });
+    logger.error('K-PAY payout status error:', JSON.stringify(error.data) || error.message);
+    res.status(502).json({ message: kpay.extractApiError(error) });
   }
 });
 

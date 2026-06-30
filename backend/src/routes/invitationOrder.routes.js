@@ -263,10 +263,10 @@ router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) =
       return res.status(400).json({ error: 'Cette commande a déjà été traitée' });
     }
 
-    // The amount is ALWAYS in the K-PAY account's currency, and the `currency`
-    // field is forbidden (rejected). The live account is in USD (RDC), so send
-    // the order's USD total directly — no conversion.
-    const amount = Math.round(parseFloat(order.totalAmount) * 100) / 100;
+    // K-PAY charges in the operator/account currency (no `currency` field).
+    // Convert the USD order total to that currency (KPAY_ACCOUNT_CURRENCY,
+    // default XAF) and respect the minimum. See kpay.toAccountAmount.
+    const amount = await kpay.toAccountAmount(parseFloat(order.totalAmount));
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Montant de la commande invalide' });
     }
@@ -281,15 +281,21 @@ router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) =
     };
 
     if (provider && phoneNumber) {
-      // USSD (direct) mode
+      // DIRECT (USSD) mode — currency follows the operator (RDC → CDF). The
+      // phone must be international: 243 + 9 digits.
+      const phone = kpay.normalizeMomoPhone(phoneNumber, provider);
+      if (!/^243\d{9}$/.test(phone)) {
+        return res.status(400).json({ error: 'Numéro RDC invalide (format 243XXXXXXXXX)' });
+      }
       payload.provider = provider;
-      payload.phoneNumber = phoneNumber;
+      payload.phoneNumber = phone;
     } else {
       // GATEWAY (hosted) mode
       payload.returnUrl = `${frontendUrl}/weddings/${wedding.id}/invitations?kpay=return&order=${order.id}`;
       payload.cancelUrl = `${frontendUrl}/weddings/${wedding.id}/invitations?kpay=cancel&order=${order.id}`;
     }
 
+    logger.info(`K-PAY init: order ${order.id}, amount ${amount} ${process.env.KPAY_ACCOUNT_CURRENCY || 'XAF'}, mode ${provider ? 'USSD/' + provider : 'GATEWAY'}, phone ${payload.phoneNumber || '-'}`);
     const result = await kpay.initPayment(payload);
 
     // Remember the K-PAY payment reference on the order.
@@ -306,9 +312,8 @@ router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) =
       gatewayUrl: result.gatewayUrl || null
     });
   } catch (error) {
-    const apiErr = error.response?.data;
-    logger.error('K-PAY init payment error:', apiErr || error.message);
-    res.status(502).json({ error: apiErr?.message || 'Erreur lors de l\'initiation du paiement' });
+    logger.error('K-PAY init payment error:', JSON.stringify(error.data) || error.message);
+    res.status(502).json({ error: kpay.extractApiError(error) });
   }
 });
 
@@ -343,11 +348,12 @@ router.get('/:weddingId/orders/:orderId/kpay/status', authenticate, async (req, 
     const paymentStatus = String(payment?.status || payment?.data?.status || 'UNKNOWN').toUpperCase();
 
     if (paymentStatus === 'COMPLETED' || paymentStatus === 'SUCCESS') {
-      // Anti-fraud: never approve unless the amount actually paid covers the
-      // order total (avoids "pay $0.01, unlock everything"). 1-cent tolerance.
+      // Anti-fraud: never approve unless the amount actually paid covers what we
+      // asked K-PAY to collect (avoids "pay a tiny amount, unlock everything").
       const paid = Number(payment?.amount ?? payment?.data?.amount ?? NaN);
-      const due = Number(order.totalAmount);
-      if (Number.isFinite(paid) && paid + 0.01 < due) {
+      const due = await kpay.toAccountAmount(parseFloat(order.totalAmount));
+      const tolerance = Math.max(1, due * 0.01); // 1 unit or 1%
+      if (Number.isFinite(paid) && paid + tolerance < due) {
         logger.warn(`K-PAY underpayment: order ${order.id} due ${due}, paid ${paid} — not approving`);
         return res.status(409).json({ paymentStatus: 'UNDERPAID', orderStatus: order.status, error: 'Montant payé insuffisant' });
       }
@@ -357,9 +363,8 @@ router.get('/:weddingId/orders/:orderId/kpay/status', authenticate, async (req, 
 
     res.json({ paymentStatus, orderStatus: order.status });
   } catch (error) {
-    const apiErr = error.response?.data;
-    logger.error('K-PAY status check error:', apiErr || error.message);
-    res.status(502).json({ error: apiErr?.message || 'Erreur lors de la vérification du paiement' });
+    logger.error('K-PAY status check error:', JSON.stringify(error.data) || error.message);
+    res.status(502).json({ error: kpay.extractApiError(error) });
   }
 });
 

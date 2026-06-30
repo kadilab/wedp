@@ -39,6 +39,10 @@ services:
       KPAY_API_KEY: ${KPAY_API_KEY:-}
       KPAY_SECRET_KEY: ${KPAY_SECRET_KEY:-}
       KPAY_WEBHOOK_SECRET: ${KPAY_WEBHOOK_SECRET:-}
+      # Devise débitée par K-PAY (suit l'opérateur). Prix internes USD → conversion.
+      KPAY_ACCOUNT_CURRENCY: ${KPAY_ACCOUNT_CURRENCY:-XAF}
+      KPAY_USD_RATE: ${KPAY_USD_RATE:-600}
+      KPAY_MIN_AMOUNT: ${KPAY_MIN_AMOUNT:-50}
       KPAY_USD_TO_XAF: ${KPAY_USD_TO_XAF:-600}
       # Google OAuth
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}

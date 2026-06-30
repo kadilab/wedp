@@ -34,6 +34,11 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
   const [appliedCoupon, setAppliedCoupon] = useState(null) // { code, discount, finalAmount }
   const [couponError, setCouponError] = useState('')
   const [payingOnline, setPayingOnline] = useState(false)
+  // DIRECT (USSD) Mobile Money — RDC. Client picks operator + enters phone, then
+  // validates the push on the handset. Status is polled automatically.
+  const [provider, setProvider] = useState('AIRTEL_COD')
+  const [momoPhone, setMomoPhone] = useState('243')
+  const [ussdMsg, setUssdMsg] = useState('')
 
   const { data: pricingData } = useQuery(
     ['invitation-pricing', weddingId],
@@ -99,27 +104,52 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
     }
   )
 
-  // Online payment (K-PAY GATEWAY): create the order, init the payment, then
-  // redirect the client to the hosted KPay page. The order is confirmed
-  // server-side by the webhook once the payment completes.
-  const payOnline = async () => {
+
+  // DIRECT (USSD) payment: create the order, init with operator + phone, then
+  // the client validates the push on their handset. We poll K-PAY for the live
+  // status; the webhook stays the source of truth. No admin action needed.
+  const payDirect = async () => {
+    const phone = momoPhone.replace(/\D/g, '')
+    if (!provider) return toast.error('Choisissez votre opérateur Mobile Money')
+    if (!/^243\d{9}$/.test(phone)) return toast.error('Numéro RDC invalide (format 243XXXXXXXXX)')
     setPayingOnline(true)
+    setUssdMsg('')
     try {
       const orderRes = await invitationOrderAPI.createOrder(weddingId, quantity, appliedCoupon?.code)
       const orderId = orderRes.data.order.id
-      const kpayRes = await invitationOrderAPI.payKpay(weddingId, orderId)
-      const url = kpayRes.data?.gatewayUrl
-      if (url) {
-        window.location.href = url
-      } else {
-        toast.error('Lien de paiement indisponible. Réessayez ou utilisez le paiement manuel.')
-        queryClient.invalidateQueries(['invitation-orders', weddingId])
-        setView('list')
+      await invitationOrderAPI.payKpay(weddingId, orderId, { provider, phoneNumber: phone })
+      setUssdMsg('📲 Validez la demande sur votre téléphone (code PIN Mobile Money)…')
+
+      let attempts = 0
+      const poll = async () => {
+        attempts++
+        try {
+          const { data } = await invitationOrderAPI.kpayStatus(weddingId, orderId)
+          if (data.orderStatus === 'APPROVED' || data.paymentStatus === 'COMPLETED') {
+            toast.success('Paiement réussi — invitations débloquées 🎉')
+            queryClient.invalidateQueries(['quota', weddingId])
+            queryClient.invalidateQueries(['invitation-orders', weddingId])
+            setPayingOnline(false); setUssdMsg(''); setView('list')
+            return
+          }
+          if (data.paymentStatus === 'FAILED' || data.paymentStatus === 'CANCELLED') {
+            toast.error('Paiement échoué ou annulé.')
+            setPayingOnline(false); setUssdMsg('')
+            return
+          }
+        } catch { /* transient — keep polling */ }
+        if (attempts >= 24) {
+          setUssdMsg('Toujours en attente… La confirmation se fera automatiquement dès validation.')
+          setPayingOnline(false)
+          queryClient.invalidateQueries(['invitation-orders', weddingId])
+          return
+        }
+        setTimeout(poll, 3000)
       }
+      setTimeout(poll, 3000)
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur lors du paiement en ligne')
-    } finally {
-      setPayingOnline(false)
+      toast.error(err.response?.data?.error || 'Erreur lors du paiement Mobile Money')
+      setPayingOnline(false); setUssdMsg('')
     }
   }
 
@@ -232,16 +262,43 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
                 </p>
               )}
 
-              {/* Online payment (Mobile Money via K-PAY) */}
-              <button
-                onClick={payOnline}
-                disabled={payingOnline || quantity < 1}
-                className="btn-primary w-full flex items-center justify-center gap-2"
-              >
-                {payingOnline
-                  ? 'Redirection vers le paiement...'
-                  : `💳 Payer en ligne (Mobile Money) — ${finalTotal}$`}
-              </button>
+              {/* Online payment — DIRECT (USSD) Mobile Money RDC */}
+              <div className="rounded-xl border border-primary-100 bg-primary-50/40 p-3 space-y-3">
+                <p className="text-sm font-semibold text-gray-800">💳 Payer par Mobile Money</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { code: 'AIRTEL_COD', label: 'Airtel Money' },
+                    { code: 'ORANGE_COD', label: 'Orange Money' },
+                    { code: 'VODACOM_MPESA_COD', label: 'M-Pesa' }
+                  ].map((op) => (
+                    <button
+                      key={op.code}
+                      type="button"
+                      onClick={() => setProvider(op.code)}
+                      className={`text-xs px-2 py-2 rounded-lg border font-medium transition ${provider === op.code ? 'border-primary-500 bg-primary-100 text-primary-700' : 'border-gray-200 bg-white text-gray-600 hover:border-primary-300'}`}
+                    >
+                      {op.label}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  value={momoPhone}
+                  onChange={(e) => setMomoPhone(e.target.value)}
+                  placeholder="243XXXXXXXXX"
+                  className="input text-sm"
+                />
+                <button
+                  onClick={payDirect}
+                  disabled={payingOnline || quantity < 1}
+                  className="btn-primary w-full flex items-center justify-center gap-2"
+                >
+                  {payingOnline ? 'Paiement en cours…' : `Payer — ${finalTotal}$`}
+                </button>
+                {ussdMsg && <p className="text-xs text-gray-600 text-center">{ussdMsg}</p>}
+                <p className="text-[11px] text-gray-400 text-center">Vous validez le paiement sur votre téléphone (Mobile Money en FC).</p>
+              </div>
 
               {/* Manual payment fallback */}
               {pricing.paymentMethods.length > 0 && (
