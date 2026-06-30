@@ -547,7 +547,16 @@ router.post('/me/bank-accounts', authenticate, isCreator, async (req, res) => {
     });
   } catch (error) {
     logger.error('Error adding bank account:', error);
-    res.status(500).json({ message: 'Error adding bank account', error: error.message });
+    // Surface schema-drift errors clearly (P2021 = table missing, P2022 = column
+    // missing) so the cause is obvious in the UI toast and we know what to fix.
+    if (error.code === 'P2021' || error.code === 'P2022') {
+      return res.status(500).json({
+        message: `Base de données désynchronisée (${error.code}: ${error.meta?.table || error.meta?.column || ''}). Lancez scripts/fix-bank-accounts.js sur le serveur.`,
+        code: error.code,
+        meta: error.meta
+      });
+    }
+    res.status(500).json({ message: error.message || 'Erreur lors de l\'ajout du compte' });
   }
 });
 
