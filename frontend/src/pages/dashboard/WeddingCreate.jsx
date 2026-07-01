@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import TemplatePreview from '../../components/templates/TemplatePreview'
 import TablesEditor from '../../components/TablesEditor'
 import { eventUsesCouple, eventUsesHonoree, eventUsesFreeTitle, eventUsesTables, honoreeFieldLabel } from '../../utils/eventTypes'
+import { getVisibleFields } from '../../utils/templateVariables'
 import {
   ArrowLeftIcon,
   HeartIcon,
@@ -152,6 +153,12 @@ export default function WeddingCreate() {
   const photoPlaceholders = (selectedTemplateForImages?.config?.designElements || [])
     .filter(el => el.type === 'photo')
 
+  // Dynamic form fields: once a template is chosen, only show the inputs whose
+  // variables the template actually uses (+ always-visible identity/date). No
+  // template selected yet → show everything.
+  const visibleFields = selectedTemplateForImages ? getVisibleFields(selectedTemplateForImages) : null
+  const showField = (name) => !visibleFields || visibleFields.has(name)
+
   // Template search + pagination (design step)
   const tplMatches = (t) => {
     const q = templateSearch.trim().toLowerCase()
@@ -170,7 +177,8 @@ export default function WeddingCreate() {
 
   // Shared live-preview data so canvas tokens ({{event_title}}, {{venue_name}}...)
   // reflect what the user has typed so far, for wedding and non-wedding types alike.
-  const previewWeddingData = {
+  const hasTypedInfo = !!(watch('brideName') || watch('groomName') || watch('honoreeName') || watch('eventTitle') || watch('weddingDate'))
+  const previewWeddingDataFull = {
     templateImages: templateImagePreviews,
     eventType,
     eventTitle: watch('eventTitle'),
@@ -191,13 +199,18 @@ export default function WeddingCreate() {
     receptionVenue: watch('receptionVenue'),
     receptionDate: watch('receptionDate')
   }
+  // Before any info is typed (e.g. the new template-first "Modèle" step), fall
+  // back to the rich sample so the preview looks like a finished invitation.
+  const previewWeddingData = hasTypedInfo ? previewWeddingDataFull : null
 
   // Step numbers shift depending on whether the full wedding programme
   // step is needed - everything downstream (design/QR/print) just slides up.
+  // Template-first flow: pick the type, then the template (which decides which
+  // variables/fields matter), then only the relevant info fields.
   const STEP_TYPE = 0
-  const STEP_INFO = 1
-  const STEP_PROGRAMME = 2
-  const STEP_DESIGN = isWedding ? 3 : 2
+  const STEP_DESIGN = 1
+  const STEP_INFO = 2
+  const STEP_PROGRAMME = 3
   const STEP_QR = isWedding ? 4 : 3
   const STEP_PREVIEW = isWedding ? 5 : 4
   const STEP_PRINT = isWedding ? 6 : 5
@@ -205,16 +218,15 @@ export default function WeddingCreate() {
 
   const STEPS = [
     { num: STEP_TYPE, label: 'Type' },
+    { num: STEP_DESIGN, label: 'Modèle' },
     ...(isWedding ? [
       { num: STEP_INFO, label: 'Mariés' },
       { num: STEP_PROGRAMME, label: 'Programme' },
-      { num: STEP_DESIGN, label: 'Design' },
       { num: STEP_QR, label: 'QR Code' },
       { num: STEP_PREVIEW, label: 'Aperçu' },
       { num: STEP_PRINT, label: 'Impression' }
     ] : [
       { num: STEP_INFO, label: isCouple ? 'Mariés' : 'Infos' },
-      { num: STEP_DESIGN, label: 'Design' },
       { num: STEP_QR, label: 'QR Code' },
       { num: STEP_PREVIEW, label: 'Aperçu' },
       { num: STEP_PRINT, label: 'Impression' }
@@ -537,15 +549,18 @@ export default function WeddingCreate() {
                     <p className="mt-1 text-sm text-red-600">{errors.weddingDate?.message || getServerError('weddingDate')?.message}</p>
                   )}
                 </div>
+                {showField('ceremonyTime') && (
                 <div>
                   <label className="label">Heure{isWedding ? ' (les heures détaillées se règlent dans le programme)' : ''}</label>
                   <input type="time" className="input" {...register('ceremonyTime')} />
                 </div>
+                )}
               </div>
 
               {/* Adresse principale — pour le mariage coutumier c'est le seul lieu ;
                   pour le mariage, le programme détaillé (commune/église/réception)
                   se renseigne à l'étape suivante. */}
+              {(showField('venueName') || showField('venueAddress')) && (
               <div className="border-t pt-6 space-y-4">
                 <h3 className="font-medium text-gray-900 flex items-center">
                   <MapPinIcon className="h-5 w-5 mr-2 text-primary-500" />
@@ -566,11 +581,14 @@ export default function WeddingCreate() {
                   <input type="text" className="input" placeholder="Adresse complète" {...register('venueAddress')} />
                 </div>
               </div>
+              )}
 
+              {showField('customMessage') && (
               <div className="border-t pt-6">
                 <label className="label">Message personnalisé</label>
                 <textarea className="input" rows={3} placeholder="Nous avons le plaisir de vous inviter à célébrer notre union..." {...register('customMessage')} />
               </div>
+              )}
 
               {/* Photo des mariés */}
               {/*<div className="border-t pt-6">
@@ -600,22 +618,28 @@ export default function WeddingCreate() {
               </div>*/}
 
               {/* Extra personalization */}
+              {(showField('rsvpDeadline') || showField('additionalInfo')) && (
               <div className="border-t pt-6 space-y-4">
                 <h3 className="font-medium text-gray-900 flex items-center">
                   <SparklesIcon className="h-5 w-5 mr-2 text-amber-500" />
                   Personnalisation avancée
                 </h3>
+                {showField('rsvpDeadline') && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="label">Date limite RSVP</label>
                     <input type="date" className="input" {...register('rsvpDeadline')} />
                   </div>
                 </div>
+                )}
+                {showField('additionalInfo') && (
                 <div>
                   <label className="label">Informations supplémentaires</label>
                   <textarea className="input" rows={2} placeholder="Parking disponible, allergies alimentaires à signaler..." {...register('additionalInfo')} />
                 </div>
+                )}
               </div>
+              )}
             </div>
           )}
 
@@ -667,12 +691,15 @@ export default function WeddingCreate() {
                     <p className="mt-1 text-sm text-red-600">{errors.weddingDate?.message || getServerError('weddingDate')?.message}</p>
                   )}
                 </div>
+                {showField('ceremonyTime') && (
                 <div>
                   <label className="label">Heure</label>
                   <input type="time" className="input" {...register('ceremonyTime')} />
                 </div>
+                )}
               </div>
 
+              {(showField('venueName') || showField('venueAddress')) && (
               <div className="border-t pt-6 space-y-4">
                 <h3 className="font-medium text-gray-900 flex items-center">
                   <MapPinIcon className="h-5 w-5 mr-2 text-primary-500" />
@@ -693,24 +720,33 @@ export default function WeddingCreate() {
                   <input type="text" className="input" placeholder="Adresse complète" {...register('venueAddress')} />
                 </div>
               </div>
+              )}
 
+              {showField('customMessage') && (
               <div className="border-t pt-6">
                 <label className="label">Message personnalisé</label>
                 <textarea className="input" rows={3} placeholder="Nous avons le plaisir de vous inviter..." {...register('customMessage')} />
               </div>
+              )}
 
+              {(showField('rsvpDeadline') || showField('additionalInfo')) && (
               <div className="border-t pt-6 space-y-4">
+                {showField('rsvpDeadline') && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="label">Date limite RSVP</label>
                     <input type="date" className="input" {...register('rsvpDeadline')} />
                   </div>
                 </div>
+                )}
+                {showField('additionalInfo') && (
                 <div>
                   <label className="label">Informations supplémentaires</label>
                   <textarea className="input" rows={2} placeholder="Parking disponible, dress code..." {...register('additionalInfo')} />
                 </div>
+                )}
               </div>
+              )}
             </div>
           )}
 
@@ -733,6 +769,7 @@ export default function WeddingCreate() {
               </div>
 
               {/* Mairie */}
+              {(showField('communeDate') || showField('communeTime') || showField('communeVenue') || showField('communeAddress')) && (
               <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
@@ -750,8 +787,10 @@ export default function WeddingCreate() {
                   <div><label className="label text-sm">Adresse</label><input type="text" className="input" placeholder="3 Rue de Lisbonne, 75008 Paris" {...register('communeAddress')} /></div>
                 </div>
               </div>
+              )}
 
               {/* Église */}
+              {(showField('egliseDate') || showField('egliseTime') || showField('egliseVenue') || showField('egliseAddress')) && (
               <div className="bg-purple-50 rounded-xl p-6 border border-purple-200">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
@@ -769,8 +808,10 @@ export default function WeddingCreate() {
                   <div><label className="label text-sm">Adresse</label><input type="text" className="input" placeholder="46 Bd Malesherbes, 75008 Paris" {...register('egliseAddress')} /></div>
                 </div>
               </div>
+              )}
 
               {/* Réception */}
+              {(showField('receptionDate') || showField('receptionStartTime') || showField('receptionVenue') || showField('receptionAddress')) && (
               <div className="bg-pink-50 rounded-xl p-6 border border-pink-200">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 bg-pink-500 rounded-full flex items-center justify-center">
@@ -788,6 +829,7 @@ export default function WeddingCreate() {
                   <div><label className="label text-sm">Adresse</label><input type="text" className="input" placeholder="Place d'Armes, 78000 Versailles" {...register('receptionAddress')} /></div>
                 </div>
               </div>
+              )}
 
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <p className="text-sm text-amber-800">
