@@ -31,6 +31,7 @@ import Payments from './pages/dashboard/Payments'
 import PrintOrders from './pages/dashboard/PrintOrders'
 import Profile from './pages/dashboard/Profile'
 import CreatorDashboard from './pages/dashboard/CreatorDashboard'
+import CreatorSettings from './pages/dashboard/CreatorSettings'
 import CreatorEarnings from './pages/dashboard/CreatorEarnings'
 import CreatorBankAccounts from './pages/dashboard/CreatorBankAccounts'
 import CreatorPayoutRequest from './pages/dashboard/CreatorPayoutRequest'
@@ -118,6 +119,7 @@ function App() {
         <Route path="/print-orders" element={<PrintOrders />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/creator-dashboard" element={<CreatorDashboard />} />
+        <Route path="/creator-settings" element={<CreatorSettings />} />
         <Route path="/creator-earnings" element={<CreatorEarnings />} />
         <Route path="/creator-bank-accounts" element={<CreatorBankAccounts />} />
         <Route path="/creator-request-payout" element={<CreatorPayoutRequest />} />

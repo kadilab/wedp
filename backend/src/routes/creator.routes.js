@@ -1,11 +1,19 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 const { authenticate, isCreator } = require('../middleware/auth.middleware');
 const { uploadSingle, handleUploadError } = require('../middleware/upload.middleware');
 const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
+
+// Build the public /uploads/... URL from where multer actually stored the file.
+// The multer destination varies by fieldname (e.g. images/, avatars/), so we
+// derive the URL from req.file.path instead of assuming a flat /uploads/ path —
+// otherwise the stored URL misses the subfolder and 404s.
+const publicUploadUrl = (file) =>
+  '/' + path.relative(path.join(__dirname, '../../'), file.path).split(path.sep).join('/');
 
 /**
  * @route   POST /api/creators/register
@@ -307,7 +315,7 @@ router.post('/me/upload-profile-image', authenticate, isCreator, uploadSingle('p
       return res.status(404).json({ message: 'Creator profile not found' });
     }
 
-    const imageUrl = `/uploads/${req.file.filename}`;
+    const imageUrl = publicUploadUrl(req.file);
 
     const updatedProfile = await prisma.creatorProfile.update({
       where: { id: creatorProfile.id },
@@ -344,7 +352,7 @@ router.post('/me/upload-banner-image', authenticate, isCreator, uploadSingle('ba
       return res.status(404).json({ message: 'Creator profile not found' });
     }
 
-    const imageUrl = `/uploads/${req.file.filename}`;
+    const imageUrl = publicUploadUrl(req.file);
 
     const updatedProfile = await prisma.creatorProfile.update({
       where: { id: creatorProfile.id },

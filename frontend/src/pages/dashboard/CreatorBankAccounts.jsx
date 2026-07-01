@@ -100,7 +100,7 @@ export default function CreatorBankAccounts() {
       bankName: formData.mobileMoneyProvider.toUpperCase(),
       accountNumber: formData.phoneNumber,
       accountType: 'mobile_money',
-      currency: 'XAF',
+      currency: 'CDF',
       isDefault: formData.isDefault
     });
   };

@@ -48,7 +48,6 @@ KPAY_WEBHOOK_SECRET=xxxxxxxxxxxxxxxxxxxx   # depuis le dashboard KPay
 PUBLIC_URL=https://winvite.pro
 PORT=3000
 ```
-
 ---
 
 ## 3. Client KPay (mode DIRECT + fix réseau IPv4)
