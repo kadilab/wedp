@@ -263,6 +263,10 @@ httpServer.listen(PORT, () => {
   logger.info(`🚀 Server running on port ${PORT}`);
   logger.info(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+  // Self-heal known schema drift (adds missing columns to creator_bank_accounts
+  // on drifted production DBs). Non-blocking, idempotent, no-op when up to date.
+  const { ensureSchema } = require('./utils/ensureSchema');
+  ensureSchema(prisma);
 });
 
 // Graceful shutdown
