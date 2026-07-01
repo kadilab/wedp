@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from 'react-query'
 import { useNavigate } from 'react-router-dom'
 import { templateAPI, weddingAPI } from '../../services/api'
@@ -29,6 +29,8 @@ export default function Templates() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [previewTemplate, setPreviewTemplate] = useState(null)
   const [previewDevice, setPreviewDevice] = useState('desktop')
+  const [page, setPage] = useState(1)
+  const PER_PAGE = 10
 
   
   const { data, isLoading } = useQuery('templates', () => templateAPI.getAll())
@@ -60,9 +62,18 @@ export default function Templates() {
     ? eventFilteredTemplates
     : eventFilteredTemplates.filter(t => t.category === selectedCategory)
 
+  // Pagination — 10 per page, reset to page 1 whenever the filters change.
+  useEffect(() => { setPage(1) }, [selectedEventType, selectedCategory])
+  const totalPages = Math.max(1, Math.ceil(filteredTemplates.length / PER_PAGE))
+  const currentPage = Math.min(page, totalPages)
+  const pagedTemplates = filteredTemplates.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE)
+
   const handleSelectTemplate = (template) => {
-    // Navigate to wedding creation with the selected template
-    navigate('/weddings/new', { state: { templateId: template.id } })
+    // Navigate to event creation with the template AND its event type, so the
+    // right form (wedding / birthday…) opens with this template pre-selected.
+    navigate('/weddings/new', {
+      state: { templateId: template.id, eventType: template.eventType || 'WEDDING' }
+    })
   }
 
   return (
@@ -193,7 +204,7 @@ export default function Templates() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredTemplates.map((template) => (
+          {pagedTemplates.map((template) => (
             <div 
               key={template.id} 
               className="group bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl hover:border-primary-200 transition-all duration-300"
@@ -267,6 +278,35 @@ export default function Templates() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination — 10 per page */}
+      {filteredTemplates.length > PER_PAGE && (
+        <div className="flex items-center justify-center gap-1.5 pt-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage <= 1}
+            className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Précédent
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPage(p)}
+              className={`w-9 h-9 rounded-lg text-sm font-medium ${p === currentPage ? 'bg-primary-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+            >
+              {p}
+            </button>
+          ))}
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage >= totalPages}
+            className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Suivant
+          </button>
         </div>
       )}
 

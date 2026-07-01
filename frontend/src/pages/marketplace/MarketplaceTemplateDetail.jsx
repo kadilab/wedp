@@ -198,7 +198,7 @@ export default function MarketplaceTemplateDetail() {
             {/* CTA Button */}
             {user ? (
               <button
-                onClick={() => navigate(`/weddings/new?templateId=${templateId}`)}
+                onClick={() => navigate(`/weddings/new?templateId=${templateId}&eventType=${eventType || 'WEDDING'}`)}
                 className="w-full btn-primary py-3 font-medium"
               >
                 Use This Template

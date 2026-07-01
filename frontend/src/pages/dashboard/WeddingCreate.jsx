@@ -94,6 +94,11 @@ export default function WeddingCreate() {
     location.state?.templateId ||
     new URLSearchParams(location.search).get('templateId') ||
     ''
+  // The template's event type (from Templates gallery / marketplace) so the
+  // matching form opens directly instead of defaulting to WEDDING.
+  const VALID_EVENT_TYPES = ['WEDDING', 'DOT', 'BIRTHDAY', 'CEREMONY', 'CONFERENCE', 'OTHER']
+  const preselectedRaw = location.state?.eventType || new URLSearchParams(location.search).get('eventType') || ''
+  const preselectedEventType = VALID_EVENT_TYPES.includes(preselectedRaw) ? preselectedRaw : ''
 
   const {
     register,
@@ -103,7 +108,7 @@ export default function WeddingCreate() {
     formState: { errors }
   } = useForm({
     defaultValues: {
-      eventType: 'WEDDING',
+      eventType: preselectedEventType || 'WEDDING',
       tables: [],
       templateId: preselectedTemplateId || '',
       qrCodeStyle: 'classic',
