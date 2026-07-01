@@ -33,7 +33,10 @@ async function ensureCreatorBankAccounts(prisma) {
      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
     TABLE
   );
-  if (Number(tbl?.[0]?.n || 0) === 0) return;
+  if (Number(tbl?.[0]?.n || 0) === 0) {
+    logger.info(`ensureSchema: ${TABLE} not found yet (skipped)`);
+    return;
+  }
 
   let added = 0;
   for (const [col, ddl] of Object.entries(COLUMNS)) {
@@ -47,7 +50,9 @@ async function ensureCreatorBankAccounts(prisma) {
     added++;
     logger.warn(`ensureSchema: added missing column ${TABLE}.${col}`);
   }
-  if (added > 0) logger.info(`ensureSchema: reconciled ${TABLE} (${added} column(s) added)`);
+  logger.info(added > 0
+    ? `ensureSchema: reconciled ${TABLE} (${added} column(s) added)`
+    : `ensureSchema: ${TABLE} OK (no drift)`);
 }
 
 // Best-effort: never block or crash startup on a reconciliation failure.
