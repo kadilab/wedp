@@ -115,4 +115,21 @@ function formatEventTime(value, format = DEFAULT_TIME_FORMAT) {
   }
 }
 
-module.exports = { DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, formatEventDate, dateComponents, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime };
+function timeComponents(value) {
+  const t = parseTime(value);
+  if (!t) return { hour: '', minute: '' };
+  const pad = (n) => n.toString().padStart(2, '0');
+  return { hour: pad(t.h), minute: pad(t.min) };
+}
+
+function timeComponentVars(named) {
+  const out = {};
+  for (const [prefix, value] of Object.entries(named)) {
+    const c = timeComponents(value);
+    out[`${prefix}_hour`] = c.hour;
+    out[`${prefix}_minute`] = c.minute;
+  }
+  return out;
+}
+
+module.exports = { DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, formatEventDate, dateComponents, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime, timeComponents, timeComponentVars };

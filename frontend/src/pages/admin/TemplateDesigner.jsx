@@ -551,6 +551,8 @@ const SAMPLE_DATA = {
   additional_info: 'Parking disponible · Dress code : tenue de soirée',
   wedding_date: '20 Juin 2026',
   ceremony_time: '15h00',
+  ceremony_hour: '15',
+  ceremony_minute: '00',
   table_number: 'VIP',
   rsvp_date: '1er Mai 2026',
   invitation_type: 'Couple',
@@ -563,6 +565,8 @@ const SAMPLE_DATA = {
   // Programme — Commune
   commune_date: '20 Juin 2026',
   commune_time: '10h00',
+  commune_hour: '10',
+  commune_minute: '00',
   commune_venue: 'Mairie de Dakar',
   commune_address: 'Place de l\'Indépendance',
   commune_day_name: parseDateComponents('20 Juin 2026').day_name || 'LUNDI',
@@ -572,6 +576,8 @@ const SAMPLE_DATA = {
   // Programme — Église
   eglise_date: '20 Juin 2026',
   eglise_time: '14h00',
+  eglise_hour: '14',
+  eglise_minute: '00',
   eglise_venue: 'Cathédrale de Dakar',
   eglise_address: 'Blvd de la République',
   eglise_day_name: parseDateComponents('20 Juin 2026').day_name || 'LUNDI',
@@ -581,6 +587,8 @@ const SAMPLE_DATA = {
   // Programme — Réception
   reception_date: '20 Juin 2026',
   reception_time: '18h00',
+  reception_hour: '18',
+  reception_minute: '00',
   reception_venue: 'Château des Roses',
   reception_address: '12 Rue des Fleurs, Dakar',
   reception_day_name: parseDateComponents('20 Juin 2026').day_name || 'LUNDI',

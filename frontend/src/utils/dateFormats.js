@@ -85,6 +85,27 @@ export function containsTimeVariable(text) {
   return TIME_VARIABLE_KEYS.some((k) => text.includes(`{{${k}}}`))
 }
 
+// Separate zero-padded hour / minute components for variables like
+// {{ceremony_hour}} / {{ceremony_minute}} (so a design can style them apart).
+export function timeComponents(value) {
+  const t = parseTime(value)
+  if (!t) return { hour: '', minute: '' }
+  const pad = (n) => n.toString().padStart(2, '0')
+  return { hour: pad(t.h), minute: pad(t.min) }
+}
+
+// Build {prefix}_hour / {prefix}_minute for a set of named times, e.g.
+// timeComponentVars({ ceremony: '15:30', commune: '10:00' }).
+export function timeComponentVars(named) {
+  const out = {}
+  for (const [prefix, value] of Object.entries(named)) {
+    const c = timeComponents(value)
+    out[`${prefix}_hour`] = c.hour
+    out[`${prefix}_minute`] = c.minute
+  }
+  return out
+}
+
 function parseDate(value) {
   if (!value) return null
   // Date object (e.g. SSR / Prisma) or ISO string from the API — handle both.

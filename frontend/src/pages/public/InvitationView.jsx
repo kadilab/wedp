@@ -11,7 +11,7 @@ import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
 import AutoFitText from '../../components/templates/AutoFitText'
 import FontStyles from '../../components/templates/FontStyles'
-import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime } from '../../utils/dateFormats'
+import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime, timeComponentVars } from '../../utils/dateFormats'
 import { getEventDisplayTitle } from '../../utils/eventTypes'
 import { getEntranceMotion, getLoopMotion, isAnimated } from '../../utils/animations'
 // Format date: JJ-MM-YYYY HH:mm
@@ -413,6 +413,13 @@ export default function InvitationView() {
         eglise: wedding?.egliseDate,
         reception: wedding?.receptionDate,
         rsvp: wedding?.rsvpDeadline
+      }),
+      // Separated time components (hour / minute), e.g. {{ceremony_hour}}
+      ...timeComponentVars({
+        ceremony: wedding?.ceremonyTime || wedding?.communeTime,
+        commune: wedding?.communeTime,
+        eglise: wedding?.egliseTime,
+        reception: wedding?.receptionStartTime
       }),
       // Combined program (legacy)
       program: [

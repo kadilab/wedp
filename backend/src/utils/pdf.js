@@ -2,7 +2,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
-const { DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, formatEventDate, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime } = require('./dateFormats');
+const { DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, formatEventDate, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime, timeComponentVars } = require('./dateFormats');
 const { buildGoogleFontsHref, customFontFaceCss } = require('./fonts');
 const { getSiteName } = require('./settings');
 
@@ -732,6 +732,13 @@ function generateDesignBasedHTML(options) {
       eglise: wedding.egliseDate,
       reception: wedding.receptionDate,
       rsvp: wedding.rsvpDeadline
+    }),
+    // Separated time components (hour / minute) for each time
+    ...timeComponentVars({
+      ceremony: wedding.ceremonyTime || wedding.communeTime,
+      commune: wedding.communeTime,
+      eglise: wedding.egliseTime,
+      reception: wedding.receptionStartTime
     })
   };
 
