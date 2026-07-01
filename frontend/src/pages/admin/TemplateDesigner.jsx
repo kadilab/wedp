@@ -13,7 +13,7 @@ import AutoFitText from '../../components/templates/AutoFitText'
 import FontStyles, { useCustomFonts } from '../../components/templates/FontStyles'
 import { GOOGLE_FONT_NAMES } from '../../utils/fonts'
 import { fontAPI } from '../../services/api'
-import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable, formatEventDate, DATE_VARIABLE_KEYS } from '../../utils/dateFormats'
+import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable, formatEventDate, DATE_VARIABLE_KEYS, TIME_FORMAT_OPTIONS, DEFAULT_TIME_FORMAT, containsTimeVariable, formatEventTime, TIME_VARIABLE_KEYS } from '../../utils/dateFormats'
 import { searchIcons, iconPreviewUrl, fetchIconDataUrl, ICON_SUGGESTIONS, EMOJI_GROUPS } from '../../utils/elementLibrary'
 import {
   ArrowLeftIcon,
@@ -1478,6 +1478,7 @@ export default function TemplateDesigner({ clientMode = false }) {
         shadowColor: el.shadowColor ?? '#000000',
         zIndex: el.zIndex ?? 0,
         dateFormat: el.dateFormat || 'datetime',  // Per-element date variable format
+        timeFormat: el.timeFormat || 'colon',  // Per-element time variable format
         curve: el.curve ?? 0,  // Arc/curved text amount (-100..100)
         autoFit: el.autoFit ?? false,  // Shrink long text to fit the box
         iconUrl: el.iconUrl || '',  // Preserve icon URLs for programme labels and decorative images
@@ -1617,9 +1618,18 @@ export default function TemplateDesigner({ clientMode = false }) {
         );
       }
     });
-    // Remaining (non-date) variables from the sample data.
+    // Time variables, using THIS element's chosen time format.
+    TIME_VARIABLE_KEYS.forEach((key) => {
+      if (text.includes(`{{${key}}}`)) {
+        text = text.replace(
+          new RegExp(`\\{\\{${key}\\}\\}`, 'g'),
+          formatEventTime(SAMPLE_DATA[key], el.timeFormat || DEFAULT_TIME_FORMAT)
+        );
+      }
+    });
+    // Remaining (non-date, non-time) variables from the sample data.
     Object.entries(SAMPLE_DATA).forEach(([key, val]) => {
-      if (DATE_VARIABLE_KEYS.includes(key)) return;
+      if (DATE_VARIABLE_KEYS.includes(key) || TIME_VARIABLE_KEYS.includes(key)) return;
       text = text.replace(new RegExp(`\\{\\{${key}\\}\}`, 'g'), String(val || ''));
     });
 
@@ -2602,6 +2612,23 @@ export default function TemplateDesigner({ clientMode = false }) {
                           ))}
                         </select>
                         <p className="text-[10px] text-gray-400 mt-1">S'applique aux variables date (ex. {'{{wedding_date}}'}).</p>
+                      </div>
+                    )}
+
+                    {/* Time format — only for text elements containing a time variable */}
+                    {!['qrcode', 'photo', 'image'].includes(selectedElement.type) && containsTimeVariable(selectedElement.content) && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Format d'heure</label>
+                        <select
+                          value={selectedElement.timeFormat || DEFAULT_TIME_FORMAT}
+                          onChange={(e) => updateElement(selectedId, { timeFormat: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500"
+                        >
+                          {TIME_FORMAT_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label} — {opt.example}</option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-gray-400 mt-1">S'applique aux variables heure (ex. {'{{ceremony_time}}'}).</p>
                       </div>
                     )}
 

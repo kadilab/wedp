@@ -23,6 +23,68 @@ export const DATE_FORMAT_OPTIONS = [
 
 export const DEFAULT_DATE_FORMAT = 'datetime'
 
+// Variables that hold a standalone time (stored as "HH:mm" strings) and support
+// a format choice, e.g. show "16h30" instead of "16:30".
+export const TIME_VARIABLE_KEYS = [
+  'ceremony_time',
+  'commune_time',
+  'eglise_time',
+  'reception_time'
+]
+
+export const TIME_FORMAT_OPTIONS = [
+  { value: 'colon', label: 'Heure (12:00)', example: '16:30' },
+  { value: 'h', label: 'Heure (12h00)', example: '16h30' },
+  { value: 'ampm', label: 'Heure (4:30 PM)', example: '4:30 PM' }
+]
+
+export const DEFAULT_TIME_FORMAT = 'colon'
+
+// Parse a time string in any of "16:30", "16h30", "16 h 30", "16", "16h".
+function parseTime(value) {
+  if (!value) return null
+  const s = String(value).trim()
+  const m = s.match(/^(\d{1,2})\s*[:hH]\s*(\d{1,2})/)
+  if (m) {
+    const h = parseInt(m[1], 10)
+    const min = parseInt(m[2], 10)
+    if (!isNaN(h) && !isNaN(min)) return { h, min }
+  }
+  const m2 = s.match(/^(\d{1,2})\s*[hH]?$/)
+  if (m2) { const h = parseInt(m2[1], 10); if (!isNaN(h)) return { h, min: 0 } }
+  return null
+}
+
+/**
+ * Format a raw time value according to one of TIME_FORMAT_OPTIONS.
+ * Falls back to the raw value if it cannot be parsed.
+ */
+export function formatEventTime(value, format = DEFAULT_TIME_FORMAT) {
+  const t = parseTime(value)
+  if (!t) return value || ''
+  const pad = (n) => n.toString().padStart(2, '0')
+  const hh = pad(t.h)
+  const mm = pad(t.min)
+  switch (format) {
+    case 'h':
+      return `${hh}h${mm}`
+    case 'ampm': {
+      const period = t.h >= 12 ? 'PM' : 'AM'
+      const h12 = t.h % 12 === 0 ? 12 : t.h % 12
+      return `${h12}:${mm} ${period}`
+    }
+    case 'colon':
+    default:
+      return `${hh}:${mm}`
+  }
+}
+
+/** Does this text contain at least one time variable? */
+export function containsTimeVariable(text) {
+  if (!text) return false
+  return TIME_VARIABLE_KEYS.some((k) => text.includes(`{{${k}}}`))
+}
+
 function parseDate(value) {
   if (!value) return null
   // Date object (e.g. SSR / Prisma) or ISO string from the API — handle both.

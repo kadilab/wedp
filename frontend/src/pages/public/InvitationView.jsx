@@ -11,7 +11,7 @@ import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
 import AutoFitText from '../../components/templates/AutoFitText'
 import FontStyles from '../../components/templates/FontStyles'
-import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars } from '../../utils/dateFormats'
+import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime } from '../../utils/dateFormats'
 import { getEventDisplayTitle } from '../../utils/eventTypes'
 import { getEntranceMotion, getLoopMotion, isAnimated } from '../../utils/animations'
 // Format date: JJ-MM-YYYY HH:mm
@@ -431,6 +431,12 @@ export default function InvitationView() {
     eglise_date: wedding?.egliseDate || '',
     reception_date: wedding?.receptionDate || ''
   }
+  const rawTimeMap = {
+    ceremony_time: wedding?.ceremonyTime || wedding?.communeTime || '',
+    commune_time: wedding?.communeTime || '',
+    eglise_time: wedding?.egliseTime || '',
+    reception_time: wedding?.receptionStartTime || ''
+  }
 
   // Render design-based template
   if (hasDesignElements) {
@@ -469,6 +475,15 @@ export default function InvitationView() {
                   content = content.replace(
                     new RegExp(`\\{\\{${key}\\}\\}`, 'g'),
                     formatEventDate(rawDateMap[key], el.dateFormat || DEFAULT_DATE_FORMAT)
+                  )
+                }
+              })
+              // Time variables, using this element's chosen time format.
+              TIME_VARIABLE_KEYS.forEach((key) => {
+                if (content.includes(`{{${key}}}`)) {
+                  content = content.replace(
+                    new RegExp(`\\{\\{${key}\\}\\}`, 'g'),
+                    formatEventTime(rawTimeMap[key], el.timeFormat || DEFAULT_TIME_FORMAT)
                   )
                 }
               })

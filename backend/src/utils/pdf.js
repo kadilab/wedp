@@ -2,7 +2,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
-const { DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, formatEventDate, componentVars } = require('./dateFormats');
+const { DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, formatEventDate, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime } = require('./dateFormats');
 const { buildGoogleFontsHref, customFontFaceCss } = require('./fonts');
 const { getSiteName } = require('./settings');
 
@@ -743,6 +743,12 @@ function generateDesignBasedHTML(options) {
     eglise_date: wedding.egliseDate || '',
     reception_date: wedding.receptionDate || ''
   };
+  const rawTimeMap = {
+    ceremony_time: wedding.ceremonyTime || wedding.communeTime || '',
+    commune_time: wedding.communeTime || '',
+    eglise_time: wedding.egliseTime || '',
+    reception_time: wedding.receptionStartTime || ''
+  };
 
   // Resolve background image path to base64 for PDF rendering
   let bgSrc = bgImage;
@@ -786,6 +792,16 @@ function generateDesignBasedHTML(options) {
           content = content.replace(
             new RegExp(`\\{\\{${key}\\}\\}`, 'g'),
             formatEventDate(rawDateMap[key], el.dateFormat || DEFAULT_DATE_FORMAT)
+          );
+        }
+      });
+
+      // Time variables, using this element's chosen time format.
+      TIME_VARIABLE_KEYS.forEach((key) => {
+        if (content.includes(`{{${key}}}`)) {
+          content = content.replace(
+            new RegExp(`\\{\\{${key}\\}\\}`, 'g'),
+            formatEventTime(rawTimeMap[key], el.timeFormat || DEFAULT_TIME_FORMAT)
           );
         }
       });
