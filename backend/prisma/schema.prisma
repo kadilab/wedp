@@ -671,7 +671,7 @@ model CreatorBankAccount {
   routingNumber         String?     @map("routing_number")
   iban                  String?
   swiftCode             String?     @map("swift_code")
-  accountType           String      @default("checking") // checking, savings
+  accountType           String      @default("checking") @map("account_type") // checking, savings
   currency              String      @default("USD")
   isDefault             Boolean     @default(true) @map("is_default")
   isVerified            Boolean     @default(false) @map("is_verified")
