@@ -4,8 +4,26 @@ import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from './CurvedText'
 import AutoFitText from './AutoFitText'
 import FontStyles from './FontStyles'
-import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars } from '../../utils/dateFormats'
+import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars, formatEventTime, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, timeComponentVars } from '../../utils/dateFormats'
 import { getEventDisplayTitle } from '../../utils/eventTypes'
+
+// Rich, realistic test data used when no real event is provided (template
+// gallery / marketplace previews) so every variable renders with a believable
+// value — guiding the client's choice instead of showing blanks.
+const SAMPLE_WEDDING = {
+  eventType: 'WEDDING',
+  brideName: 'Marie', groomName: 'Jean', honoreeName: 'Sophie',
+  eventTitle: 'Notre Événement',
+  weddingDate: '2026-06-20 15:00',
+  ceremonyTime: '15:00',
+  venueName: 'Château des Roses', venueAddress: '12 Rue des Fleurs, Kinshasa',
+  customMessage: 'Votre présence sera notre plus beau cadeau.',
+  additionalInfo: 'Parking disponible · Tenue de soirée',
+  rsvpDeadline: '2026-05-01 00:00',
+  communeDate: '2026-06-20 10:00', communeTime: '10:00', communeVenue: 'Mairie de la Gombe', communeAddress: 'Av. du Commerce',
+  egliseDate: '2026-06-20 14:00', egliseTime: '14:00', egliseVenue: 'Cathédrale Notre-Dame', egliseAddress: 'Bd du 30 Juin',
+  receptionDate: '2026-06-20 18:00', receptionStartTime: '18:00', receptionVenue: 'Salle des Fêtes', receptionAddress: '12 Rue des Fleurs'
+}
 
 const hexToRgba = (hex, alpha = 1) => {
   const h = (hex || '#FFFFFF').replace('#', '')
@@ -55,6 +73,10 @@ export default function TemplatePreview({ template, className = '', weddingData 
     return () => ro.disconnect()
   }, [hasDesignElements, canvasWidth, canvasHeight, fit])
 
+  // Real event data when provided (live form preview), otherwise the rich
+  // sample so gallery/marketplace previews look like a finished invitation.
+  const wd = weddingData || SAMPLE_WEDDING
+
   // Build variable replacement map (same keys as InvitationView)
   const buildDataMap = () => {
     const fmt = (dateStr) => {
@@ -68,52 +90,59 @@ export default function TemplatePreview({ template, className = '', weddingData 
     const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
     // Sample fallbacks keep the preview populated even before the form is filled.
     const sampleEv = {
-      eventType: weddingData?.eventType,
-      brideName: weddingData?.brideName || 'Marie',
-      groomName: weddingData?.groomName || 'Jean',
-      honoreeName: weddingData?.honoreeName || 'Sophie',
-      eventTitle: weddingData?.eventTitle
+      eventType: wd?.eventType,
+      brideName: wd?.brideName || 'Marie',
+      groomName: wd?.groomName || 'Jean',
+      honoreeName: wd?.honoreeName || 'Sophie',
+      eventTitle: wd?.eventTitle
     }
     return {
-      bride_name: weddingData?.brideName || 'Marie',
-      groom_name: weddingData?.groomName || 'Jean',
-      honoree_name: weddingData?.honoreeName || 'Sophie',
+      bride_name: wd?.brideName || 'Marie',
+      groom_name: wd?.groomName || 'Jean',
+      honoree_name: wd?.honoreeName || 'Sophie',
       event_title: getEventDisplayTitle(sampleEv),
-      event_type: EVENT_TYPE_LABELS[weddingData?.eventType] || 'Mariage',
+      event_type: EVENT_TYPE_LABELS[wd?.eventType] || 'Mariage',
       guest_name: 'Prénom Nom',
       invitation_type: template?.config?.invitationType === 'couple' ? 'Couple' : 'Singleton',
-      custom_message: weddingData?.customMessage || '',
-      additional_info: weddingData?.additionalInfo || '',
-      wedding_date: fmt(weddingData?.weddingDate) || '25-12-2026 00:00',
-      ceremony_time: weddingData?.ceremonyTime || weddingData?.communeTime || '',
-      venue_name: weddingData?.venueName || weddingData?.receptionVenue || weddingData?.communeVenue || 'Château des Roses',
-      venue_address: weddingData?.venueAddress || weddingData?.receptionAddress || weddingData?.communeAddress || '',
+      custom_message: wd?.customMessage || '',
+      additional_info: wd?.additionalInfo || '',
+      wedding_date: fmt(wd?.weddingDate) || '25-12-2026 00:00',
+      ceremony_time: wd?.ceremonyTime || wd?.communeTime || '',
+      venue_name: wd?.venueName || wd?.receptionVenue || wd?.communeVenue || 'Château des Roses',
+      venue_address: wd?.venueAddress || wd?.receptionAddress || wd?.communeAddress || '',
       table_number: '',
-      rsvp_date: fmt(weddingData?.rsvpDeadline) || '',
-      commune_date: fmt(weddingData?.communeDate) || '',
-      commune_time: weddingData?.communeTime || '',
-      commune_venue: weddingData?.communeVenue || '',
-      commune_address: weddingData?.communeAddress || '',
-      eglise_date: fmt(weddingData?.egliseDate) || '',
-      eglise_time: weddingData?.egliseTime || '',
-      eglise_venue: weddingData?.egliseVenue || '',
-      eglise_address: weddingData?.egliseAddress || '',
-      reception_date: fmt(weddingData?.receptionDate) || '',
-      reception_time: weddingData?.receptionStartTime || '',
-      reception_venue: weddingData?.receptionVenue || '',
-      reception_address: weddingData?.receptionAddress || '',
+      rsvp_date: fmt(wd?.rsvpDeadline) || '',
+      commune_date: fmt(wd?.communeDate) || '',
+      commune_time: wd?.communeTime || '',
+      commune_venue: wd?.communeVenue || '',
+      commune_address: wd?.communeAddress || '',
+      eglise_date: fmt(wd?.egliseDate) || '',
+      eglise_time: wd?.egliseTime || '',
+      eglise_venue: wd?.egliseVenue || '',
+      eglise_address: wd?.egliseAddress || '',
+      reception_date: fmt(wd?.receptionDate) || '',
+      reception_time: wd?.receptionStartTime || '',
+      reception_venue: wd?.receptionVenue || '',
+      reception_address: wd?.receptionAddress || '',
       program: [
-        weddingData?.communeVenue ? `Mairie ${weddingData.communeTime || ''}` : '',
-        weddingData?.egliseVenue ? `Ã‰glise ${weddingData.egliseTime || ''}` : '',
-        weddingData?.receptionVenue ? `RÃ©ception ${weddingData.receptionStartTime || ''}` : '',
-      ].filter(Boolean).join(' â€¢ '),
+        wd?.communeVenue ? `Mairie ${wd.communeTime || ''}` : '',
+        wd?.egliseVenue ? `Église ${wd.egliseTime || ''}` : '',
+        wd?.receptionVenue ? `Réception ${wd.receptionStartTime || ''}` : '',
+      ].filter(Boolean).join(' • '),
       // Separated date components (day name/number, month name, year)
       ...componentVars({
-        wedding: weddingData?.weddingDate,
-        commune: weddingData?.communeDate,
-        eglise: weddingData?.egliseDate,
-        reception: weddingData?.receptionDate,
-        rsvp: weddingData?.rsvpDeadline
+        wedding: wd?.weddingDate,
+        commune: wd?.communeDate,
+        eglise: wd?.egliseDate,
+        reception: wd?.receptionDate,
+        rsvp: wd?.rsvpDeadline
+      }),
+      // Separated time components (hour / minute)
+      ...timeComponentVars({
+        ceremony: wd?.ceremonyTime || wd?.communeTime,
+        commune: wd?.communeTime,
+        eglise: wd?.egliseTime,
+        reception: wd?.receptionStartTime
       }),
     }
   }
@@ -123,11 +152,17 @@ export default function TemplatePreview({ template, className = '', weddingData 
     const dataMap = buildDataMap()
     // Raw (unformatted) date values so each element can render its own format.
     const rawDateMap = {
-      wedding_date: weddingData?.weddingDate || '25-12-2026 00:00',
-      rsvp_date: weddingData?.rsvpDeadline || '',
-      commune_date: weddingData?.communeDate || '',
-      eglise_date: weddingData?.egliseDate || '',
-      reception_date: weddingData?.receptionDate || ''
+      wedding_date: wd?.weddingDate || '25-12-2026 00:00',
+      rsvp_date: wd?.rsvpDeadline || '',
+      commune_date: wd?.communeDate || '',
+      eglise_date: wd?.egliseDate || '',
+      reception_date: wd?.receptionDate || ''
+    }
+    const rawTimeMap = {
+      ceremony_time: wd?.ceremonyTime || wd?.communeTime || '',
+      commune_time: wd?.communeTime || '',
+      eglise_time: wd?.egliseTime || '',
+      reception_time: wd?.receptionStartTime || ''
     }
     const mLeft = margins.left || 0
     const mTop = margins.top || 0
@@ -181,6 +216,15 @@ export default function TemplatePreview({ template, className = '', weddingData 
                     content = content.replace(
                       new RegExp(`\\{\\{${key}\\}\\}`, 'g'),
                       formatEventDate(rawDateMap[key], el.dateFormat || DEFAULT_DATE_FORMAT)
+                    )
+                  }
+                })
+                // Time variables, using this element's chosen time format.
+                TIME_VARIABLE_KEYS.forEach((key) => {
+                  if (content.includes(`{{${key}}}`)) {
+                    content = content.replace(
+                      new RegExp(`\\{\\{${key}\\}\\}`, 'g'),
+                      formatEventTime(rawTimeMap[key], el.timeFormat || DEFAULT_TIME_FORMAT)
                     )
                   }
                 })
@@ -240,7 +284,7 @@ export default function TemplatePreview({ template, className = '', weddingData 
                   // legacy single couplePhoto field.
                   const imgSrc = isDecorative
                     ? (el.iconUrl ? (el.iconUrl.startsWith('data:') || el.iconUrl.startsWith('http') ? el.iconUrl : `${apiBase}${el.iconUrl}`) : null)
-                    : (weddingData?.templateImages?.[el.id] || weddingData?.couplePhoto)
+                    : (wd?.templateImages?.[el.id] || wd?.couplePhoto)
                   // No gray placeholder fill once a real image is set - many
                   // decorative uploads (PNG logos, ornaments) rely on transparency.
                   const placeholderBg = imgSrc ? 'transparent' : '#f3f4f6'
@@ -346,11 +390,11 @@ export default function TemplatePreview({ template, className = '', weddingData 
   const textColor = colors.text || '#1f2937'
   const headingFont = config.fonts?.heading || 'Playfair Display, serif'
 
-  const brideName = weddingData?.brideName || 'Marie'
-  const groomName = weddingData?.groomName || 'Jean'
-  const weddingDate = weddingData?.weddingDate
-    ? (() => { try { return new Date(weddingData.weddingDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) } catch { return '25 DÃ©cembre 2026' } })()
-    : '25 DÃ©cembre 2026'
+  const brideName = wd?.brideName || 'Marie'
+  const groomName = wd?.groomName || 'Jean'
+  const weddingDate = wd?.weddingDate
+    ? (() => { try { return new Date(wd.weddingDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) } catch { return '25 décembre 2026' } })()
+    : '25 décembre 2026'
 
   return (
     <div
