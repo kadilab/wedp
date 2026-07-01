@@ -17,8 +17,63 @@ import {
   QrCodeIcon,
   PrinterIcon,
   CalendarDaysIcon,
-  SparklesIcon
+  SparklesIcon,
+  BanknotesIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline'
+
+// Live K-PAY wallet balance card (uses the K-PAY /payments/balance + /me utils).
+function KpayBalanceCard({ data, loading }) {
+  const balances = data?.balances || []
+  const isLive = data?.environment === 'LIVE'
+  return (
+    <div className="relative overflow-hidden rounded-2xl p-6 text-white shadow-lg bg-gradient-to-br from-indigo-600 to-violet-700">
+      <div className="absolute top-0 right-0 -mt-6 -mr-6 h-28 w-28 rounded-full bg-white/10" />
+      <div className="relative">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="rounded-xl bg-white/20 p-2.5 backdrop-blur-sm">
+              <BanknotesIcon className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold">Solde K-PAY</p>
+              {data?.application && <p className="text-xs text-white/70">{data.application}</p>}
+            </div>
+          </div>
+          {data?.environment && (
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isLive ? 'bg-emerald-400/30 text-emerald-50' : 'bg-amber-400/30 text-amber-50'}`}>
+              {isLive ? 'LIVE' : 'TEST'}
+            </span>
+          )}
+        </div>
+
+        {data?.configured === false ? (
+          <p className="text-sm text-white/80">K-PAY n'est pas configuré.</p>
+        ) : loading && balances.length === 0 ? (
+          <p className="flex items-center gap-2 text-sm text-white/80"><ArrowPathIcon className="h-4 w-4 animate-spin" /> Chargement du solde…</p>
+        ) : data?.error && balances.length === 0 ? (
+          <p className="text-sm text-white/80">Solde indisponible : {data.error}</p>
+        ) : balances.length === 0 ? (
+          <p className="text-sm text-white/80">Aucun portefeuille.</p>
+        ) : (
+          <div className="space-y-3">
+            {balances.map((b) => (
+              <div key={b.currency}>
+                <p className="text-3xl font-bold tracking-tight">
+                  {b.availableBalance.toLocaleString('fr-FR')} <span className="text-lg font-semibold text-white/80">{b.currency}</span>
+                </p>
+                <p className="text-xs text-white/70">
+                  Disponible · Total {b.balance.toLocaleString('fr-FR')}
+                  {b.reservedBalance > 0 ? ` · Réservé ${b.reservedBalance.toLocaleString('fr-FR')}` : ''}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 const RSVP_COLORS = { CONFIRMED: '#10b981', PENDING: '#f59e0b', DECLINED: '#ef4444' }
 const RSVP_LABELS = { CONFIRMED: 'Confirmé', PENDING: 'En attente', DECLINED: 'Décliné' }
@@ -70,6 +125,11 @@ export default function AdminDashboard() {
   const { data: statsData, isLoading } = useQuery('admin-stats', () => adminAPI.getStats())
   const { data: marketplaceData } = useQuery('marketplace-pending', () =>
     adminAPI.getMarketplaceSubmissions({ status: 'PENDING_REVIEW', limit: 1 })
+  )
+  const { data: kpayData, isFetching: kpayLoading } = useQuery(
+    'admin-kpay-overview',
+    () => adminAPI.getKpayOverview().then(r => r.data),
+    { refetchInterval: 60000, staleTime: 30000 }
   )
   const dashData = statsData?.data || {}
   const stats = dashData.stats || {}
@@ -161,6 +221,11 @@ export default function AdminDashboard() {
             <span className="animate-pulse">Action requise</span>
           ) : null}
         />
+      </div>
+
+      {/* K-PAY wallet balance */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <KpayBalanceCard data={kpayData} loading={kpayLoading} />
       </div>
 
       {/* Secondary Stat Row */}

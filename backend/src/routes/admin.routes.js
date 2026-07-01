@@ -230,6 +230,45 @@ router.get('/dashboard', authenticate, isAdmin, async (req, res) => {
 });
 
 /**
+ * @route   GET /api/admin/kpay/overview
+ * @desc    Live K-PAY wallet balance + account environment for the admin card
+ * @access  Private/Admin
+ */
+router.get('/kpay/overview', authenticate, isAdmin, async (req, res) => {
+  if (!kpay.isConfigured()) {
+    return res.json({ configured: false });
+  }
+  try {
+    // Fetch in parallel; tolerate either one failing so a partial card still shows.
+    const [balanceRes, meRes] = await Promise.allSettled([kpay.getBalance(), kpay.getMe()]);
+
+    const balancesRaw = balanceRes.status === 'fulfilled' ? balanceRes.value : null;
+    // Balance endpoint returns an array of per-currency wallets.
+    const balances = Array.isArray(balancesRaw)
+      ? balancesRaw
+      : Array.isArray(balancesRaw?.data) ? balancesRaw.data : [];
+
+    const me = meRes.status === 'fulfilled' ? meRes.value : null;
+
+    res.json({
+      configured: true,
+      balances: balances.map(b => ({
+        currency: b.currency,
+        balance: Number(b.balance) || 0,
+        reservedBalance: Number(b.reservedBalance) || 0,
+        availableBalance: Number(b.availableBalance) || 0
+      })),
+      environment: me?.environment || null,
+      application: me?.application?.name || null,
+      error: balanceRes.status === 'rejected' ? kpay.extractApiError(balanceRes.reason) : null
+    });
+  } catch (error) {
+    logger.error('Admin K-PAY overview error:', error?.data || error.message);
+    res.status(200).json({ configured: true, balances: [], error: kpay.extractApiError(error) });
+  }
+});
+
+/**
  * @route   GET /api/admin/users
  * @desc    Get all users
  * @access  Private/Admin

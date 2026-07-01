@@ -163,6 +163,16 @@ function getBalance() {
   return kpayFetch('/payments/balance');
 }
 
+// Application/account info: { application, company, environment: 'TEST'|'LIVE' }
+function getMe() {
+  return kpayFetch('/payments/me');
+}
+
+// Operator availability per country/operation (OPERATIONAL/DELAYED/CLOSED).
+function getAvailability() {
+  return kpayFetch('/payments/availability');
+}
+
 /**
  * Verify a webhook signature. K-PAY sends HMAC-SHA256 (hex) of the raw JSON
  * body in the `X-KPAY-Signature` header.
@@ -196,6 +206,8 @@ module.exports = {
   getWithdraw,
   predictProvider,
   getBalance,
+  getMe,
+  getAvailability,
   verifyWebhookSignature,
   BASE_URL
 };
