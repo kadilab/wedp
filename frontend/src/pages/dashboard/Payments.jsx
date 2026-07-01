@@ -60,8 +60,8 @@ function WeddingQuotaRow({ wedding, onBuy }) {
           {quota && (
             <>
               <p className="text-sm text-gray-500 mt-0.5">
-                {quota.used} générée{quota.used > 1 ? 's' : ''} / {quota.totalAllowed} disponible{quota.totalAllowed > 1 ? 's' : ''}
-                {' '}({quota.freeQuota} gratuite{quota.freeQuota > 1 ? 's' : ''}{quota.purchased > 0 ? ` + ${quota.purchased} achetée${quota.purchased > 1 ? 's' : ''}` : ''})
+                {quota.used} générée{quota.used > 1 ? 's' : ''} / {quota.totalAllowed} achetée{quota.totalAllowed > 1 ? 's' : ''}
+                {quota.freeQuota > 0 ? ` (dont ${quota.freeQuota} gratuite${quota.freeQuota > 1 ? 's' : ''})` : ''}
               </p>
               <div className="w-full h-1.5 bg-gray-200 rounded-full mt-1.5 overflow-hidden">
                 <div
@@ -109,7 +109,7 @@ export default function Payments() {
       <div>
         <h1 className="text-3xl font-serif font-bold text-gray-900">Paiements</h1>
         <p className="text-gray-600 mt-1">
-          Chaque événement a droit à 1 invitation gratuite. Au-delà, achetez votre quota via Mobile Money.
+          Achetez le quota d'invitations de vos événements via Mobile Money (paiement en FC).
         </p>
       </div>
 
@@ -143,18 +143,13 @@ export default function Payments() {
         <GiftIcon className="h-5 w-5 text-primary-600 mt-0.5 shrink-0" />
         <div className="text-sm text-primary-900">
           <p>
-            <strong>1 invitation gratuite</strong> par événement. Au-delà, le prix par invitation
-            <strong> dépend du design choisi</strong> pour votre événement.
+            Le <strong>prix par invitation dépend du design choisi</strong> pour votre événement.
+            Achetez votre quota, puis générez vos invitations.
           </p>
-          <div className="mt-2 text-primary-700 flex flex-wrap items-center gap-2">
-            <span>Paiement <strong>Mobile Money</strong> instantané (en FC) :</span>
-            <span className="inline-flex items-center gap-2">
-              <img src="/providers/airtel.png" alt="Airtel Money" className="w-5 h-5 object-contain" />
-              <img src="/providers/orange.png" alt="Orange Money" className="w-5 h-5 object-contain" />
-              <img src="/providers/mpesa.png" alt="M-Pesa" className="w-5 h-5 object-contain" />
-            </span>
-            <span className="text-xs">— cliquez sur « Acheter » pour payer.</span>
-          </div>
+          <p className="mt-2 text-primary-700">
+            Paiement <strong>Mobile Money</strong> instantané en <strong>FC</strong>
+            {' '}(Airtel Money, Orange Money, M-Pesa) — cliquez sur « Acheter » pour payer.
+          </p>
         </div>
       </div>
 

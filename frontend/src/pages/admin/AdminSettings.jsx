@@ -539,8 +539,8 @@ export default function AdminSettings() {
                     Tarification des invitations
                   </h3>
                   <p className="text-gray-500 text-sm mt-1 mb-4">
-                    Chaque mariage a droit à 1 invitation gratuite. Au-delà, le client achète un quota
-                    d'invitations payé manuellement via les moyens de paiement définis ci-dessous.
+                    Le client achète son quota d'invitations, payé via Mobile Money (K-PAY, en FC).
+                    Le prix par invitation est défini par design (voir ci-dessous).
                   </p>
 
                   <div className="mb-6 rounded-lg border border-blue-100 bg-blue-50 p-4">
