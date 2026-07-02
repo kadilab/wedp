@@ -880,7 +880,22 @@ function generateDesignBasedHTML(options) {
         const dk = getElementDateKey(el.content);
         if (dk && rawDateMap[dk]) {
           const base = Math.max(6, Math.round((el.width || 220) / 18));
-          return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};font-family:'${el.fontFamily}',serif;font-size:${base}px;">${miniCalendarHTML(rawDateMap[dk], { accent: el.color || '#df6746', textColor: el.color || '#1f2937' })}</div>`;
+          // Resolve a creator-supplied marker image to a data URL (Puppeteer safe).
+          let markerUrl = el.calendarMarkerUrl || '';
+          if (el.calendarMarker === 'image' && markerUrl && !markerUrl.startsWith('http') && !markerUrl.startsWith('data:')) {
+            try {
+              const relPath = markerUrl.startsWith('/') ? markerUrl.slice(1) : markerUrl;
+              const absPath = path.join(__dirname, '../../', relPath);
+              if (fs.existsSync(absPath)) {
+                const buf = fs.readFileSync(absPath);
+                const ext = path.extname(absPath).toLowerCase().replace('.', '');
+                const mimeMap = { jpg: 'jpeg', jpeg: 'jpeg', png: 'png', svg: 'svg+xml', webp: 'webp' };
+                markerUrl = `data:image/${mimeMap[ext] || ext};base64,${buf.toString('base64')}`;
+              }
+            } catch (e) { /* ignore */ }
+          }
+          const calOpts = { accent: el.color || '#df6746', textColor: el.color || '#1f2937', marker: el.calendarMarker || 'circle', markerUrl, markerSize: el.calendarMarkerSize || 1 };
+          return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};font-family:'${el.fontFamily}',serif;font-size:${base}px;">${miniCalendarHTML(rawDateMap[dk], calOpts)}</div>`;
         }
       }
 

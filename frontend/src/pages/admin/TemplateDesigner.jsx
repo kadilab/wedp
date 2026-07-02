@@ -14,7 +14,7 @@ import FontStyles, { useCustomFonts } from '../../components/templates/FontStyle
 import { GOOGLE_FONT_NAMES } from '../../utils/fonts'
 import { fontAPI } from '../../services/api'
 import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable, formatEventDate, DATE_VARIABLE_KEYS, TIME_FORMAT_OPTIONS, DEFAULT_TIME_FORMAT, containsTimeVariable, formatEventTime, TIME_VARIABLE_KEYS, getElementDateKey } from '../../utils/dateFormats'
-import MiniCalendar from '../../components/templates/MiniCalendar'
+import MiniCalendar, { CALENDAR_MARKER_OPTIONS } from '../../components/templates/MiniCalendar'
 import { searchIcons, iconPreviewUrl, fetchIconDataUrl, ICON_SUGGESTIONS, EMOJI_GROUPS } from '../../utils/elementLibrary'
 import {
   ArrowLeftIcon,
@@ -730,6 +730,7 @@ export default function TemplateDesigner({ clientMode = false }) {
   const canvasRef = useRef(null)
   const fileInputRef = useRef(null)
   const iconInputRef = useRef(null)
+  const markerInputRef = useRef(null)
   const previewInputRef = useRef(null)
 
   // Load existing template if editing
@@ -1420,6 +1421,38 @@ export default function TemplateDesigner({ clientMode = false }) {
     }
   }
 
+  // Custom marker image for the visual calendar's highlighted day (heart/sticker...).
+  const handleMarkerUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (markerInputRef.current) markerInputRef.current.value = ''
+
+    if (file.type === 'image/svg+xml') {
+      if (file.size > 5 * 1024 * 1024) return toast.error('Image trop volumineuse (max 5 Mo)')
+      try {
+        const formData = new FormData()
+        formData.append('icon', file)
+        const res = await templateAPI.uploadIcon(formData)
+        updateElement(selectedId, { calendarMarker: 'image', calendarMarkerUrl: res.data.iconUrl })
+        toast.success('Marqueur chargé !')
+      } catch (err) {
+        toast.error(err.response?.data?.error || "Erreur lors de l'upload du marqueur")
+      }
+      return
+    }
+
+    try {
+      const result = await processImage(file, 'logo', { maxSizeMB: 5 })
+      const formData = new FormData()
+      formData.append('icon', result.upload, result.filename)
+      const res = await templateAPI.uploadIcon(formData)
+      updateElement(selectedId, { calendarMarker: 'image', calendarMarkerUrl: res.data.iconUrl })
+      toast.success('Marqueur chargé !')
+    } catch (err) {
+      toast.error(err.message || err.response?.data?.error || "Erreur lors de l'upload du marqueur")
+    }
+  }
+
   const handlePreviewUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -1629,7 +1662,7 @@ export default function TemplateDesigner({ clientMode = false }) {
         const base = Math.max(6, Math.round((el.width || 220) / 18))
         return (
           <div className="w-full h-full" style={{ fontSize: base }}>
-            <MiniCalendar date={SAMPLE_RAW_DATES[dk]} accent={el.color || '#df6746'} textColor={el.color || '#1f2937'} />
+            <MiniCalendar date={SAMPLE_RAW_DATES[dk]} accent={el.color || '#df6746'} textColor={el.color || '#1f2937'} marker={el.calendarMarker || 'circle'} markerUrl={el.calendarMarkerUrl || ''} markerSize={el.calendarMarkerSize || 1} />
           </div>
         )
       }
@@ -2667,6 +2700,78 @@ export default function TemplateDesigner({ clientMode = false }) {
                           ))}
                         </select>
                         <p className="text-[10px] text-gray-400 mt-1">S'applique aux variables date (ex. {'{{wedding_date}}'}).</p>
+                      </div>
+                    )}
+
+                    {/* Calendar day marker — only when the calendar (visual) format is chosen */}
+                    {!['qrcode', 'photo', 'image'].includes(selectedElement.type) && containsDateVariable(selectedElement.content) && selectedElement.dateFormat === 'calendar' && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Marqueur du jour</label>
+                        <select
+                          value={selectedElement.calendarMarker || 'circle'}
+                          onChange={(e) => updateElement(selectedId, { calendarMarker: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500"
+                        >
+                          {CALENDAR_MARKER_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-gray-400 mt-1">Entoure le jour de l'événement. La forme reprend la couleur du texte.</p>
+
+                        {selectedElement.calendarMarker === 'image' && (
+                          <div className="mt-2">
+                            {selectedElement.calendarMarkerUrl ? (
+                              <div className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg border">
+                                <img
+                                  src={selectedElement.calendarMarkerUrl.startsWith('data:') || selectedElement.calendarMarkerUrl.startsWith('http') ? selectedElement.calendarMarkerUrl : `${import.meta.env.VITE_API_URL?.replace('/api', '') || ''}${selectedElement.calendarMarkerUrl}`}
+                                  alt="Marqueur"
+                                  className="w-10 h-10 object-contain rounded border bg-white p-0.5"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-gray-600 truncate">Image chargée</p>
+                                  <div className="flex gap-2 mt-1">
+                                    <button onClick={() => markerInputRef.current?.click()} className="text-[10px] text-primary-600 hover:text-primary-700 font-medium">Changer</button>
+                                    <button onClick={() => updateElement(selectedId, { calendarMarkerUrl: '' })} className="text-[10px] text-red-500 hover:text-red-600 font-medium">Supprimer</button>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => markerInputRef.current?.click()}
+                                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-xs text-gray-500 hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                              >
+                                <ArrowUpTrayIcon className="w-4 h-4" />
+                                Importer un marqueur (cœur PNG, SVG...)
+                              </button>
+                            )}
+                            <input
+                              ref={markerInputRef}
+                              type="file"
+                              accept=".png,.svg,.jpg,.jpeg,.webp,image/png,image/svg+xml,image/jpeg,image/webp"
+                              onChange={handleMarkerUpload}
+                              className="hidden"
+                            />
+                            <p className="text-[10px] text-gray-400 mt-1">Transparent de préférence. Le numéro du jour s'affiche par-dessus.</p>
+
+                            {selectedElement.calendarMarkerUrl && (
+                              <div className="mt-2">
+                                <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1">
+                                  <span>Taille de l'image</span>
+                                  <span className="text-gray-400">{Math.round((selectedElement.calendarMarkerSize || 1) * 100)}%</span>
+                                </label>
+                                <input
+                                  type="range"
+                                  min="0.6"
+                                  max="3"
+                                  step="0.1"
+                                  value={selectedElement.calendarMarkerSize || 1}
+                                  onChange={(e) => updateElement(selectedId, { calendarMarkerSize: parseFloat(e.target.value) })}
+                                  className="w-full accent-primary-600"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
 

@@ -138,9 +138,15 @@ function getElementDateKey(text) {
   return DATE_VARIABLE_KEYS.find((k) => text.includes(`{{${k}}}`)) || null;
 }
 
+// Built-in marker shapes for the highlighted event day (mirror MiniCalendar.jsx).
+const HEART_PATH = 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
+const STAR_PATH = 'M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l7.1-1.01L12 2z';
+
 // Server-side mini month calendar (HTML string) for generated PDFs/images.
 // Plain JS (no date-fns) — mirrors frontend/components/templates/MiniCalendar.
-function miniCalendarHTML(value, { accent = '#df6746', textColor = '#1f2937' } = {}) {
+// The highlighted day can use a circle/ring/heart/star or a creator image
+// (markerUrl must already be an absolute or data: URL resolved by the caller).
+function miniCalendarHTML(value, { accent = '#df6746', textColor = '#1f2937', marker = 'circle', markerUrl = '', markerSize = 1 } = {}) {
   const d = parseDate(value);
   if (!d) return '';
   const year = d.getFullYear(), month = d.getMonth(), day = d.getDate();
@@ -152,12 +158,29 @@ function miniCalendarHTML(value, { accent = '#df6746', textColor = '#1f2937' } =
   const head = weekdays.map((w) =>
     `<div style="display:flex;align-items:center;justify-content:center;opacity:.6;font-size:.7em;text-transform:capitalize;font-weight:500">${w}</div>`
   ).join('');
+
+  const shape = (marker === 'image' && markerUrl) ? 'image' : marker;
+  const numColor = shape === 'ring' ? accent : '#fff';
+  const numShadow = shape === 'image' ? 'text-shadow:0 1px 2px rgba(0,0,0,.55);' : '';
+  const markerLayer = shape === 'image'
+    ? `<img src="${markerUrl}" style="width:100%;height:100%;object-fit:contain" />`
+    : (shape === 'heart' || shape === 'star')
+    ? `<svg viewBox="0 0 24 24" style="width:100%;height:100%;display:block"><path d="${shape === 'heart' ? HEART_PATH : STAR_PATH}" fill="${accent}"/></svg>`
+    : shape === 'ring'
+    ? `<span style="width:100%;height:100%;border-radius:9999px;border:0.13em solid ${accent}"></span>`
+    : `<span style="width:100%;height:100%;border-radius:9999px;background:${accent}"></span>`;
+
   let cells = '';
   for (let i = 0; i < 42; i++) {
     const cur = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
     const isDay = cur.getFullYear() === year && cur.getMonth() === month && cur.getDate() === day;
     const inMonth = cur.getMonth() === month;
-    const span = `<span style="display:inline-flex;align-items:center;justify-content:center;width:1.7em;height:1.7em;border-radius:9999px;${isDay ? `background:${accent};color:#fff;font-weight:700` : `color:${textColor};opacity:${inMonth ? 1 : 0.28}`}">${cur.getDate()}</span>`;
+    const scale = markerSize && markerSize !== 1 ? `transform:scale(${markerSize});` : '';
+    const span = isDay
+      ? `<span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:1.9em;height:1.9em">`
+        + `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;${scale}">${markerLayer}</span>`
+        + `<span style="position:relative;color:${numColor};font-weight:700;${numShadow}">${cur.getDate()}</span></span>`
+      : `<span style="display:inline-flex;align-items:center;justify-content:center;width:1.7em;height:1.7em;color:${textColor};opacity:${inMonth ? 1 : 0.28}">${cur.getDate()}</span>`;
     cells += `<div style="display:flex;align-items:center;justify-content:center;font-size:.8em">${span}</div>`;
   }
   return `<div style="width:100%;height:100%;display:flex;flex-direction:column;color:${textColor}">` +

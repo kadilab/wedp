@@ -586,7 +586,7 @@ export default function InvitationView() {
                       className="absolute"
                       style={{ left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: elZIndex, fontSize: base, fontFamily: `'${el.fontFamily}', serif` }}
                     >
-                      <MiniCalendar date={rawDateMap[dk]} accent={el.color || '#df6746'} textColor={el.color || '#1f2937'} />
+                      <MiniCalendar date={rawDateMap[dk]} accent={el.color || '#df6746'} textColor={el.color || '#1f2937'} marker={el.calendarMarker || 'circle'} markerUrl={el.calendarMarkerUrl || ''} markerSize={el.calendarMarkerSize || 1} />
                     </AnimatedElement>
                   )
                 }

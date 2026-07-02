@@ -327,7 +327,7 @@ export default function TemplatePreview({ template, className = '', weddingData 
                     const base = Math.max(6, Math.round((el.width || 220) / 18))
                     return (
                       <div key={el.id || idx} style={{ position: 'absolute', left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: zIdx, fontSize: base, fontFamily: `'${el.fontFamily}', serif` }}>
-                        <MiniCalendar date={rawDateMap[dk]} accent={el.color || '#df6746'} textColor={el.color || '#1f2937'} />
+                        <MiniCalendar date={rawDateMap[dk]} accent={el.color || '#df6746'} textColor={el.color || '#1f2937'} marker={el.calendarMarker || 'circle'} markerUrl={el.calendarMarkerUrl || ''} markerSize={el.calendarMarkerSize || 1} />
                       </div>
                     )
                   }
