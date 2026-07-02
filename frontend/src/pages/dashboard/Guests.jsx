@@ -28,6 +28,16 @@ function WhatsAppIcon({ className }) {
   )
 }
 
+// Guest avatar helpers (stable pastel colour per name, like the seating plan).
+const AVATAR_COLORS = ['bg-rose-100 text-rose-700', 'bg-amber-100 text-amber-700', 'bg-emerald-100 text-emerald-700', 'bg-sky-100 text-sky-700', 'bg-violet-100 text-violet-700', 'bg-pink-100 text-pink-700', 'bg-teal-100 text-teal-700', 'bg-indigo-100 text-indigo-700']
+const guestInitials = (g) => `${(g.firstName?.[0] || '')}${(g.lastName?.[0] || '')}`.toUpperCase() || '?'
+const guestColor = (g) => {
+  const s = `${g.firstName || ''} ${g.lastName || ''}`
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return AVATAR_COLORS[h % AVATAR_COLORS.length]
+}
+
 export default function Guests() {
   const { id: weddingId } = useParams()
   const [search, setSearch] = useState('')
@@ -154,6 +164,52 @@ export default function Guests() {
       default: return <span className="badge">{status}</span>
     }
   }
+
+  const askDelete = async (guest) => {
+    const ok = await confirmDialog({
+      title: 'Supprimer cet invité',
+      message: `Voulez-vous vraiment supprimer ${guest.firstName} ${guest.lastName} ? Cette action est irréversible.`,
+      confirmText: 'Supprimer'
+    })
+    if (ok) deleteMutation.mutate(guest.id)
+  }
+
+  // Shared action buttons (WhatsApp send / edit / delete) for both the desktop
+  // table and the mobile cards.
+  const GuestActions = ({ guest }) => (
+    <div className="flex items-center gap-1.5">
+      {guest.invitation ? (
+        <button
+          onClick={() => handleWhatsApp(guest)}
+          disabled={waSendingId === guest.id}
+          title={guest.invitationSent ? 'Renvoyer via WhatsApp' : 'Envoyer via WhatsApp'}
+          className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+            guest.invitationSent
+              ? 'bg-green-50 text-green-700 hover:bg-green-100'
+              : 'bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20'
+          }`}
+        >
+          <WhatsAppIcon className="h-4 w-4" />
+          {waSendingId === guest.id ? '…' : guest.invitationSent ? 'Renvoyer' : 'Envoyer'}
+          {guest.invitationSent && <span className="text-green-600">✓</span>}
+        </button>
+      ) : (
+        <Link
+          to={`/weddings/${weddingId}/invitations`}
+          title="Générez d'abord l'invitation pour pouvoir l'envoyer"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-400 bg-gray-100 hover:bg-gray-200 whitespace-nowrap"
+        >
+          Invitation non générée
+        </Link>
+      )}
+      <button onClick={() => setEditingGuest(guest)} title="Modifier" className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-gray-100 rounded-lg">
+        <PencilIcon className="h-4 w-4" />
+      </button>
+      <button onClick={() => askDelete(guest)} title="Supprimer" className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg">
+        <TrashIcon className="h-4 w-4" />
+      </button>
+    </div>
+  )
 
   return (
     <div className="space-y-6">
@@ -305,95 +361,84 @@ export default function Guests() {
           </button>
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="table-container">
-            <table className="table">
+        <>
+          {/* Desktop / tablet: table */}
+          <div className="hidden lg:block bg-white rounded-xl shadow-lg overflow-hidden ring-1 ring-gray-100">
+            <table className="w-full text-sm">
               <thead>
-                <tr>
-                  <th>Nom</th>
-                  <th>Téléphone</th>
-                  <th>Catégorie</th>
-                  {usesTables && <th>Table</th>}
-                  <th>RSVP</th>
-                  {usesPlusOnes && <th>Type</th>}
-                  <th>Actions</th>
+                <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                  <th className="px-5 py-3">Invité</th>
+                  <th className="px-5 py-3">Téléphone</th>
+                  <th className="px-5 py-3">Catégorie</th>
+                  {usesTables && <th className="px-5 py-3">Table</th>}
+                  <th className="px-5 py-3">RSVP</th>
+                  {usesPlusOnes && <th className="px-5 py-3">Type</th>}
+                  <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-100">
                 {guests.map((guest) => (
-                  <tr key={guest.id}>
-                    <td className="font-medium">
-                      {guest.firstName} {guest.lastName}
+                  <tr key={guest.id} className="hover:bg-gray-50/70 transition-colors">
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className={`flex items-center justify-center h-9 w-9 rounded-full text-xs font-bold shrink-0 ${guestColor(guest)}`}>{guestInitials(guest)}</span>
+                        <span className="font-medium text-gray-900">{guest.firstName} {guest.lastName}</span>
+                      </div>
                     </td>
-                    <td className="text-gray-500">{guest.phone || '-'}</td>
-                    <td>
-                      <span className="badge-info">{guest.category || 'Autre'}</span>
-                    </td>
-                    {usesTables && <td>{guest.tableNumber || '-'}</td>}
-                    <td>{getRsvpBadge(guest.rsvpStatus)}</td>
+                    <td className="px-5 py-3 text-gray-500 tabular-nums whitespace-nowrap">{guest.phone || '—'}</td>
+                    <td className="px-5 py-3"><span className="badge-info">{guest.category || 'Autre'}</span></td>
+                    {usesTables && <td className="px-5 py-3 text-gray-600">{guest.tableNumber || <span className="text-gray-300">—</span>}</td>}
+                    <td className="px-5 py-3">{getRsvpBadge(guest.rsvpStatus)}</td>
                     {usesPlusOnes && (
-                      <td>
+                      <td className="px-5 py-3">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${guest.plusOnes > 0 ? 'bg-rose-100 text-rose-700' : 'bg-gray-100 text-gray-600'}`}>
                           {guest.plusOnes > 0 ? '👫 Couple' : '🧍 Singleton'}
                         </span>
                       </td>
                     )}
-                    <td>
-                      <div className="flex items-center gap-1.5">
-                        {/* Anti-fraud: WhatsApp send only once the invitation is generated */}
-                        {guest.invitation ? (
-                          <button
-                            onClick={() => handleWhatsApp(guest)}
-                            disabled={waSendingId === guest.id}
-                            title={guest.invitationSent ? 'Renvoyer via WhatsApp' : 'Envoyer via WhatsApp'}
-                            className={`relative inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
-                              guest.invitationSent
-                                ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                                : 'bg-[#25D366]/10 text-[#128C7E] hover:bg-[#25D366]/20'
-                            }`}
-                          >
-                            <WhatsAppIcon className="h-4 w-4" />
-                            {waSendingId === guest.id
-                              ? '…'
-                              : guest.invitationSent ? 'Renvoyer' : 'Envoyer'}
-                            {guest.invitationSent && <span className="text-green-600">✓</span>}
-                          </button>
-                        ) : (
-                          <Link
-                            to={`/weddings/${weddingId}/invitations`}
-                            title="Générez d'abord l'invitation pour pouvoir l'envoyer"
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium text-gray-400 bg-gray-100 hover:bg-gray-200"
-                          >
-                            Invitation non générée
-                          </Link>
-                        )}
-                        <button
-                          onClick={() => setEditingGuest(guest)}
-                          className="p-1 text-gray-500 hover:text-primary-600"
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={async () => {
-                            const ok = await confirmDialog({
-                              title: 'Supprimer cet invité',
-                              message: `Voulez-vous vraiment supprimer ${guest.firstName} ${guest.lastName} ? Cette action est irréversible.`,
-                              confirmText: 'Supprimer'
-                            })
-                            if (ok) deleteMutation.mutate(guest.id)
-                          }}
-                          className="p-1 text-gray-500 hover:text-red-600"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
-                      </div>
+                    <td className="px-5 py-3">
+                      <div className="flex justify-end"><GuestActions guest={guest} /></div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+
+          {/* Mobile: cards (no horizontal scroll) */}
+          <div className="lg:hidden space-y-3">
+            {guests.map((guest) => (
+              <div key={guest.id} className="bg-white rounded-xl shadow-sm ring-1 ring-gray-100 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className={`flex items-center justify-center h-10 w-10 rounded-full text-sm font-bold shrink-0 ${guestColor(guest)}`}>{guestInitials(guest)}</span>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{guest.firstName} {guest.lastName}</p>
+                      {guest.phone && <p className="text-xs text-gray-500 tabular-nums">{guest.phone}</p>}
+                    </div>
+                  </div>
+                  {getRsvpBadge(guest.rsvpStatus)}
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <span className="badge-info">{guest.category || 'Autre'}</span>
+                  {usesTables && guest.tableNumber && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">🪑 {guest.tableNumber}</span>
+                  )}
+                  {usesPlusOnes && (
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${guest.plusOnes > 0 ? 'bg-rose-100 text-rose-700' : 'bg-gray-100 text-gray-600'}`}>
+                      {guest.plusOnes > 0 ? '👫 Couple' : '🧍 Singleton'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
+                  <GuestActions guest={guest} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Add/Edit Modal */}
