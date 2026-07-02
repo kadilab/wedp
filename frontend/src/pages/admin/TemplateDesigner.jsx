@@ -43,7 +43,12 @@ import {
   ArrowsPointingOutIcon,
   ChevronDoubleLeftIcon,
   ChevronDownIcon,
-  ChevronDoubleRightIcon
+  ChevronUpIcon,
+  ChevronDoubleRightIcon,
+  RectangleStackIcon,
+  RectangleGroupIcon,
+  MinusIcon,
+  Bars2Icon
 } from '@heroicons/react/24/outline'
 
 // ===================== CONSTANTS =====================
@@ -1132,6 +1137,27 @@ export default function TemplateDesigner({ clientMode = false }) {
     setElements(prev => prev.map(el => el.id === id ? { ...el, locked: !el.locked } : el))
   }
 
+  // Reorder a layer in the stack. dir = +1 brings it forward (on top),
+  // -1 sends it backward. zIndex is normalised to array order so the editor
+  // canvas and the public/PDF render (which sort by zIndex) stay in sync.
+  const moveLayer = (id, dir) => {
+    setElements(prev => {
+      const idx = prev.findIndex(e => e.id === id)
+      if (idx === -1) return prev
+      const swap = idx + dir
+      if (swap < 0 || swap >= prev.length) return prev
+      const next = [...prev]
+      const tmp = next[idx]; next[idx] = next[swap]; next[swap] = tmp
+      return next.map((e, i) => ({ ...e, zIndex: i }))
+    })
+  }
+
+  const layerIcon = (el) => {
+    if (el.type === 'photo' || el.type === 'image') return <PhotoIcon className="h-4 w-4" />
+    if (el.type === 'shape') return el.shape === 'line' ? <MinusIcon className="h-4 w-4" /> : <RectangleGroupIcon className="h-4 w-4" />
+    return <Bars2Icon className="h-4 w-4" />
+  }
+
   const addCustomText = () => {
     const id = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const w = Math.min(400, Math.round(canvasWidth * 0.5))
@@ -2054,6 +2080,7 @@ export default function TemplateDesigner({ clientMode = false }) {
               { id: 'format', label: 'Format', icon: ArrowsPointingOutIcon },
               { id: 'background', label: 'Fond', icon: PhotoIcon },
               { id: 'elements', label: 'Éléments', icon: CursorArrowRaysIcon },
+              { id: 'layers', label: 'Calques', icon: RectangleStackIcon },
               { id: 'settings', label: 'Infos', icon: Cog6ToothIcon }
             ].map(tab => (
               <button
@@ -2072,11 +2099,12 @@ export default function TemplateDesigner({ clientMode = false }) {
         <div className={`${panelCollapsed ? 'hidden' : 'w-full lg:w-72 max-h-[45vh] lg:max-h-none'} bg-white border-b lg:border-b-0 lg:border-r flex flex-col shrink-0 overflow-hidden`}>
           {/* Panel Tabs — soft pills */}
           <div className="flex items-center gap-1 p-2 border-b">
-            <div className="flex-1 grid grid-cols-4 gap-1">
+            <div className="flex-1 grid grid-cols-5 gap-1">
               {[
                 { id: 'format', label: 'Format', icon: ArrowsPointingOutIcon },
                 { id: 'background', label: 'Fond', icon: PhotoIcon },
                 { id: 'elements', label: 'Éléments', icon: CursorArrowRaysIcon },
+                { id: 'layers', label: 'Calques', icon: RectangleStackIcon },
                 { id: 'settings', label: 'Infos', icon: Cog6ToothIcon }
               ].map(tab => (
                 <button
@@ -2622,6 +2650,60 @@ export default function TemplateDesigner({ clientMode = false }) {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Layers Panel */}
+          {activePanel === 'layers' && (
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-700">Calques</h3>
+                <span className="text-[11px] text-gray-400">{elements.length} élément(s)</span>
+              </div>
+              <p className="text-[11px] text-gray-400 -mt-1">Du plus haut (avant) au plus bas (arrière). Cliquez pour sélectionner, double-cliquez le nom pour renommer.</p>
+              {elements.length === 0 && <p className="text-xs text-gray-400 py-8 text-center">Aucun élément.</p>}
+              <div className="space-y-1">
+                {elements.slice().reverse().map((el) => {
+                  const idx = elements.findIndex(e => e.id === el.id)
+                  const isTop = idx === elements.length - 1
+                  const isBottom = idx === 0
+                  const selected = selectedId === el.id
+                  const canDelete = DELETABLE_TYPES.includes(el.type)
+                  return (
+                    <div
+                      key={el.id}
+                      onClick={() => { setSelectedId(el.id); setSelectedIds([]) }}
+                      className={`group flex items-center gap-0.5 px-2 py-1.5 rounded-lg border cursor-pointer transition-colors ${selected ? 'border-primary-400 bg-primary-50' : 'border-transparent hover:bg-gray-50'}`}
+                    >
+                      <span className="text-gray-400 shrink-0">{layerIcon(el)}</span>
+                      <input
+                        value={el.label || el.type || ''}
+                        onChange={(e) => updateElement(el.id, { label: e.target.value })}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`flex-1 min-w-0 bg-transparent text-xs truncate outline-none focus:bg-white focus:ring-1 focus:ring-primary-300 rounded px-1 ${el.visible ? 'text-gray-700' : 'text-gray-400 line-through'}`}
+                        title="Renommer le calque"
+                      />
+                      <button onClick={(e) => { e.stopPropagation(); moveLayer(el.id, +1) }} disabled={isTop} className="p-1 text-gray-400 hover:text-primary-600 disabled:opacity-20" title="Avancer">
+                        <ChevronUpIcon className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); moveLayer(el.id, -1) }} disabled={isBottom} className="p-1 text-gray-400 hover:text-primary-600 disabled:opacity-20" title="Reculer">
+                        <ChevronDownIcon className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); toggleVisibility(el.id) }} className="p-1 text-gray-400 hover:text-gray-700" title={el.visible ? 'Masquer' : 'Afficher'}>
+                        {el.visible ? <EyeIcon className="h-3.5 w-3.5" /> : <EyeSlashIcon className="h-3.5 w-3.5" />}
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); toggleLock(el.id) }} className="p-1 text-gray-400 hover:text-gray-700" title={el.locked ? 'Déverrouiller' : 'Verrouiller'}>
+                        {el.locked ? <LockClosedIcon className="h-3.5 w-3.5" /> : <LockOpenIcon className="h-3.5 w-3.5" />}
+                      </button>
+                      {canDelete && (
+                        <button onClick={(e) => { e.stopPropagation(); deleteElement(el.id) }} className="p-1 text-gray-300 hover:text-red-500" title="Supprimer">
+                          <TrashIcon className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
 
