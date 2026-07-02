@@ -174,7 +174,6 @@ export default function Payments() {
             Historique de mes commandes
           </h2>
         </div>
-
         {isLoading ? (
           <div className="p-12 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
