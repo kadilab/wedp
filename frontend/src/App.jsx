@@ -1,66 +1,71 @@
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 import useSiteSettingsStore from './stores/siteSettingsStore'
 
-// Layouts
+// Layouts + route guards stay eager — they are the routing shell and are small.
 import DashboardLayout from './layouts/DashboardLayout'
 import AuthLayout from './layouts/AuthLayout'
 import PublicLayout from './layouts/PublicLayout'
-
-// Auth pages
-import Login from './pages/auth/Login'
-import Register from './pages/auth/Register'
-import ForgotPassword from './pages/auth/ForgotPassword'
-import ResetPassword from './pages/auth/ResetPassword'
-
-// Dashboard pages
-import Dashboard from './pages/dashboard/Dashboard'
-import Weddings from './pages/dashboard/Weddings'
-import WeddingDetail from './pages/dashboard/WeddingDetail'
-import WeddingCreate from './pages/dashboard/WeddingCreate'
-import WeddingEdit from './pages/dashboard/WeddingEdit'
-import Guests from './pages/dashboard/Guests'
-import SeatingPlan from './pages/dashboard/SeatingPlan'
-import Invitations from './pages/dashboard/Invitations'
-import CheckIn from './pages/dashboard/CheckIn'
-import WeddingStats from './pages/dashboard/WeddingStats'
-import Templates from './pages/dashboard/Templates'
-import CreatorTemplates from './pages/dashboard/CreatorTemplates'
-import Payments from './pages/dashboard/Payments'
-import PrintOrders from './pages/dashboard/PrintOrders'
-import Profile from './pages/dashboard/Profile'
-import CreatorDashboard from './pages/dashboard/CreatorDashboard'
-import CreatorSettings from './pages/dashboard/CreatorSettings'
-import CreatorEarnings from './pages/dashboard/CreatorEarnings'
-import CreatorBankAccounts from './pages/dashboard/CreatorBankAccounts'
-import CreatorPayoutRequest from './pages/dashboard/CreatorPayoutRequest'
-import Marketplace from './pages/marketplace/Marketplace'
-import MarketplaceTemplateDetail from './pages/marketplace/MarketplaceTemplateDetail'
-import TemplatePublish from './pages/dashboard/TemplatePublish'
-
-// Admin pages
-import AdminDashboard from './pages/admin/AdminDashboard'
-import AdminUsers from './pages/admin/AdminUsers'
-import AdminWeddings from './pages/admin/AdminWeddings'
-import AdminInvitationOrders from './pages/admin/AdminInvitationOrders'
-import AdminPrintOrders from './pages/admin/AdminPrintOrders'
-import AdminTemplates from './pages/admin/AdminTemplates'
-import AdminCoupons from './pages/admin/AdminCoupons'
-import AdminSettings from './pages/admin/AdminSettings'
-import AdminSupervision from './pages/admin/AdminSupervision'
-import AdminPayoutDashboard from './pages/admin/AdminPayoutDashboard'
-import AdminMarketplaceApprovals from './pages/admin/AdminMarketplaceApprovals'
-import TemplateDesigner from './pages/admin/TemplateDesigner'
-
-// Public pages
-import Home from './pages/public/Home'
-import InvitationView from './pages/public/InvitationView'
-
-// Components
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import AdminRoute from './components/auth/AdminRoute'
 import { ConfirmRoot } from './components/common/confirm'
+
+// Every page is code-split so heavy deps (recharts, html5-qrcode, framer-motion,
+// @dnd-kit…) only load on the routes that actually use them.
+const Login = lazy(() => import('./pages/auth/Login'))
+const Register = lazy(() => import('./pages/auth/Register'))
+const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
+const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'))
+
+const Dashboard = lazy(() => import('./pages/dashboard/Dashboard'))
+const Weddings = lazy(() => import('./pages/dashboard/Weddings'))
+const WeddingDetail = lazy(() => import('./pages/dashboard/WeddingDetail'))
+const WeddingCreate = lazy(() => import('./pages/dashboard/WeddingCreate'))
+const WeddingEdit = lazy(() => import('./pages/dashboard/WeddingEdit'))
+const Guests = lazy(() => import('./pages/dashboard/Guests'))
+const SeatingPlan = lazy(() => import('./pages/dashboard/SeatingPlan'))
+const Invitations = lazy(() => import('./pages/dashboard/Invitations'))
+const CheckIn = lazy(() => import('./pages/dashboard/CheckIn'))
+const WeddingStats = lazy(() => import('./pages/dashboard/WeddingStats'))
+const Templates = lazy(() => import('./pages/dashboard/Templates'))
+const CreatorTemplates = lazy(() => import('./pages/dashboard/CreatorTemplates'))
+const Payments = lazy(() => import('./pages/dashboard/Payments'))
+const PrintOrders = lazy(() => import('./pages/dashboard/PrintOrders'))
+const Profile = lazy(() => import('./pages/dashboard/Profile'))
+const CreatorDashboard = lazy(() => import('./pages/dashboard/CreatorDashboard'))
+const CreatorSettings = lazy(() => import('./pages/dashboard/CreatorSettings'))
+const CreatorEarnings = lazy(() => import('./pages/dashboard/CreatorEarnings'))
+const CreatorBankAccounts = lazy(() => import('./pages/dashboard/CreatorBankAccounts'))
+const CreatorPayoutRequest = lazy(() => import('./pages/dashboard/CreatorPayoutRequest'))
+const Marketplace = lazy(() => import('./pages/marketplace/Marketplace'))
+const MarketplaceTemplateDetail = lazy(() => import('./pages/marketplace/MarketplaceTemplateDetail'))
+const TemplatePublish = lazy(() => import('./pages/dashboard/TemplatePublish'))
+
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'))
+const AdminWeddings = lazy(() => import('./pages/admin/AdminWeddings'))
+const AdminInvitationOrders = lazy(() => import('./pages/admin/AdminInvitationOrders'))
+const AdminPrintOrders = lazy(() => import('./pages/admin/AdminPrintOrders'))
+const AdminTemplates = lazy(() => import('./pages/admin/AdminTemplates'))
+const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'))
+const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'))
+const AdminSupervision = lazy(() => import('./pages/admin/AdminSupervision'))
+const AdminPayoutDashboard = lazy(() => import('./pages/admin/AdminPayoutDashboard'))
+const AdminMarketplaceApprovals = lazy(() => import('./pages/admin/AdminMarketplaceApprovals'))
+const TemplateDesigner = lazy(() => import('./pages/admin/TemplateDesigner'))
+
+const Home = lazy(() => import('./pages/public/Home'))
+const InvitationView = lazy(() => import('./pages/public/InvitationView'))
+
+// Lightweight full-screen fallback shown while a route chunk loads.
+function RouteFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="w-10 h-10 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
 
 function App() {
   const { isAuthenticated, user } = useAuthStore()
@@ -73,6 +78,7 @@ function App() {
   return (
     <>
     <ConfirmRoot />
+    <Suspense fallback={<RouteFallback />}>
     <Routes>
       {/* Public Routes */}
       <Route element={<PublicLayout />}>
@@ -167,6 +173,7 @@ function App() {
         </div>
       } />
     </Routes>
+    </Suspense>
     </>
   )
 }

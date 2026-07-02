@@ -10,6 +10,21 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split large, independently-cacheable vendor libraries into their own
+        // chunks so a page that doesn't use them never pays for them.
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'charts': ['recharts'],
+          'qr': ['html5-qrcode'],
+          'motion': ['framer-motion'],
+          'dnd': ['@dnd-kit/core'],
+        },
+      },
+    },
+  },
   server: {
     port: 3000,
     host: '127.0.0.1',
