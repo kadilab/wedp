@@ -1,14 +1,15 @@
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { weddingAPI } from '../../services/api'
-import { eventUsesTables } from '../../utils/eventTypes'
+import { eventUsesTables, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
 import { tableName } from '../../utils/tables'
-import { format } from 'date-fns'
+import { format, differenceInCalendarDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { useState } from 'react'
 import {
   ArrowLeftIcon,
+  ChevronRightIcon,
   HeartIcon,
   UserGroupIcon,
   QrCodeIcon,
@@ -90,6 +91,18 @@ export default function WeddingDetail() {
   const eventDisplayName = wedding
     ? (isWeddingEvent ? `${wedding.brideName} & ${wedding.groomName}` : (wedding.eventTitle || 'Événement'))
     : ''
+  const eventTypeLabel = EVENT_TYPE_LABELS[wedding?.eventType] || 'Mariage'
+  // Personalised hero gradient from the event colours (falls back to a warm default).
+  const heroGradient = wedding?.primaryColor
+    ? `linear-gradient(135deg, ${wedding.primaryColor}, ${wedding.secondaryColor || wedding.primaryColor})`
+    : 'linear-gradient(135deg, #df6746, #ec4899)'
+  // Days-until countdown for the hero chip.
+  const daysUntil = wedding?.weddingDate ? differenceInCalendarDays(new Date(wedding.weddingDate), new Date()) : null
+  const countdownLabel = daysUntil == null ? null
+    : daysUntil > 1 ? `Dans ${daysUntil} jours`
+    : daysUntil === 1 ? 'Demain'
+    : daysUntil === 0 ? "Aujourd'hui 🎉"
+    : 'Événement passé'
 
   const quickActions = [
     {
@@ -131,74 +144,85 @@ export default function WeddingDetail() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start sm:items-center gap-3 min-w-0">
-          <button
-            onClick={() => navigate('/weddings')}
-            className="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 shrink-0"
-          >
-            <ArrowLeftIcon className="h-5 w-5" />
-          </button>
-          <div className="min-w-0">
-            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-gray-900 break-words">
-              {eventDisplayName}
-            </h1>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-gray-500">
-              <span className="flex items-center">
-                <CalendarIcon className="h-4 w-4 mr-1" />
-                {format(new Date(wedding.weddingDate), 'd MMMM yyyy', { locale: fr })}
-              </span>
-              <span className={`badge ${
-                wedding.status === 'ACTIVE' ? 'badge-success' :
-                wedding.status === 'DRAFT' ? 'badge-warning' :
-                'badge-info'
-              }`}>
-                {wedding.status === 'ACTIVE' ? 'Actif' :
-                 wedding.status === 'DRAFT' ? 'Brouillon' :
-                 wedding.status}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <Link to={`/weddings/${id}/edit`} className="btn-primary flex-1 sm:flex-none justify-center">
-            <PencilIcon className="h-5 w-5 mr-2" />
+      {/* Slim action bar — the name/date now live in the hero below */}
+      <div className="flex items-center justify-between gap-3">
+        <button
+          onClick={() => navigate('/weddings')}
+          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 rounded-lg px-2 py-1.5 hover:bg-gray-100"
+        >
+          <ArrowLeftIcon className="h-4 w-4" />
+          <span className="hidden sm:inline">Mes événements</span>
+        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={`badge ${
+            wedding.status === 'ACTIVE' ? 'badge-success' :
+            wedding.status === 'DRAFT' ? 'badge-warning' :
+            'badge-info'
+          }`}>
+            {wedding.status === 'ACTIVE' ? 'Actif' :
+             wedding.status === 'DRAFT' ? 'Brouillon' :
+             wedding.status}
+          </span>
+          <Link to={`/weddings/${id}/edit`} className="btn-primary btn-sm justify-center">
+            <PencilIcon className="h-4 w-4 mr-1.5" />
             Modifier
           </Link>
           <button
             onClick={() => setShowDeleteModal(true)}
-            className="inline-flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex-1 sm:flex-none"
+            className="inline-flex items-center justify-center px-3 py-1.5 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+            title="Supprimer l'événement"
           >
-            <TrashIcon className="h-5 w-5 mr-2" />
-            Supprimer
+            <TrashIcon className="h-4 w-4" />
+            <span className="hidden sm:inline ml-1.5">Supprimer</span>
           </button>
         </div>
       </div>
 
-      {/* Cover */}
-      <div className="h-64 rounded-xl overflow-hidden bg-gradient-wedding relative">
-        {wedding.coverPhoto ? (
-          <img
-            src={wedding.coverPhoto}
-            alt="Cover"
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <HeartIcon className="h-24 w-24 text-primary-200" />
-          </div>
+      {/* Hero — compact, information-rich banner (personalised colours) */}
+      <div className="relative overflow-hidden rounded-2xl text-white shadow-lg" style={{ background: heroGradient }}>
+        {wedding.coverPhoto && (
+          <img src={wedding.coverPhoto} alt="" className="absolute inset-0 w-full h-full object-cover" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-        <div className="absolute bottom-6 left-6 text-white">
-          <h2 className="text-2xl font-serif font-bold">
+        {/* Readability overlay (over photo or gradient) */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/25 to-transparent" />
+        {/* Subtle decorative hearts fill the empty space */}
+        <HeartIcon className="pointer-events-none absolute -right-8 -top-10 h-52 w-52 text-white/10" />
+        <HeartIcon className="pointer-events-none absolute right-28 -bottom-8 h-28 w-28 text-white/10" />
+
+        <div className="relative p-6 sm:p-8">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <span className="inline-flex items-center rounded-full bg-white/20 backdrop-blur px-3 py-1 text-xs font-semibold">
+              {eventTypeLabel}
+            </span>
+            {countdownLabel && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur px-3 py-1 text-xs font-semibold">
+                <ClockIcon className="h-3.5 w-3.5" /> {countdownLabel}
+              </span>
+            )}
+          </div>
+
+          <h2 className="text-2xl sm:text-3xl font-serif font-bold drop-shadow-sm">
             {eventDisplayName}
           </h2>
-          <p className="flex items-center mt-2">
-            <MapPinIcon className="h-5 w-5 mr-1" />
-            {wedding.venueName}
-            {wedding.venueCity && `, ${wedding.venueCity}`}
-          </p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-white/90">
+            <span className="flex items-center gap-1.5">
+              <CalendarIcon className="h-4 w-4 shrink-0" />
+              {format(new Date(wedding.weddingDate), 'EEEE d MMMM yyyy', { locale: fr })}
+            </span>
+            {wedding.ceremonyTime && (
+              <span className="flex items-center gap-1.5">
+                <ClockIcon className="h-4 w-4 shrink-0" />
+                {wedding.ceremonyTime}
+              </span>
+            )}
+            {wedding.venueName && (
+              <span className="flex items-center gap-1.5">
+                <MapPinIcon className="h-4 w-4 shrink-0" />
+                {wedding.venueName}{wedding.venueCity && `, ${wedding.venueCity}`}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -248,15 +272,16 @@ export default function WeddingDetail() {
           <Link
             key={action.name}
             to={action.href}
-            className="card-hover p-6 flex items-start space-x-4"
+            className="group card-hover p-5 flex items-center gap-4"
           >
-            <div className={`p-3 rounded-xl ${action.color}`}>
+            <div className={`p-3 rounded-xl shrink-0 ${action.color}`}>
               <action.icon className="h-6 w-6" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 className="font-medium text-gray-900">{action.name}</h3>
-              <p className="text-sm text-gray-500 mt-1">{action.description}</p>
+              <p className="text-sm text-gray-500 mt-0.5 truncate">{action.description}</p>
             </div>
+            <ChevronRightIcon className="h-5 w-5 text-gray-300 group-hover:text-primary-500 group-hover:translate-x-0.5 transition shrink-0" />
           </Link>
         ))}
       </div>
