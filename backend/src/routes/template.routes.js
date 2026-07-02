@@ -301,7 +301,7 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       backgroundUrl, backgroundOpacity,
       designElements, canvasWidth, canvasHeight,
       allowBackgroundChange, previewImage,
-      margins, selectedFormat, pricePerInvitation
+      margins, selectedFormat, pricePerInvitation, palette
     } = req.body;
 
     if (!name || !name.trim()) {
@@ -374,7 +374,8 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       margins: margins || { top: 0, right: 0, bottom: 0, left: 0 },
       selectedFormat: selectedFormat || 'a5-portrait',
       backgroundImage: backgroundUrl || null,
-      backgroundOpacity: backgroundOpacity || 100
+      backgroundOpacity: backgroundOpacity || 100,
+      palette: Array.isArray(palette) ? palette.slice(0, 12) : []
     };
 
     const template = await prisma.template.create({
@@ -534,7 +535,7 @@ router.post('/blank', authenticate, async (req, res) => {
  */
 router.put('/:id/design', authenticate, async (req, res) => {
   try {
-    const { designElements, backgroundUrl, backgroundImage, backgroundOpacity, canvasWidth, canvasHeight, margins, selectedFormat } = req.body;
+    const { designElements, backgroundUrl, backgroundImage, backgroundOpacity, canvasWidth, canvasHeight, margins, selectedFormat, palette } = req.body;
 
     const template = await prisma.template.findUnique({
       where: { id: req.params.id }
@@ -612,7 +613,8 @@ router.put('/:id/design', authenticate, async (req, res) => {
       canvasHeight: canvasHeight || CANVAS_HEIGHT_DEFAULT,
       margins: margins || { top: 0, right: 0, bottom: 0, left: 0 },
       selectedFormat: selectedFormat || 'custom',
-      backgroundOpacity: backgroundOpacity !== undefined ? backgroundOpacity : (template.config?.backgroundOpacity || 100)
+      backgroundOpacity: backgroundOpacity !== undefined ? backgroundOpacity : (template.config?.backgroundOpacity || 100),
+      ...(Array.isArray(palette) ? { palette: palette.slice(0, 12) } : {})
     };
 
     // Store backgroundImage in config for PDF generator

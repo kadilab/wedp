@@ -5,6 +5,7 @@ import { adminAPI, templateAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import { motion } from 'framer-motion'
 import { processImage } from '../../utils/imageProcessor'
+import { extractPalette } from '../../utils/extractColors'
 import { EVENT_TYPES, EVENT_TYPE_LABELS, eventUsesCouple, eventUsesProgramme, eventUsesTables } from '../../utils/eventTypes'
 import { ENTRANCE_OPTIONS, LOOP_OPTIONS, DEFAULT_ANIMATION, getEntranceMotion, getLoopMotion, isAnimated } from '../../utils/animations'
 import { PHOTO_SHAPES, getClipPath, getImageStyle, DEFAULT_CUSTOM_CLIP_PATH, OBJECT_FIT_OPTIONS, OBJECT_POSITION_OPTIONS } from '../../utils/imageShapes'
@@ -655,6 +656,8 @@ export default function TemplateDesigner({ clientMode = false }) {
   const [selectedIds, setSelectedIds] = useState([]) // Multiple selection
   const [backgroundUrl, setBackgroundUrl] = useState('')
   const [backgroundOpacity, setBackgroundOpacity] = useState(100)
+  const [palette, setPalette] = useState([]) // colours extracted from the background image
+  const [extracting, setExtracting] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [resizeDir, setResizeDir] = useState(null)
@@ -765,7 +768,8 @@ export default function TemplateDesigner({ clientMode = false }) {
       setPreviewImage(t.previewImage || '')
       setBackgroundUrl(t.previewImage || t.backgroundUrl || t.config?.backgroundImage || '')
       setBackgroundOpacity(t.backgroundOpacity ?? t.config?.backgroundOpacity ?? 100)
-      
+      if (Array.isArray(t.config?.palette)) setPalette(t.config.palette)
+
       // Load canvas dimensions first
       if (t.config?.canvasWidth) {
         console.log('Setting canvas width from config:', t.config.canvasWidth)
@@ -1380,10 +1384,42 @@ export default function TemplateDesigner({ clientMode = false }) {
       setBackgroundUrl(res.data.backgroundUrl || res.data.backgroundImage)
       toast.success('Image de fond chargée !')
       setActivePanel('elements')
+
+      // Extract a colour palette from the local blob (no CORS taint) so the
+      // creator can reuse the image's colours on text elements.
+      try {
+        const objUrl = URL.createObjectURL(result.upload)
+        const colors = await extractPalette(objUrl, 6)
+        URL.revokeObjectURL(objUrl)
+        if (colors.length) {
+          setPalette(colors)
+          toast.success(`${colors.length} couleurs extraites de l'image`)
+        }
+      } catch { /* extraction is best-effort */ }
     } catch (err) {
       toast.error(err.message || err.response?.data?.error || "Erreur lors de l'upload de l'image de fond")
     } finally {
       setUploading(false)
+    }
+  }
+
+  // Re-run palette extraction on the current background (same-origin images
+  // load onto the canvas cleanly; cross-origin needs CORS on the image host).
+  const reextractPalette = async () => {
+    if (!backgroundUrl) return
+    const apiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || ''
+    const src = backgroundUrl.startsWith('data:') || backgroundUrl.startsWith('http') ? backgroundUrl : `${apiBase}${backgroundUrl}`
+    setExtracting(true)
+    try {
+      const colors = await extractPalette(src, 6)
+      if (colors.length) {
+        setPalette(colors)
+        toast.success(`${colors.length} couleurs extraites`)
+      } else {
+        toast.error("Impossible d'analyser cette image (rechargez-la pour extraire les couleurs)")
+      }
+    } finally {
+      setExtracting(false)
     }
   }
 
@@ -1583,7 +1619,8 @@ export default function TemplateDesigner({ clientMode = false }) {
           canvasWidth,
           canvasHeight,
           margins,
-          selectedFormat
+          selectedFormat,
+          palette
         }
       }
 
@@ -1598,7 +1635,8 @@ export default function TemplateDesigner({ clientMode = false }) {
           canvasWidth,
           canvasHeight,
           margins,
-          selectedFormat
+          selectedFormat,
+          palette
         })
         queryClient.invalidateQueries(['admin-template', templateId])
         toast.success('Template sauvegardé avec succès !')
@@ -2239,6 +2277,37 @@ export default function TemplateDesigner({ clientMode = false }) {
                     onChange={(e) => setBackgroundOpacity(parseInt(e.target.value))}
                     className="w-full accent-primary-600"
                   />
+                </div>
+              )}
+
+              {/* Extracted palette from the background image */}
+              {backgroundUrl && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-medium text-gray-600 flex items-center gap-1">🎨 Palette de l'image</label>
+                    <button
+                      onClick={reextractPalette}
+                      disabled={extracting}
+                      className="text-[11px] text-primary-600 hover:text-primary-700 font-medium disabled:opacity-50"
+                    >
+                      {extracting ? 'Analyse…' : palette.length ? 'Ré-extraire' : 'Extraire les couleurs'}
+                    </button>
+                  </div>
+                  {palette.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {palette.map((c) => (
+                        <button
+                          key={c}
+                          onClick={() => { navigator.clipboard?.writeText(c); toast.success(`${c} copié`) }}
+                          className="w-7 h-7 rounded-lg border border-gray-200 hover:scale-110 transition-transform shadow-sm"
+                          style={{ backgroundColor: c }}
+                          title={`${c} — cliquer pour copier`}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-gray-400">Les couleurs dominantes de l'image apparaîtront ici, réutilisables sur vos textes.</p>
+                  )}
                 </div>
               )}
 
@@ -3457,6 +3526,23 @@ export default function TemplateDesigner({ clientMode = false }) {
                               />
                             ))}
                           </div>
+                          {palette.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-[10px] text-gray-400 mb-1 flex items-center gap-1">🎨 Couleurs de l'image</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {palette.map((c) => (
+                                  <button
+                                    key={c}
+                                    onClick={() => updateElement(selectedId, { color: c })}
+                                    className={`w-6 h-6 rounded-full border-2 hover:scale-110 transition-transform ${selectedElement.color?.toUpperCase() === c.toUpperCase() ? 'border-primary-500 scale-110' : 'border-gray-200'}`}
+                                    style={{ backgroundColor: c }}
+                                    title={c}
+                                    aria-label={`Couleur ${c}`}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Letter Spacing */}
