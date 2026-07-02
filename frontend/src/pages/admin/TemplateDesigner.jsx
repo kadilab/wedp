@@ -665,6 +665,7 @@ export default function TemplateDesigner({ clientMode = false }) {
   const [elementStart, setElementStart] = useState({ x: 0, y: 0, w: 0, h: 0 })
   const [showGrid, setShowGrid] = useState(true)
   const [zoom, setZoom] = useState(0.65)
+  const [guides, setGuides] = useState({ v: [], h: [] }) // smart alignment guides shown during drag
   // Animation preview: when on, the canvas plays each element's entrance + loop
   // (like the public invitation). previewKey bumps to replay the entrance.
   const [previewAnim, setPreviewAnim] = useState(false)
@@ -892,20 +893,65 @@ export default function TemplateDesigner({ clientMode = false }) {
     const dx = coords.x - dragStart.x
     const dy = coords.y - dragStart.y
 
-    setElements(prev => prev.map(el => {
-      if (isDragging) {
+    if (isDragging) {
+      const draggingIds = Object.keys(multiDragStart)
+
+      // Single-element drag: snap edges/centre to the canvas and to other
+      // elements, showing magenta guide lines (the "pro" touch).
+      if (draggingIds.length === 1) {
+        const cur = elementsRef.current
+        const el = cur.find(p => p.id === draggingIds[0])
+        const start = multiDragStart[draggingIds[0]]
+        if (el && start) {
+          let x = Math.round(start.x + dx)
+          let y = Math.round(start.y + dy)
+          if (showGrid) { x = Math.round(x / 10) * 10; y = Math.round(y / 10) * 10 }
+          x = Math.max(0, Math.min(canvasWidth - el.width, x))
+          y = Math.max(0, Math.min(canvasHeight - el.height, y))
+
+          const SNAP = 6
+          const others = cur.filter(p => p.visible && p.id !== el.id)
+          const vCand = [0, canvasWidth / 2, canvasWidth]
+          const hCand = [0, canvasHeight / 2, canvasHeight]
+          others.forEach(o => {
+            vCand.push(o.x, o.x + o.width / 2, o.x + o.width)
+            hCand.push(o.y, o.y + o.height / 2, o.y + o.height)
+          })
+          const gv = [], gh = []
+          let bV = null
+          ;[x, x + el.width / 2, x + el.width].forEach(pt => vCand.forEach(c => {
+            const d = Math.abs(pt - c); if (d <= SNAP && (!bV || d < bV.d)) bV = { d, delta: c - pt, line: c }
+          }))
+          if (bV) { x = Math.round(x + bV.delta); gv.push(bV.line) }
+          let bH = null
+          ;[y, y + el.height / 2, y + el.height].forEach(pt => hCand.forEach(c => {
+            const d = Math.abs(pt - c); if (d <= SNAP && (!bH || d < bH.d)) bH = { d, delta: c - pt, line: c }
+          }))
+          if (bH) { y = Math.round(y + bH.delta); gh.push(bH.line) }
+
+          setElements(prev => prev.map(p => p.id === el.id ? { ...p, x, y } : p))
+          setGuides({ v: gv, h: gh })
+        }
+        return
+      }
+
+      // Multi-element drag: keep relative distances, no snapping.
+      setElements(prev => prev.map(el => {
         const start = multiDragStart[el.id]
         if (!start) return el
-        // Le même delta (dx, dy) est appliqué à la position de départ propre à chaque élément,
-        // donc les distances relatives entre éléments sélectionnés sont conservées.
         let newX = Math.round(start.x + dx)
         let newY = Math.round(start.y + dy)
         if (showGrid) { newX = Math.round(newX / 10) * 10; newY = Math.round(newY / 10) * 10 }
         newX = Math.max(0, Math.min(canvasWidth - el.width, newX))
         newY = Math.max(0, Math.min(canvasHeight - el.height, newY))
         return { ...el, x: newX, y: newY }
-      }
-      // Resize only primary selected element
+      }))
+      setGuides(g => (g.v.length || g.h.length) ? { v: [], h: [] } : g)
+      return
+    }
+
+    // Resize only the primary selected element.
+    setElements(prev => prev.map(el => {
       if (isResizing && el.id === selectedId) {
         let newW = elementStart.w, newH = elementStart.h, newX = elementStart.x, newY = elementStart.y
         if (resizeDir.includes('e')) newW = Math.max(40, elementStart.w + dx)
@@ -923,6 +969,7 @@ export default function TemplateDesigner({ clientMode = false }) {
     setIsDragging(false)
     setIsResizing(false)
     setResizeDir(null)
+    setGuides(g => (g.v.length || g.h.length) ? { v: [], h: [] } : g)
   }, [])
 
   useEffect(() => {
@@ -3745,6 +3792,18 @@ export default function TemplateDesigner({ clientMode = false }) {
                       stroke="#888"
                       strokeWidth={i % 2 === 0 ? 0.7 : 0.3}
                     />
+                  ))}
+                </svg>
+              )}
+
+              {/* Smart alignment guides (magenta) shown while dragging */}
+              {(guides.v.length > 0 || guides.h.length > 0) && (
+                <svg className="absolute inset-0 pointer-events-none" width={canvasWidth} height={canvasHeight} style={{ zIndex: 998 }}>
+                  {guides.v.map((x, i) => (
+                    <line key={`gv-${i}`} x1={x} y1={0} x2={x} y2={canvasHeight} stroke="#e11d84" strokeWidth={1 / zoom} />
+                  ))}
+                  {guides.h.map((y, i) => (
+                    <line key={`gh-${i}`} x1={0} y1={y} x2={canvasWidth} y2={y} stroke="#e11d84" strokeWidth={1 / zoom} />
                   ))}
                 </svg>
               )}
