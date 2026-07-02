@@ -16,8 +16,11 @@ import {
   PaintBrushIcon,
   PlusIcon,
   CheckCircleIcon,
-  EyeSlashIcon
+  EyeSlashIcon,
+  Squares2X2Icon,
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline'
+import { formatMoney } from '../../utils/currency'
 
 export default function AdminTemplates() {
   const queryClient = useQueryClient()
@@ -25,6 +28,7 @@ export default function AdminTemplates() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [search, setSearch] = useState('')
   const [formData, setFormData] = useState({
     name: '',
     category: 'MODERN',
@@ -119,55 +123,78 @@ export default function AdminTemplates() {
     OTHER: 'bg-gray-100 text-gray-700'
   }
 
+  // Name search (client-side).
+  const q = search.trim().toLowerCase()
+  const visibleTemplates = q
+    ? templates.filter(t => (t.name || '').toLowerCase().includes(q))
+    : templates
+
   // Group by event type so it's clear which templates are offered for which
   // kind of invitation (mariage / anniversaire / dot / cérémonie / conférence / autre)
   const eventTypeSections = EVENT_TYPES.map(type => ({
     value: type,
     label: EVENT_TYPE_LABELS[type],
     color: eventTypeColors[type],
-    templates: templates.filter(t => (t.eventType || 'WEDDING') === type)
+    templates: visibleTemplates.filter(t => (t.eventType || 'WEDDING') === type)
   }))
+
+  const publishedCount = templates.filter(t => t.isActive !== false).length
+  const draftCount = templates.filter(t => t.isActive === false).length
+  const premiumCount = templates.filter(t => t.isPremium).length
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-gray-900">Templates</h1>
-          <p className="text-gray-600 mt-1">Créez et gérez les modèles d'invitations</p>
+          <h1 className="text-2xl sm:text-3xl font-serif font-bold text-gray-900">Templates</h1>
+          <p className="text-gray-500 mt-1">Créez et gérez les modèles d'invitations.</p>
         </div>
-        <button
-          onClick={() => navigate('/admin/templates/new/design')}
-          className="btn-primary flex items-center"
-        >
-          <PaintBrushIcon className="h-5 w-5 mr-2" />
-          Créer un template
-        </button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-none">
+            <MagnifyingGlassIcon className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher un template…"
+              className="w-full sm:w-64 pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+            />
+          </div>
+          <button
+            onClick={() => navigate('/admin/templates/new/design')}
+            className="btn-primary flex items-center shrink-0"
+          >
+            <PaintBrushIcon className="h-5 w-5 mr-2" />
+            <span className="hidden sm:inline">Créer un template</span>
+            <span className="sm:hidden">Créer</span>
+          </button>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <p className="text-3xl font-bold text-gray-900">{templates.length}</p>
-          <p className="text-sm text-gray-500 mt-1">Total templates</p>
-        </div>
-        <div className="bg-gradient-to-r from-gold-50 to-gold-100 rounded-xl shadow-sm border border-gold-200 p-5">
-          <p className="text-3xl font-bold text-gold-700">{templates.filter(t => t.isPremium).length}</p>
-          <p className="text-sm text-gold-600 mt-1">Premium</p>
-        </div>
-        <div className="bg-gradient-to-r from-green-50 to-emerald-100 rounded-xl shadow-sm border border-green-200 p-5">
-          <p className="text-3xl font-bold text-green-700">{templates.filter(t => !t.isPremium).length}</p>
-          <p className="text-sm text-green-600 mt-1">Gratuits</p>
-        </div>
-        <div className="bg-gradient-to-r from-primary-50 to-primary-100 rounded-xl shadow-sm border border-primary-200 p-5">
-          <p className="text-3xl font-bold text-primary-700">{templates.filter(t => t.backgroundUrl).length}</p>
-          <p className="text-sm text-primary-600 mt-1">Avec fond</p>
-        </div>
+      {/* Stats Cards — compact */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Total', value: templates.length, icon: Squares2X2Icon, tint: 'bg-gray-100 text-gray-600' },
+          { label: 'Publiés', value: publishedCount, icon: CheckCircleIcon, tint: 'bg-green-50 text-green-600' },
+          { label: 'Brouillons', value: draftCount, icon: EyeSlashIcon, tint: 'bg-amber-50 text-amber-600' },
+          { label: 'Premium', value: premiumCount, icon: StarIcon, tint: 'bg-gold-50 text-gold-600' }
+        ].map((s) => (
+          <div key={s.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5 flex items-center gap-3">
+            <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${s.tint}`}>
+              <s.icon className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xl font-bold text-gray-900 leading-tight">{s.value}</p>
+              <p className="text-xs text-gray-500 truncate">{s.label}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Per-event-type breakdown - jump straight to a type, and spot at a
           glance which ones still have zero templates available to clients */}
-      {templates.length > 0 && (
+      {templates.length > 0 && !q && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-wrap gap-2">
           {eventTypeSections.map(section => (
             <a
@@ -202,9 +229,16 @@ export default function AdminTemplates() {
             Créer un template
           </button>
         </div>
+      ) : q && visibleTemplates.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center">
+          <MagnifyingGlassIcon className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500">Aucun template ne correspond à « {search} ».</p>
+        </div>
       ) : (
         <div className="space-y-10">
-          {eventTypeSections.map(section => {
+          {eventTypeSections
+            .filter(section => !q || section.templates.length > 0)
+            .map(section => {
             return (
               <div key={section.value} id={`section-${section.value}`}>
                 <div className="flex items-center gap-3 mb-5">
@@ -308,11 +342,22 @@ export default function AdminTemplates() {
                         {template.description && (
                           <p className="text-sm text-gray-500 mt-1 line-clamp-2">{template.description}</p>
                         )}
-                        <div className="mt-3 flex items-center justify-between text-xs">
-                          <span className="text-gray-400">
+                        <div className="mt-2">
+                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                            parseFloat(template.pricePerInvitation) > 0
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {parseFloat(template.pricePerInvitation) > 0
+                              ? `${formatMoney(template.pricePerInvitation)} / invitation`
+                              : 'Gratuit'}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+                          <span>
                             {template._count?.weddings || 0} utilisation{(template._count?.weddings || 0) > 1 ? 's' : ''}
                           </span>
-                          <span className="text-gray-400">
+                          <span>
                             {new Date(template.createdAt).toLocaleDateString('fr-FR')}
                           </span>
                         </div>
