@@ -39,6 +39,7 @@ import {
   StarIcon,
   ArrowsPointingOutIcon,
   ChevronDoubleLeftIcon,
+  ChevronDownIcon,
   ChevronDoubleRightIcon
 } from '@heroicons/react/24/outline'
 
@@ -2739,8 +2740,11 @@ export default function TemplateDesigner({ clientMode = false }) {
                     )}
 
                     {/* Position */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-2">Position & Taille</label>
+                    <details className="group border-t pt-3" open>
+                      <summary className="flex items-center justify-between cursor-pointer list-none text-xs font-medium text-gray-700 mb-2 select-none">
+                        <span>Position & Taille</span>
+                        <ChevronDownIcon className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" />
+                      </summary>
                       <div className="grid grid-cols-2 gap-2">
                         {[
                           { label: 'X', key: 'x' },
@@ -2759,18 +2763,21 @@ export default function TemplateDesigner({ clientMode = false }) {
                           </div>
                         ))}
                       </div>
-                    </div>
+                    </details>
 
                     {/* Animation (jouée uniquement sur l'invitation publiée) */}
                     {(() => {
                       const anim = { ...DEFAULT_ANIMATION, ...(selectedElement.animation || {}) }
                       const setAnim = (patch) => updateElement(selectedId, { animation: { ...anim, ...patch } })
                       return (
-                        <div className="border-t pt-3">
-                          <label className="block text-xs font-medium text-gray-700 mb-2">
-                            ✨ Animation
-                            <span className="block text-[10px] font-normal text-gray-400">Visible uniquement sur l'invitation publiée (le lien partagé)</span>
-                          </label>
+                        <details className="group border-t pt-3">
+                          <summary className="flex items-start justify-between cursor-pointer list-none mb-2 select-none">
+                            <span className="text-xs font-medium text-gray-700">
+                              ✨ Animation
+                              <span className="block text-[10px] font-normal text-gray-400">Visible uniquement sur l'invitation publiée (le lien partagé)</span>
+                            </span>
+                            <ChevronDownIcon className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180 shrink-0 mt-0.5" />
+                          </summary>
                           <div className="grid grid-cols-2 gap-2">
                             <div>
                               <label className="block text-[10px] text-gray-500 mb-0.5">Entrée</label>
@@ -2811,7 +2818,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                               />
                             </div>
                           </div>
-                        </div>
+                        </details>
                       )
                     })()}
 
