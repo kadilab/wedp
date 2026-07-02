@@ -4,7 +4,8 @@ import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from './CurvedText'
 import AutoFitText from './AutoFitText'
 import FontStyles from './FontStyles'
-import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars, formatEventTime, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, timeComponentVars } from '../../utils/dateFormats'
+import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars, formatEventTime, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, timeComponentVars, getElementDateKey } from '../../utils/dateFormats'
+import MiniCalendar from './MiniCalendar'
 import { getEventDisplayTitle } from '../../utils/eventTypes'
 
 // Rich, realistic test data used when no real event is provided (template
@@ -317,6 +318,19 @@ export default function TemplatePreview({ template, className = '', weddingData 
                       </div>
                     </div>
                   )
+                }
+
+                // Calendar (visual) date format — mini month calendar.
+                if (el.dateFormat === 'calendar') {
+                  const dk = getElementDateKey(el.content)
+                  if (dk && rawDateMap[dk]) {
+                    const base = Math.max(6, Math.round((el.width || 220) / 18))
+                    return (
+                      <div key={el.id || idx} style={{ position: 'absolute', left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: zIdx, fontSize: base, fontFamily: `'${el.fontFamily}', serif` }}>
+                        <MiniCalendar date={rawDateMap[dk]} accent={el.color || '#df6746'} textColor={el.color || '#1f2937'} />
+                      </div>
+                    )
+                  }
                 }
 
                 // Text / names / other elements

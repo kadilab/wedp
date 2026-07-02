@@ -18,8 +18,15 @@ export const DATE_FORMAT_OPTIONS = [
   { value: 'date_long', label: 'Date longue', example: '20 juin 2026' },
   { value: 'date_full', label: 'Date complète', example: 'samedi 20 juin 2026' },
   { value: 'date_long_time', label: 'Date longue + heure', example: '20 juin 2026 à 10:30' },
-  { value: 'time', label: 'Heure seule', example: '10:30' }
+  { value: 'time', label: 'Heure seule', example: '10:30' },
+  { value: 'calendar', label: 'Calendrier (visuel)', example: '📅 mini-calendrier' }
 ]
+
+// The first date variable used in a text (drives the calendar rendering).
+export function getElementDateKey(text) {
+  if (!text) return null
+  return DATE_VARIABLE_KEYS.find((k) => text.includes(`{{${k}}}`)) || null
+}
 
 export const DEFAULT_DATE_FORMAT = 'datetime'
 

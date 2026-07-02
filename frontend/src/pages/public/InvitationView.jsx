@@ -9,9 +9,10 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
+import MiniCalendar from '../../components/templates/MiniCalendar'
 import AutoFitText from '../../components/templates/AutoFitText'
 import FontStyles from '../../components/templates/FontStyles'
-import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime, timeComponentVars } from '../../utils/dateFormats'
+import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime, timeComponentVars, getElementDateKey } from '../../utils/dateFormats'
 import { getEventDisplayTitle } from '../../utils/eventTypes'
 import { getEntranceMotion, getLoopMotion, isAnimated } from '../../utils/animations'
 // Format date: JJ-MM-YYYY HH:mm
@@ -571,6 +572,24 @@ export default function InvitationView() {
                     </div>
                   </AnimatedElement>
                 )
+              }
+
+              // Calendar (visual) date format — render a mini month calendar.
+              if (el.dateFormat === 'calendar') {
+                const dk = getElementDateKey(el.content)
+                if (dk && rawDateMap[dk]) {
+                  const base = Math.max(6, Math.round((el.width || 220) / 18))
+                  return (
+                    <AnimatedElement
+                      key={el.id || idx}
+                      el={el}
+                      className="absolute"
+                      style={{ left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: elZIndex, fontSize: base, fontFamily: `'${el.fontFamily}', serif` }}
+                    >
+                      <MiniCalendar date={rawDateMap[dk]} accent={el.color || '#df6746'} textColor={el.color || '#1f2937'} />
+                    </AnimatedElement>
+                  )
+                }
               }
 
               // Text element

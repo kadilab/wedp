@@ -13,7 +13,8 @@ import AutoFitText from '../../components/templates/AutoFitText'
 import FontStyles, { useCustomFonts } from '../../components/templates/FontStyles'
 import { GOOGLE_FONT_NAMES } from '../../utils/fonts'
 import { fontAPI } from '../../services/api'
-import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable, formatEventDate, DATE_VARIABLE_KEYS, TIME_FORMAT_OPTIONS, DEFAULT_TIME_FORMAT, containsTimeVariable, formatEventTime, TIME_VARIABLE_KEYS } from '../../utils/dateFormats'
+import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable, formatEventDate, DATE_VARIABLE_KEYS, TIME_FORMAT_OPTIONS, DEFAULT_TIME_FORMAT, containsTimeVariable, formatEventTime, TIME_VARIABLE_KEYS, getElementDateKey } from '../../utils/dateFormats'
+import MiniCalendar from '../../components/templates/MiniCalendar'
 import { searchIcons, iconPreviewUrl, fetchIconDataUrl, ICON_SUGGESTIONS, EMOJI_GROUPS } from '../../utils/elementLibrary'
 import {
   ArrowLeftIcon,
@@ -1618,6 +1619,20 @@ export default function TemplateDesigner({ clientMode = false }) {
       if (isNaN(d.getTime())) return str;
       const pad = n => n.toString().padStart(2, '0');
       return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    // Calendar (visual) date format — render a mini month calendar with the
+    // event day highlighted instead of a text date.
+    if (el.dateFormat === 'calendar' && !['qrcode', 'photo', 'image'].includes(el.type)) {
+      const dk = getElementDateKey(el.content)
+      if (dk) {
+        const base = Math.max(6, Math.round((el.width || 220) / 18))
+        return (
+          <div className="w-full h-full" style={{ fontSize: base }}>
+            <MiniCalendar date={SAMPLE_RAW_DATES[dk]} accent={el.color || '#df6746'} textColor={el.color || '#1f2937'} />
+          </div>
+        )
+      }
     }
 
     let text = el.content || '';

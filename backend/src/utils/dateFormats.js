@@ -132,4 +132,39 @@ function timeComponentVars(named) {
   return out;
 }
 
-module.exports = { DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, formatEventDate, dateComponents, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime, timeComponents, timeComponentVars };
+// The first date variable used in a text (drives calendar rendering).
+function getElementDateKey(text) {
+  if (!text) return null;
+  return DATE_VARIABLE_KEYS.find((k) => text.includes(`{{${k}}}`)) || null;
+}
+
+// Server-side mini month calendar (HTML string) for generated PDFs/images.
+// Plain JS (no date-fns) — mirrors frontend/components/templates/MiniCalendar.
+function miniCalendarHTML(value, { accent = '#df6746', textColor = '#1f2937' } = {}) {
+  const d = parseDate(value);
+  if (!d) return '';
+  const year = d.getFullYear(), month = d.getMonth(), day = d.getDate();
+  const first = new Date(year, month, 1);
+  const offset = (first.getDay() + 6) % 7; // Monday-start
+  const gridStart = new Date(year, month, 1 - offset);
+  const weekdays = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+  const title = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  const head = weekdays.map((w) =>
+    `<div style="display:flex;align-items:center;justify-content:center;opacity:.6;font-size:.7em;text-transform:capitalize;font-weight:500">${w}</div>`
+  ).join('');
+  let cells = '';
+  for (let i = 0; i < 42; i++) {
+    const cur = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
+    const isDay = cur.getFullYear() === year && cur.getMonth() === month && cur.getDate() === day;
+    const inMonth = cur.getMonth() === month;
+    const span = `<span style="display:inline-flex;align-items:center;justify-content:center;width:1.7em;height:1.7em;border-radius:9999px;${isDay ? `background:${accent};color:#fff;font-weight:700` : `color:${textColor};opacity:${inMonth ? 1 : 0.28}`}">${cur.getDate()}</span>`;
+    cells += `<div style="display:flex;align-items:center;justify-content:center;font-size:.8em">${span}</div>`;
+  }
+  return `<div style="width:100%;height:100%;display:flex;flex-direction:column;color:${textColor}">` +
+    `<div style="text-align:center;font-weight:600;font-size:1.1em;text-transform:capitalize">${title}</div>` +
+    `<div style="display:grid;grid-template-columns:repeat(7,1fr);margin-top:4px">${head}</div>` +
+    `<div style="display:grid;grid-template-columns:repeat(7,1fr);flex:1;margin-top:2px">${cells}</div>` +
+    `</div>`;
+}
+
+module.exports = { DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, formatEventDate, dateComponents, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime, timeComponents, timeComponentVars, getElementDateKey, miniCalendarHTML };

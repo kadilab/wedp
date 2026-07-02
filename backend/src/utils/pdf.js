@@ -2,7 +2,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
-const { DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, formatEventDate, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime, timeComponentVars } = require('./dateFormats');
+const { DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, formatEventDate, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime, timeComponentVars, getElementDateKey, miniCalendarHTML } = require('./dateFormats');
 const { buildGoogleFontsHref, customFontFaceCss } = require('./fonts');
 const { getSiteName } = require('./settings');
 
@@ -873,6 +873,15 @@ function generateDesignBasedHTML(options) {
         return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};box-sizing:border-box;${borderStyle}${radiusStyle}background:${placeholderBg};">
           ${photoSrc ? `<img src="${photoSrc}" style="${imgStyle}" />` : ''}
         </div>`;
+      }
+
+      // Calendar (visual) date format — mini month calendar with the day highlighted.
+      if (el.dateFormat === 'calendar') {
+        const dk = getElementDateKey(el.content);
+        if (dk && rawDateMap[dk]) {
+          const base = Math.max(6, Math.round((el.width || 220) / 18));
+          return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};font-family:'${el.fontFamily}',serif;font-size:${base}px;">${miniCalendarHTML(rawDateMap[dk], { accent: el.color || '#df6746', textColor: el.color || '#1f2937' })}</div>`;
+        }
       }
 
       // Programme label elements with optional custom icon
