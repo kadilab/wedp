@@ -1438,7 +1438,7 @@ export default function TemplateDesigner({ clientMode = false }) {
 
   // ===================== SAVE =====================
 
-  const handleSave = async () => {
+  const handleSave = async ({ publish = false } = {}) => {
     if (!clientMode && !templateName.trim()) {
       toast.error('Veuillez entrer un nom pour le template')
       setActivePanel('settings')
@@ -1538,6 +1538,9 @@ export default function TemplateDesigner({ clientMode = false }) {
         canvasHeight,
         margins,
         selectedFormat,
+        // Publish → make it visible to clients; otherwise leave the draft state
+        // untouched (new templates default to unpublished on the backend).
+        ...(publish ? { isActive: true } : {}),
         config: {
           designElements: cleanElements,
           backgroundImage: backgroundUrl,
@@ -1571,7 +1574,7 @@ export default function TemplateDesigner({ clientMode = false }) {
         // Invalidate cache to ensure fresh data
         queryClient.invalidateQueries(['admin-template', templateId])
         queryClient.invalidateQueries(['admin-templates'])
-        toast.success('Template mis à jour avec succès !')
+        toast.success(publish ? 'Template publié — visible par les clients !' : 'Template mis à jour !')
       } else {
         // Create new
         console.log('Creating new template')
@@ -1584,7 +1587,7 @@ export default function TemplateDesigner({ clientMode = false }) {
           queryClient.invalidateQueries(['admin-template', newId])
           queryClient.invalidateQueries(['admin-templates'])
           
-          toast.success('Template créé avec succès !')
+          toast.success(publish ? 'Template publié — visible par les clients !' : 'Template créé (brouillon).')
           console.log('Redirecting to template:', newId)
           navigate(`/admin/templates/${newId}/design`, { replace: true })
         } else {
@@ -1866,19 +1869,32 @@ export default function TemplateDesigner({ clientMode = false }) {
 
           <div className="w-px h-6 bg-gray-200" />
 
-          {/* Save */}
+          {/* Save (draft) */}
           <button
-            onClick={handleSave}
+            onClick={() => handleSave()}
             disabled={saving}
-            className="flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 font-medium text-sm shadow-sm"
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg disabled:opacity-50 font-medium text-sm ${clientMode ? 'bg-primary-600 text-white hover:bg-primary-700 shadow-sm' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
           >
             {saving ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className={`w-4 h-4 border-2 ${clientMode ? 'border-white' : 'border-gray-500'} border-t-transparent rounded-full animate-spin`} />
             ) : (
               <CheckIcon className="h-4 w-4" />
             )}
-            {isEditing ? 'Mettre à jour' : 'Enregistrer le template'}
+            {clientMode ? 'Sauvegarder' : 'Enregistrer le brouillon'}
           </button>
+
+          {/* Publish (admin only) */}
+          {!clientMode && (
+            <button
+              onClick={() => handleSave({ publish: true })}
+              disabled={saving}
+              className="flex items-center gap-2 px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium text-sm shadow-sm"
+              title="Enregistrer et rendre visible aux clients"
+            >
+              <CheckIcon className="h-4 w-4" />
+              Publier
+            </button>
+          )}
         </div>
       </div>
 
