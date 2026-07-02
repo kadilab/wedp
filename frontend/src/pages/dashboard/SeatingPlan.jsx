@@ -183,8 +183,8 @@ export default function SeatingPlan() {
   const [activeGuest, setActiveGuest] = useState(null)
   const [modal, setModal] = useState(null) // null | { table } (table=null → add)
   const [zoom, setZoom] = useState(1)
-  const initialized = useRef(false)
   const saveTimer = useRef(null)
+  const lastSyncedRef = useRef(0)
 
   // Keep the other views (guest list, dashboard, tables) in sync so the user
   // doesn't have to refresh after assigning guests / editing tables here.
@@ -195,20 +195,27 @@ export default function SeatingPlan() {
     queryClient.invalidateQueries('weddings')
   }
 
-  const { data, isLoading } = useQuery(
+  const { data, isLoading, dataUpdatedAt } = useQuery(
     ['seating', weddingId],
     () => guestAPI.getSeating(weddingId),
-    { refetchOnWindowFocus: false }
+    // Always refetch when the user (re)opens the page so it never shows a stale
+    // cached plan. Window-focus refetch stays off to avoid clobbering edits.
+    { refetchOnWindowFocus: false, refetchOnMount: 'always' }
   )
 
+  // Seed local state from the server whenever fresh data arrives — but never
+  // while an edit is in flight (active drag or a pending debounced table save),
+  // so optimistic changes aren't clobbered. `dataUpdatedAt` changes on every
+  // successful (re)fetch, which is what lets a re-entry pick up new data.
   useEffect(() => {
-    if (data && !initialized.current) {
-      setTables(data.data.tables || [])
-      setGuests(data.data.guests || [])
-      setUsesPlusOnes(eventUsesPlusOnes(data.data.eventType))
-      initialized.current = true
-    }
-  }, [data])
+    if (!data) return
+    if (activeGuest || saveTimer.current) return
+    if (dataUpdatedAt === lastSyncedRef.current) return
+    lastSyncedRef.current = dataUpdatedAt
+    setTables(data.data.tables || [])
+    setGuests(data.data.guests || [])
+    setUsesPlusOnes(eventUsesPlusOnes(data.data.eventType))
+  }, [data, dataUpdatedAt, activeGuest])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -239,6 +246,7 @@ export default function SeatingPlan() {
   const scheduleSave = (next) => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
+      saveTimer.current = null
       weddingAPI.saveTables(weddingId, next)
         .then(syncOtherViews)
         .catch(() => toast.error('Échec de la sauvegarde des tables'))
