@@ -91,22 +91,22 @@ const STAT_ACCENTS = {
 function StatCard({ label, value, icon: Icon, accent = 'primary', subtitle, badge }) {
   const tint = STAT_ACCENTS[accent] || STAT_ACCENTS.primary
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm text-gray-500">{label}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
-          {subtitle && <p className="text-xs text-gray-400 mt-0.5 truncate">{subtitle}</p>}
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5">
+      <div className="flex items-center gap-3">
+        <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${tint}`}>
+          <Icon className="h-5 w-5" />
         </div>
-        <div className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 ${tint}`}>
-          <Icon className="h-6 w-6" />
+        <div className="min-w-0 flex-1">
+          <p className="text-xl font-bold text-gray-900 leading-tight">{value}</p>
+          <p className="text-xs text-gray-500 truncate">{label}</p>
         </div>
+        {badge && (
+          <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-600">
+            {badge}
+          </span>
+        )}
       </div>
-      {badge && (
-        <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600">
-          {badge}
-        </div>
-      )}
+      {subtitle && <p className="text-[11px] text-gray-400 mt-1.5 truncate">{subtitle}</p>}
     </div>
   )
 }
