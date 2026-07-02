@@ -1930,28 +1930,30 @@ export default function TemplateDesigner({ clientMode = false }) {
 
         {/* Left Panel */}
         <div className={`${panelCollapsed ? 'hidden' : 'w-72'} bg-white border-r flex flex-col shrink-0 overflow-hidden`}>
-          {/* Panel Tabs */}
-          <div className="flex border-b items-stretch">
-            {[
-              { id: 'format', label: 'Format', icon: ArrowsPointingOutIcon },
-              { id: 'background', label: 'Fond', icon: PhotoIcon },
-              { id: 'elements', label: 'Éléments', icon: CursorArrowRaysIcon },
-              { id: 'settings', label: 'Infos', icon: Cog6ToothIcon }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActivePanel(tab.id)}
-                className={`flex-1 flex flex-col items-center py-3 text-xs font-medium transition-colors ${
-                  activePanel === tab.id ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <tab.icon className="h-4 w-4 mb-1" />
-                {tab.label}
-              </button>
-            ))}
+          {/* Panel Tabs — soft pills */}
+          <div className="flex items-center gap-1 p-2 border-b">
+            <div className="flex-1 grid grid-cols-4 gap-1">
+              {[
+                { id: 'format', label: 'Format', icon: ArrowsPointingOutIcon },
+                { id: 'background', label: 'Fond', icon: PhotoIcon },
+                { id: 'elements', label: 'Éléments', icon: CursorArrowRaysIcon },
+                { id: 'settings', label: 'Infos', icon: Cog6ToothIcon }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActivePanel(tab.id)}
+                  className={`flex flex-col items-center gap-1 py-2 rounded-lg text-[11px] font-medium transition-colors ${
+                    activePanel === tab.id ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  <tab.icon className="h-4 w-4" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
             <button
               onClick={() => setPanelCollapsed(true)}
-              className="px-2 text-gray-400 hover:text-primary-600 border-l"
+              className="p-2 text-gray-400 hover:text-primary-600 hover:bg-gray-100 rounded-lg shrink-0"
               title="Masquer le panneau"
             >
               <ChevronDoubleLeftIcon className="h-4 w-4" />
