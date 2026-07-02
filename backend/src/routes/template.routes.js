@@ -389,6 +389,9 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
         canvasWidth: canvasWidth || CANVAS_WIDTH_DEFAULT,
         canvasHeight: canvasHeight || CANVAS_HEIGHT_DEFAULT,
         pricePerInvitation: parseFloat(pricePerInvitation) || 0,
+        // New admin templates start as an unpublished DRAFT (isActive:false) so
+        // they never appear in the client gallery until explicitly published.
+        isActive: req.body.isActive === true,
         config
       }
     });

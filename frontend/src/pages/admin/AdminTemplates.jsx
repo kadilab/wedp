@@ -14,7 +14,9 @@ import {
   ExclamationTriangleIcon,
   DocumentDuplicateIcon,
   PaintBrushIcon,
-  PlusIcon
+  PlusIcon,
+  CheckCircleIcon,
+  EyeSlashIcon
 } from '@heroicons/react/24/outline'
 
 export default function AdminTemplates() {
@@ -248,8 +250,8 @@ export default function AdminTemplates() {
                           </div>
                         )}
                         {!template.isActive && (
-                          <div className="absolute top-3 left-3 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-medium">
-                            Inactif
+                          <div className="absolute top-3 left-3 bg-amber-500 text-white px-2.5 py-1 rounded-full text-xs font-semibold shadow-lg">
+                            🚧 Brouillon — non visible
                           </div>
                         )}
 
@@ -262,6 +264,13 @@ export default function AdminTemplates() {
                               title="Modifier le design"
                             >
                               <PaintBrushIcon className="h-5 w-5" />
+                            </button>
+                            <button
+                              onClick={() => updateMutation.mutate({ id: template.id, data: { isActive: !template.isActive } })}
+                              className={`p-2.5 bg-white rounded-full transition-colors shadow-lg ${template.isActive ? 'text-amber-600 hover:bg-amber-50' : 'text-green-600 hover:bg-green-50'}`}
+                              title={template.isActive ? 'Dépublier (masquer aux clients)' : 'Publier (rendre visible)'}
+                            >
+                              {template.isActive ? <EyeSlashIcon className="h-5 w-5" /> : <CheckCircleIcon className="h-5 w-5" />}
                             </button>
                             <button
                               onClick={() => handleEditInfo(template)}
