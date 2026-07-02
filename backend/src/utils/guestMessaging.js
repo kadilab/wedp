@@ -25,10 +25,17 @@ function formatDate(date) {
   }
 }
 
-// The public, per-guest invitation URL.
+// The public, per-guest invitation URL (the SPA view).
 function buildInvitationUrl(wedding, invitation) {
   const base = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
   return `${base}/i/${wedding.slug}/${invitation.uniqueCode}`;
+}
+
+// The shareable URL (OG-enabled): shows a rich card on WhatsApp/Facebook then
+// redirects to the SPA invitation view. Used in the message sent to guests.
+function buildShareUrl(wedding, invitation) {
+  const base = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+  return `${base}/s/${wedding.slug}/${invitation.uniqueCode}`;
 }
 
 // Ensure the guest has an Invitation (with a unique code + QR). Returns it.
@@ -103,7 +110,9 @@ async function buildGuestShare(wedding, guest) {
     || await prisma.invitation.findUnique({ where: { guestId: guest.id } });
   if (!invitation) throw new NoInvitationError(guest);
   const invitationUrl = buildInvitationUrl(wedding, invitation);
-  const message = buildMessage(wedding, guest, invitationUrl);
+  const shareUrl = buildShareUrl(wedding, invitation);
+  // The message embeds the OG-enabled share link so recipients see a rich card.
+  const message = buildMessage(wedding, guest, shareUrl);
   const phone = normalizePhone(guest.phone);
   return {
     guestId: guest.id,
@@ -111,6 +120,7 @@ async function buildGuestShare(wedding, guest) {
     phone,
     hasPhone: !!phone,
     invitationUrl,
+    shareUrl,
     message,
     waUrl: buildWaUrl(guest.phone, message)
   };
@@ -119,6 +129,7 @@ async function buildGuestShare(wedding, guest) {
 module.exports = {
   eventName,
   buildInvitationUrl,
+  buildShareUrl,
   ensureInvitation,
   buildMessage,
   normalizePhone,

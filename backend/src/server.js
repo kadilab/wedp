@@ -172,6 +172,7 @@ app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/public', publicRoutes); // Public invitation routes
 app.use('/api/fonts', require('./routes/font.routes')); // Custom font upload/list
 app.use('/api/webhooks', require('./routes/webhook.routes')); // K-PAY callbacks
+app.use('/s', require('./routes/share.routes')); // OG share links (rich WhatsApp/FB preview → redirects to /i)
 
 // Live online users registry (socketId -> userId), exposed for the admin
 // supervision dashboard.
