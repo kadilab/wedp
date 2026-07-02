@@ -1800,11 +1800,13 @@ export default function TemplateDesigner({ clientMode = false }) {
 
         <div className="flex items-center gap-3">
           {/* Zoom */}
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1">
-            <button onClick={() => setZoom(z => Math.max(0.3, z - 0.1))} className="text-sm font-bold px-1">-</button>
-            <span className="text-xs w-12 text-center">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="text-sm font-bold px-1">+</button>
+          <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
+            <button onClick={() => setZoom(z => Math.max(0.3, +(z - 0.1).toFixed(2)))} className="w-7 h-7 rounded-md hover:bg-white text-gray-600 flex items-center justify-center text-base font-bold leading-none" title="Dézoomer">−</button>
+            <button onClick={() => setZoom(0.65)} className="text-xs font-medium w-11 text-center text-gray-700 tabular-nums hover:text-primary-600" title="Réinitialiser le zoom">{Math.round(zoom * 100)}%</button>
+            <button onClick={() => setZoom(z => Math.min(2, +(z + 0.1).toFixed(2)))} className="w-7 h-7 rounded-md hover:bg-white text-gray-600 flex items-center justify-center text-base font-bold leading-none" title="Zoomer">+</button>
           </div>
+
+          <div className="w-px h-6 bg-gray-200" />
 
           {/* Undo / Redo */}
           <div className="flex items-center gap-1">
@@ -1825,6 +1827,8 @@ export default function TemplateDesigner({ clientMode = false }) {
               <ArrowUturnRightIcon className="h-5 w-5" />
             </button>
           </div>
+
+          <div className="w-px h-6 bg-gray-200" />
 
           {/* Grid */}
           <button
@@ -1858,6 +1862,8 @@ export default function TemplateDesigner({ clientMode = false }) {
           <button onClick={resetLayout} className="p-2 text-gray-400 hover:text-orange-500 rounded-lg" title="Réinitialiser les éléments">
             <ArrowPathIcon className="h-5 w-5" />
           </button>
+
+          <div className="w-px h-6 bg-gray-200" />
 
           {/* Save */}
           <button
@@ -3411,14 +3417,21 @@ export default function TemplateDesigner({ clientMode = false }) {
           )}
         </div>
 
-        {/* Canvas Area */}
-        <div className="flex-1 overflow-auto bg-gray-200 p-6 flex items-start justify-center">
+        {/* Canvas Area — subtle dotted "workspace" background (Figma/Canva feel) */}
+        <div
+          className="flex-1 overflow-auto p-8 flex items-start justify-center"
+          style={{
+            backgroundColor: '#eef1f5',
+            backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)',
+            backgroundSize: '18px 18px'
+          }}
+        >
           <div style={{ width: canvasWidth * zoom, height: canvasHeight * zoom, transformOrigin: 'top center' }}>
             <div
               ref={canvasRef}
               data-canvas="true"
               onMouseDown={handleCanvasMouseDown}
-              className="relative bg-white shadow-2xl overflow-hidden select-none"
+              className="relative bg-white shadow-2xl ring-1 ring-black/5 overflow-hidden select-none"
               style={{ width: canvasWidth, height: canvasHeight, transform: `scale(${zoom})`, transformOrigin: 'top left' }}
             >
               {/* Background Image — stretched to exact canvas dimensions */}
