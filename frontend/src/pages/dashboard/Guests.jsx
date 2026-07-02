@@ -102,22 +102,6 @@ export default function Guests() {
     }
   }
 
-  const exportGuests = async (format = 'csv') => {
-    try {
-      const response = await guestAPI.export(weddingId, format)
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `invites-${weddingId}.${format}`)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      toast.success('Export réussi')
-    } catch (error) {
-      toast.error('Erreur lors de l\'export')
-    }
-  }
-
   const fileInputRef = useRef(null)
   const [importing, setImporting] = useState(false)
 
@@ -250,14 +234,6 @@ export default function Guests() {
           >
             <ArrowUpTrayIcon className="h-4 w-4 mr-1" />
             {importing ? 'Import...' : 'Importer Excel'}
-          </button>
-          <button onClick={() => exportGuests('csv')} className="btn-secondary btn-sm">
-            <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
-            CSV
-          </button>
-          <button onClick={() => exportGuests('xlsx')} className="btn-secondary btn-sm">
-            <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
-            Excel
           </button>
           <button
             onClick={() => setShowWaBulk(true)}
