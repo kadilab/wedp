@@ -37,7 +37,7 @@ const storage = multer.diskStorage({
       folder = 'uploads/icons';
     } else if (file.fieldname === 'font') {
       folder = 'uploads/fonts';
-    } else if (file.fieldname === 'csv' || file.fieldname === 'guestList') {
+    } else if (file.fieldname === 'csv' || file.fieldname === 'guestList' || file.fieldname === 'file') {
       folder = 'uploads/csv';
     }
     
@@ -59,11 +59,12 @@ const fileFilter = (req, file, cb) => {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   ];
   
-  if (file.fieldname === 'csv' || file.fieldname === 'guestList') {
-    if (allowedDocTypes.includes(file.mimetype) || file.originalname.endsWith('.csv') || file.originalname.endsWith('.xlsx')) {
+  // Guest import (fieldname 'file') and legacy 'csv'/'guestList' accept spreadsheets.
+  if (file.fieldname === 'csv' || file.fieldname === 'guestList' || file.fieldname === 'file') {
+    if (allowedDocTypes.includes(file.mimetype) || /\.(csv|xlsx|xls)$/i.test(file.originalname)) {
       cb(null, true);
     } else {
-      cb(new Error('Only CSV and Excel files are allowed'), false);
+      cb(new Error('Formats acceptés : .csv, .xlsx, .xls'), false);
     }
   } else if (file.fieldname === 'font') {
     // Font files — browsers send inconsistent mimetypes, so trust the extension.
