@@ -6,6 +6,7 @@ import AutoFitText from './AutoFitText'
 import FontStyles from './FontStyles'
 import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars, formatEventTime, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, timeComponentVars, getElementDateKey } from '../../utils/dateFormats'
 import MiniCalendar from './MiniCalendar'
+import ShapeElement from './ShapeElement'
 import { getEventDisplayTitle } from '../../utils/eventTypes'
 
 // Rich, realistic test data used when no real event is provided (template
@@ -268,6 +269,15 @@ export default function TemplatePreview({ template, className = '', weddingData 
                         <rect x="14" y="18" width="2" height="2" fill="#9ca3af" stroke="none"/>
                         <rect x="18" y="18" width="2" height="2" fill="#9ca3af" stroke="none"/>
                       </svg>
+                    </div>
+                  )
+                }
+
+                // Decorative shape (rectangle / circle / line)
+                if (el.type === 'shape') {
+                  return (
+                    <div key={el.id || idx} style={{ position: 'absolute', left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: zIdx }}>
+                      <ShapeElement el={el} />
                     </div>
                   )
                 }

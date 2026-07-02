@@ -16,6 +16,7 @@ import { GOOGLE_FONT_NAMES } from '../../utils/fonts'
 import { fontAPI } from '../../services/api'
 import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable, formatEventDate, DATE_VARIABLE_KEYS, TIME_FORMAT_OPTIONS, DEFAULT_TIME_FORMAT, containsTimeVariable, formatEventTime, TIME_VARIABLE_KEYS, getElementDateKey } from '../../utils/dateFormats'
 import MiniCalendar, { CALENDAR_MARKER_OPTIONS } from '../../components/templates/MiniCalendar'
+import ShapeElement from '../../components/templates/ShapeElement'
 import { searchIcons, iconPreviewUrl, fetchIconDataUrl, ICON_SUGGESTIONS, EMOJI_GROUPS } from '../../utils/elementLibrary'
 import {
   ArrowLeftIcon,
@@ -1207,6 +1208,27 @@ export default function TemplateDesigner({ clientMode = false }) {
     setActivePanel('properties')
   }
 
+  // Adds a decorative shape (rectangle, circle, or line/divider).
+  const addShapeElement = (shapeKind) => {
+    const id = `shape_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const isLine = shapeKind === 'line'
+    const w = isLine ? Math.round(canvasWidth * 0.5) : Math.min(220, Math.round(canvasWidth * 0.28))
+    const h = isLine ? 20 : (shapeKind === 'circle' ? w : Math.round(w * 0.6))
+    const newElement = {
+      id, type: 'shape', shapeKind,
+      label: shapeKind === 'circle' ? 'Cercle' : isLine ? 'Ligne' : 'Rectangle',
+      content: '',
+      x: Math.round((canvasWidth - w) / 2), y: Math.round(canvasHeight * 0.4),
+      width: w, height: h, visible: true, locked: false,
+      fillColor: isLine ? '#333333' : '#df6746', fillOpacity: 100,
+      borderWidth: 0, borderColor: '#333333', borderRadius: 0,
+      lineThickness: 2, opacity: 100, rotation: 0
+    }
+    setElements(prev => [...prev, newElement])
+    setSelectedId(id)
+    setActivePanel('properties')
+  }
+
   // ---- Element library: icon search (Iconify) + emoji insertion ----
   const runIconSearch = async (q) => {
     const query = (q ?? iconQuery).trim()
@@ -1279,7 +1301,7 @@ export default function TemplateDesigner({ clientMode = false }) {
     }
   }
 
-  const DELETABLE_TYPES = ['custom', 'photo', 'image']
+  const DELETABLE_TYPES = ['custom', 'photo', 'image', 'shape']
 
   const deleteElement = (id) => {
     const el = elements.find(e => e.id === id)
@@ -1632,6 +1654,9 @@ export default function TemplateDesigner({ clientMode = false }) {
         zIndex: el.zIndex ?? 0,
         dateFormat: el.dateFormat || 'datetime',  // Per-element date variable format
         timeFormat: el.timeFormat || 'colon',  // Per-element time variable format
+        calendarMarker: el.calendarMarker || 'circle',  // Visual calendar: highlighted-day marker
+        calendarMarkerUrl: el.calendarMarkerUrl || '',
+        calendarMarkerSize: el.calendarMarkerSize ?? 1,
         curve: el.curve ?? 0,  // Arc/curved text amount (-100..100)
         autoFit: el.autoFit ?? false,  // Shrink long text to fit the box
         iconUrl: el.iconUrl || '',  // Preserve icon URLs for programme labels and decorative images
@@ -1649,6 +1674,11 @@ export default function TemplateDesigner({ clientMode = false }) {
         borderRadius: el.borderRadius ?? 0,
         shape: el.shape || 'rect',
         customClipPath: el.customClipPath || '',  // Free-form shape (clip-path CSS)
+        // Decorative shape elements (rect / circle / line)
+        shapeKind: el.shapeKind || 'rect',
+        fillColor: el.fillColor || '#df6746',
+        fillOpacity: el.fillOpacity ?? 100,
+        lineThickness: el.lineThickness ?? 2,
         // Per-element animation (played only on the public invitation view)
         animation: el.animation || null
       }))
@@ -1754,6 +1784,11 @@ export default function TemplateDesigner({ clientMode = false }) {
   // ===================== RENDER ELEMENT CONTENT =====================
 
   const renderElementContent = (el) => {
+
+    // Decorative shape (rectangle / circle / line) — no text content.
+    if (el.type === 'shape') {
+      return <ShapeElement el={el} />
+    }
 
     // Helper pour formater une date en JJ-MM-YYYY HH:mm
     function formatDateTime(str) {
@@ -2422,6 +2457,28 @@ export default function TemplateDesigner({ clientMode = false }) {
                 Cliquez sur un élément pour le sélectionner. Utilisez Ctrl+Clic pour la sélection multiple.
               </p>
 
+              {/* ===== Decorative shapes ===== */}
+              <div className="border border-gray-200 rounded-lg p-2.5 mb-3">
+                <div className="flex items-center gap-1 mb-2">
+                  <RectangleGroupIcon className="h-4 w-4 text-primary-500" />
+                  <h4 className="text-xs font-semibold text-gray-700">Formes & traits</h4>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button onClick={() => addShapeElement('rect')} className="flex flex-col items-center gap-1 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600 transition-colors">
+                    <RectangleGroupIcon className="h-5 w-5" />
+                    <span className="text-[11px] font-medium">Rectangle</span>
+                  </button>
+                  <button onClick={() => addShapeElement('circle')} className="flex flex-col items-center gap-1 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600 transition-colors">
+                    <span className="h-5 w-5 rounded-full border-2 border-current" />
+                    <span className="text-[11px] font-medium">Cercle</span>
+                  </button>
+                  <button onClick={() => addShapeElement('line')} className="flex flex-col items-center gap-1 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600 transition-colors">
+                    <MinusIcon className="h-5 w-5" />
+                    <span className="text-[11px] font-medium">Ligne</span>
+                  </button>
+                </div>
+              </div>
+
               {/* ===== Element library: icons (Iconify) + emojis ===== */}
               <div className="border border-gray-200 rounded-lg p-2.5 mb-3 bg-gradient-to-br from-primary-50/40 to-white">
                 <div className="flex items-center gap-1 mb-2">
@@ -2865,6 +2922,77 @@ export default function TemplateDesigner({ clientMode = false }) {
                     <p className="text-xs text-gray-500 mt-0.5">Type: {selectedElement.type}</p>
                   </div>
                   <div className="p-4 space-y-5">
+                    {/* ===== Shape element properties ===== */}
+                    {selectedElement.type === 'shape' && (
+                      <div className="space-y-4">
+                        {selectedElement.shapeKind !== 'line' && (
+                          <>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Couleur de remplissage</label>
+                              <div className="flex items-center gap-2">
+                                <input type="color" value={selectedElement.fillColor || '#df6746'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
+                                <input type="text" value={selectedElement.fillColor || '#df6746'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border rounded font-mono" />
+                              </div>
+                              {palette.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                  {palette.map((c) => (
+                                    <button key={c} onClick={() => updateElement(selectedId, { fillColor: c })} className="w-6 h-6 rounded-full border-2 border-gray-200 hover:scale-110 transition-transform" style={{ backgroundColor: c }} title={c} />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1"><span>Opacité du remplissage</span><span className="text-gray-400">{selectedElement.fillOpacity ?? 100}%</span></label>
+                              <input type="range" min="0" max="100" value={selectedElement.fillOpacity ?? 100} onChange={(e) => updateElement(selectedId, { fillOpacity: parseInt(e.target.value) })} className="w-full accent-primary-600" />
+                            </div>
+                          </>
+                        )}
+                        {selectedElement.shapeKind === 'line' && (
+                          <>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Couleur du trait</label>
+                              <div className="flex items-center gap-2">
+                                <input type="color" value={selectedElement.fillColor || '#333333'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
+                                <input type="text" value={selectedElement.fillColor || '#333333'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border rounded font-mono" />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1"><span>Épaisseur du trait</span><span className="text-gray-400">{selectedElement.lineThickness ?? 2}px</span></label>
+                              <input type="range" min="1" max="40" value={selectedElement.lineThickness ?? 2} onChange={(e) => updateElement(selectedId, { lineThickness: parseInt(e.target.value) })} className="w-full accent-primary-600" />
+                            </div>
+                          </>
+                        )}
+                        {selectedElement.shapeKind === 'rect' && (
+                          <div>
+                            <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1"><span>Arrondi des coins</span><span className="text-gray-400">{selectedElement.borderRadius ?? 0}px</span></label>
+                            <input type="range" min="0" max="200" value={selectedElement.borderRadius ?? 0} onChange={(e) => updateElement(selectedId, { borderRadius: parseInt(e.target.value) })} className="w-full accent-primary-600" />
+                          </div>
+                        )}
+                        {selectedElement.shapeKind !== 'line' && (
+                          <>
+                            <div>
+                              <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1"><span>Bordure</span><span className="text-gray-400">{selectedElement.borderWidth ?? 0}px</span></label>
+                              <input type="range" min="0" max="30" value={selectedElement.borderWidth ?? 0} onChange={(e) => updateElement(selectedId, { borderWidth: parseInt(e.target.value) })} className="w-full accent-primary-600" />
+                            </div>
+                            {(selectedElement.borderWidth ?? 0) > 0 && (
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Couleur de la bordure</label>
+                                <div className="flex items-center gap-2">
+                                  <input type="color" value={selectedElement.borderColor || '#333333'} onChange={(e) => updateElement(selectedId, { borderColor: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
+                                  <input type="text" value={selectedElement.borderColor || '#333333'} onChange={(e) => updateElement(selectedId, { borderColor: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border rounded font-mono" />
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        <div>
+                          <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1"><span>Opacité générale</span><span className="text-gray-400">{selectedElement.opacity ?? 100}%</span></label>
+                          <input type="range" min="0" max="100" value={selectedElement.opacity ?? 100} onChange={(e) => updateElement(selectedId, { opacity: parseInt(e.target.value) })} className="w-full accent-primary-600" />
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedElement.type !== 'shape' && (<>
                     {/* Content */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Contenu</label>
@@ -3081,6 +3209,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                         <p className="text-[10px] text-gray-400 mt-1">Formats : PNG, SVG, JPEG, WEBP (max 5 Mo)</p>
                       </div>
                     )}
+                    </>)}
 
                     {/* Position */}
                     <details className="group border-t pt-3" open>

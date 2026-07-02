@@ -363,6 +363,11 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       borderRadius: el.borderRadius ?? 0,
       shape: el.shape || 'rect',
       customClipPath: el.customClipPath || '',
+      // Decorative shape elements (rect / circle / line)
+      shapeKind: el.shapeKind || 'rect',
+      fillColor: el.fillColor || '#df6746',
+      fillOpacity: el.fillOpacity ?? 100,
+      lineThickness: el.lineThickness ?? 2,
       // Per-element animation (played only on the public invitation view)
       animation: el.animation || null
     }));
@@ -602,6 +607,11 @@ router.put('/:id/design', authenticate, async (req, res) => {
       borderRadius: el.borderRadius ?? 0,
       shape: el.shape || 'rect',
       customClipPath: el.customClipPath || '',
+      // Decorative shape elements (rect / circle / line)
+      shapeKind: el.shapeKind || 'rect',
+      fillColor: el.fillColor || '#df6746',
+      fillOpacity: el.fillOpacity ?? 100,
+      lineThickness: el.lineThickness ?? 2,
       // Per-element animation (played only on the public invitation view)
       animation: el.animation || null
     }));

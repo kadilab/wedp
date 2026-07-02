@@ -10,6 +10,7 @@ import { fr } from 'date-fns/locale'
 import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
 import MiniCalendar from '../../components/templates/MiniCalendar'
+import ShapeElement from '../../components/templates/ShapeElement'
 import AutoFitText from '../../components/templates/AutoFitText'
 import FontStyles from '../../components/templates/FontStyles'
 import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime, timeComponentVars, getElementDateKey } from '../../utils/dateFormats'
@@ -506,6 +507,20 @@ export default function InvitationView() {
               // visual guide). Keep them raw so the render is WYSIWYG.
               const elLeft = el.x
               const elTop = el.y
+
+              // Decorative shape (rectangle / circle / line)
+              if (el.type === 'shape') {
+                return (
+                  <AnimatedElement
+                    key={el.id || idx}
+                    el={el}
+                    className="absolute"
+                    style={{ left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: elZIndex }}
+                  >
+                    <ShapeElement el={el} />
+                  </AnimatedElement>
+                )
+              }
 
               // QR code element
               if (el.type === 'qrcode' && invitationInfo?.qrCodeData) {

@@ -824,6 +824,22 @@ function generateDesignBasedHTML(options) {
       const elLeft = el.x;
       const elTop = el.y;
 
+      // Decorative shape (rectangle / circle / line)
+      if (el.type === 'shape') {
+        const posStyle = `position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};`;
+        const op = (el.opacity ?? 100) / 100;
+        if (el.shapeKind === 'line') {
+          const t = el.lineThickness ?? 2;
+          return `<div style="${posStyle}display:flex;align-items:center;opacity:${op};"><div style="width:100%;height:${t}px;background:${el.fillColor || '#333333'};border-radius:${t}px;"></div></div>`;
+        }
+        const hex = (el.fillColor || '#df6746').replace('#', '');
+        const nn = hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex;
+        const fill = `rgba(${parseInt(nn.slice(0, 2), 16) || 0},${parseInt(nn.slice(2, 4), 16) || 0},${parseInt(nn.slice(4, 6), 16) || 0},${(el.fillOpacity ?? 100) / 100})`;
+        const radius = el.shapeKind === 'circle' ? '9999px' : `${el.borderRadius || 0}px`;
+        const border = el.borderWidth ? `border:${el.borderWidth}px solid ${el.borderColor || '#333333'};` : '';
+        return `<div style="${posStyle}box-sizing:border-box;background:${fill};border-radius:${radius};${border}opacity:${op};"></div>`;
+      }
+
       // QR code element
       if (el.type === 'qrcode' && qrCodeSrc) {
         const alignItems = el.verticalAlign === 'top' ? 'flex-start' : el.verticalAlign === 'bottom' ? 'flex-end' : 'center';
