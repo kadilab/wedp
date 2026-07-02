@@ -80,26 +80,33 @@ const RSVP_LABELS = { CONFIRMED: 'Confirmé', PENDING: 'En attente', DECLINED: '
 const ORDER_LABELS = { APPROVED: 'Approuvée', PENDING: 'En attente', REJECTED: 'Rejetée' }
 const ORDER_COLORS = { APPROVED: '#10b981', PENDING: '#f59e0b', REJECTED: '#ef4444' }
 
-function StatCard({ label, value, icon: Icon, gradient, subtitle, badge }) {
+// Compact stat card (same lightweight style as the Supervision page).
+const STAT_ACCENTS = {
+  blue: 'bg-blue-50 text-blue-600',
+  rose: 'bg-rose-50 text-rose-600',
+  emerald: 'bg-emerald-50 text-emerald-600',
+  amber: 'bg-amber-50 text-amber-600',
+  primary: 'bg-primary-50 text-primary-600'
+}
+function StatCard({ label, value, icon: Icon, accent = 'primary', subtitle, badge }) {
+  const tint = STAT_ACCENTS[accent] || STAT_ACCENTS.primary
   return (
-    <div className={`relative overflow-hidden rounded-2xl p-6 text-white shadow-lg ${gradient}`}>
-      <div className="absolute top-0 right-0 -mt-4 -mr-4 h-24 w-24 rounded-full bg-white/10" />
-      <div className="absolute bottom-0 right-0 -mb-8 -mr-8 h-32 w-32 rounded-full bg-white/5" />
-      <div className="relative">
-        <div className="flex items-center justify-between mb-4">
-          <div className="rounded-xl bg-white/20 p-2.5 backdrop-blur-sm">
-            <Icon className="h-6 w-6 text-white" />
-          </div>
-          {badge && (
-            <span className="flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium backdrop-blur-sm">
-              {badge}
-            </span>
-          )}
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm text-gray-500">{label}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+          {subtitle && <p className="text-xs text-gray-400 mt-0.5 truncate">{subtitle}</p>}
         </div>
-        <p className="text-3xl font-bold tracking-tight">{value}</p>
-        <p className="mt-1 text-sm font-medium text-white/80">{label}</p>
-        {subtitle && <p className="mt-0.5 text-xs text-white/60">{subtitle}</p>}
+        <div className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 ${tint}`}>
+          <Icon className="h-6 w-6" />
+        </div>
       </div>
+      {badge && (
+        <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600">
+          {badge}
+        </div>
+      )}
     </div>
   )
 }
@@ -188,12 +195,12 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Utilisateurs"
           value={(stats.totalUsers || 0).toLocaleString()}
           icon={UsersIcon}
-          gradient="bg-gradient-to-br from-blue-500 to-blue-700"
+          accent="blue"
           subtitle={`+${stats.todayUsers || 0} aujourd'hui`}
           badge={<><ArrowTrendingUpIcon className="h-3.5 w-3.5" /> Actif</>}
         />
@@ -201,24 +208,24 @@ export default function AdminDashboard() {
           label="Mariages"
           value={(stats.totalWeddings || 0).toLocaleString()}
           icon={HeartIcon}
-          gradient="bg-gradient-to-br from-rose-500 to-pink-700"
+          accent="rose"
           subtitle={`${stats.activeWeddings || 0} actifs`}
         />
         <StatCard
           label="Revenus invitations"
           value={`${(stats.totalRevenue || 0).toLocaleString('fr-FR')} FC`}
           icon={CurrencyDollarIcon}
-          gradient="bg-gradient-to-br from-emerald-500 to-green-700"
+          accent="emerald"
           subtitle={`${stats.approvedOrders || 0} commandes approuvées`}
         />
         <StatCard
           label="Commandes en attente"
           value={stats.pendingInvitationOrders || 0}
           icon={ClockIcon}
-          gradient="bg-gradient-to-br from-amber-500 to-orange-600"
+          accent="amber"
           subtitle="À valider"
           badge={stats.pendingInvitationOrders > 0 ? (
-            <span className="animate-pulse">Action requise</span>
+            <span className="animate-pulse text-amber-600">Action requise</span>
           ) : null}
         />
       </div>
