@@ -196,10 +196,10 @@ export default function Guests() {
       ) : (
         <Link
           to={`/weddings/${weddingId}/invitations`}
-          title="Générez d'abord l'invitation pour pouvoir l'envoyer"
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-400 bg-gray-100 hover:bg-gray-200 whitespace-nowrap"
+          title="Invitation non générée — cliquez pour la générer"
+          className="inline-flex items-center justify-center p-1.5 rounded-lg text-gray-300 hover:text-gray-400 hover:bg-gray-100"
         >
-          Invitation non générée
+          <WhatsAppIcon className="h-4 w-4" />
         </Link>
       )}
       <button onClick={() => setEditingGuest(guest)} title="Modifier" className="p-1.5 text-gray-500 hover:text-primary-600 hover:bg-gray-100 rounded-lg">
