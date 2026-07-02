@@ -1661,7 +1661,7 @@ export default function TemplateDesigner({ clientMode = false }) {
       if (dk) {
         const base = Math.max(6, Math.round((el.width || 220) / 18))
         return (
-          <div className="w-full h-full" style={{ fontSize: base }}>
+          <div className="w-full h-full" style={{ fontSize: base, fontFamily: `'${el.fontFamily}', serif` }}>
             <MiniCalendar date={SAMPLE_RAW_DATES[dk]} accent={el.color || '#df6746'} textColor={el.color || '#1f2937'} marker={el.calendarMarker || 'circle'} markerUrl={el.calendarMarkerUrl || ''} markerSize={el.calendarMarkerSize || 1} />
           </div>
         )
