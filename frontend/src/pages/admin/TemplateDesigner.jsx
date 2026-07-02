@@ -27,6 +27,7 @@ import {
   ArrowUpTrayIcon,
   LockClosedIcon,
   LockOpenIcon,
+  DocumentDuplicateIcon,
   DocumentArrowDownIcon,
   Squares2X2Icon,
   CursorArrowRaysIcon,
@@ -3577,6 +3578,28 @@ export default function TemplateDesigner({ clientMode = false }) {
                   style={{ left: el.x, top: el.y, width: el.width, height: el.height, touchAction: 'none' }}
                 >
                   {renderElementContent(el)}
+
+                  {/* Floating quick-action toolbar for the selected element.
+                      Counter-scaled so it stays readable at any zoom. */}
+                  {isSelected && (
+                    <div
+                      className="absolute left-0 flex items-center gap-0.5 bg-gray-900/95 text-white rounded-lg shadow-lg px-1 py-1"
+                      style={{ top: -40, transform: `scale(${1 / zoom})`, transformOrigin: 'bottom left', zIndex: 1000 }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                    >
+                      <button onClick={(e) => { e.stopPropagation(); duplicateElement(el.id) }} title="Dupliquer" className="p-1.5 hover:bg-white/15 rounded">
+                        <DocumentDuplicateIcon className="h-4 w-4" />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); toggleLock(el.id) }} title={el.locked ? 'Déverrouiller' : 'Verrouiller'} className="p-1.5 hover:bg-white/15 rounded">
+                        {el.locked ? <LockClosedIcon className="h-4 w-4" /> : <LockOpenIcon className="h-4 w-4" />}
+                      </button>
+                      <div className="w-px h-4 bg-white/20 mx-0.5" />
+                      <button onClick={(e) => { e.stopPropagation(); deleteElement(el.id) }} title="Supprimer" className="p-1.5 hover:bg-red-500/30 text-red-300 rounded">
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
 
                   {/* Resize Handles (only for single selected element) */}
                   {isSelected && !el.locked && (
