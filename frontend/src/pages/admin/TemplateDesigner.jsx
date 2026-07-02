@@ -1784,26 +1784,26 @@ export default function TemplateDesigner({ clientMode = false }) {
       {/* Google Fonts + custom uploaded fonts (dropdown preview + canvas) */}
       <FontStyles />
       {/* Top Bar */}
-      <div className="bg-white border-b px-4 py-3 flex items-center justify-between shrink-0 shadow-sm">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(clientMode ? (weddingId ? `/weddings/${weddingId}/invitations` : '/templates') : '/admin/templates')} className="p-2 hover:bg-gray-100 rounded-lg">
+      <div className="bg-white border-b px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2 shrink-0 shadow-sm">
+        <div className="flex items-center gap-2 min-w-0">
+          <button onClick={() => navigate(clientMode ? (weddingId ? `/weddings/${weddingId}/invitations` : '/templates') : '/admin/templates')} className="p-2 hover:bg-gray-100 rounded-lg shrink-0">
             <ArrowLeftIcon className="h-5 w-5 text-gray-600" />
           </button>
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">
+          <div className="min-w-0">
+            <h1 className="text-sm sm:text-lg font-bold text-gray-900 truncate">
               {clientMode ? 'Personnaliser mon template' : isEditing ? 'Modifier le template' : 'Créer un template'}
             </h1>
-            <p className="text-xs text-gray-500">
-              {!backgroundUrl 
-                ? '1. Définissez le format, puis chargez une image de fond' 
-                : !templateName 
-                  ? '2. Positionnez les éléments puis renseignez le nom' 
+            <p className="hidden sm:block text-xs text-gray-500">
+              {!backgroundUrl
+                ? '1. Définissez le format, puis chargez une image de fond'
+                : !templateName
+                  ? '2. Positionnez les éléments puis renseignez le nom'
                   : '3. Positionnez les éléments et sauvegardez'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Zoom */}
           <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
             <button onClick={() => setZoom(z => Math.max(0.3, +(z - 0.1).toFixed(2)))} className="w-7 h-7 rounded-md hover:bg-white text-gray-600 flex items-center justify-center text-base font-bold leading-none" title="Dézoomer">−</button>
@@ -1811,10 +1811,10 @@ export default function TemplateDesigner({ clientMode = false }) {
             <button onClick={() => setZoom(z => Math.min(2, +(z + 0.1).toFixed(2)))} className="w-7 h-7 rounded-md hover:bg-white text-gray-600 flex items-center justify-center text-base font-bold leading-none" title="Zoomer">+</button>
           </div>
 
-          <div className="w-px h-6 bg-gray-200" />
+          <div className="hidden sm:block w-px h-6 bg-gray-200" />
 
           {/* Undo / Redo */}
-          <div className="flex items-center gap-1">
+          <div className="hidden sm:flex items-center gap-1">
             <button
               onClick={undo}
               disabled={!history.canUndo}
@@ -1833,12 +1833,12 @@ export default function TemplateDesigner({ clientMode = false }) {
             </button>
           </div>
 
-          <div className="w-px h-6 bg-gray-200" />
+          <div className="hidden sm:block w-px h-6 bg-gray-200" />
 
           {/* Grid */}
           <button
             onClick={() => setShowGrid(!showGrid)}
-            className={`p-2 rounded-lg ${showGrid ? 'bg-primary-100 text-primary-600' : 'text-gray-400 hover:text-gray-600'}`}
+            className={`hidden sm:block p-2 rounded-lg ${showGrid ? 'bg-primary-100 text-primary-600' : 'text-gray-400 hover:text-gray-600'}`}
             title="Grille d'alignement"
           >
             <Squares2X2Icon className="h-5 w-5" />
@@ -1847,7 +1847,7 @@ export default function TemplateDesigner({ clientMode = false }) {
           {/* Animation preview */}
           <button
             onClick={() => { setPreviewAnim(p => !p); setPreviewKey(k => k + 1) }}
-            className={`px-2.5 py-2 rounded-lg text-sm font-medium flex items-center gap-1 ${previewAnim ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-primary-600 hover:bg-primary-50'}`}
+            className={`hidden sm:flex px-2.5 py-2 rounded-lg text-sm font-medium items-center gap-1 ${previewAnim ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-primary-600 hover:bg-primary-50'}`}
             title="Prévisualiser les animations (comme sur l'invitation publiée)"
           >
             <span>{previewAnim ? '⏹' : '▶'}</span>
@@ -1864,11 +1864,11 @@ export default function TemplateDesigner({ clientMode = false }) {
           )}
 
           {/* Reset */}
-          <button onClick={resetLayout} className="p-2 text-gray-400 hover:text-orange-500 rounded-lg" title="Réinitialiser les éléments">
+          <button onClick={resetLayout} className="hidden sm:block p-2 text-gray-400 hover:text-orange-500 rounded-lg" title="Réinitialiser les éléments">
             <ArrowPathIcon className="h-5 w-5" />
           </button>
 
-          <div className="w-px h-6 bg-gray-200" />
+          <div className="hidden sm:block w-px h-6 bg-gray-200" />
 
           {/* Save (draft) */}
           <button
@@ -1881,7 +1881,8 @@ export default function TemplateDesigner({ clientMode = false }) {
             ) : (
               <CheckIcon className="h-4 w-4" />
             )}
-            {clientMode ? 'Sauvegarder' : 'Enregistrer le brouillon'}
+            <span className="hidden sm:inline">{clientMode ? 'Sauvegarder' : 'Enregistrer le brouillon'}</span>
+            <span className="sm:hidden">{clientMode ? 'Save' : 'Brouillon'}</span>
           </button>
 
           {/* Publish (admin only) */}
@@ -1899,8 +1900,13 @@ export default function TemplateDesigner({ clientMode = false }) {
         </div>
       </div>
 
-      {/* Main Area */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* Mobile hint — the editor is designed for desktop */}
+      <div className="lg:hidden shrink-0 bg-amber-50 border-b border-amber-100 px-3 py-1.5 text-[11px] text-amber-700 text-center">
+        💻 Éditeur optimisé pour ordinateur — certains outils sont masqués sur mobile.
+      </div>
+
+      {/* Main Area — stacks vertically on mobile (panel on top, canvas below) */}
+      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
         {/* Collapsed rail - thin strip with the panel tabs as icons + expand button */}
         {panelCollapsed && (
           <div className="w-12 bg-white border-r flex flex-col items-center py-2 gap-1 shrink-0">
@@ -1930,7 +1936,7 @@ export default function TemplateDesigner({ clientMode = false }) {
         )}
 
         {/* Left Panel */}
-        <div className={`${panelCollapsed ? 'hidden' : 'w-72'} bg-white border-r flex flex-col shrink-0 overflow-hidden`}>
+        <div className={`${panelCollapsed ? 'hidden' : 'w-full lg:w-72 max-h-[45vh] lg:max-h-none'} bg-white border-b lg:border-b-0 lg:border-r flex flex-col shrink-0 overflow-hidden`}>
           {/* Panel Tabs — soft pills */}
           <div className="flex items-center gap-1 p-2 border-b">
             <div className="flex-1 grid grid-cols-4 gap-1">
