@@ -4,7 +4,8 @@ import { weddingAPI } from '../../services/api'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid
 } from 'recharts'
 import {
   ArrowLeftIcon,
@@ -20,6 +21,10 @@ import {
 
 const RSVP_COLORS = { confirmed: '#10b981', pending: '#f59e0b', declined: '#ef4444' }
 const RSVP_LABELS = { confirmed: 'Confirmés', pending: 'En attente', declined: 'Déclinés' }
+
+// Axis/tooltip date formatters for the activity timeline (input: 'YYYY-MM-DD').
+const fmtDay = (d) => { try { return format(new Date(d), 'd MMM', { locale: fr }) } catch { return d } }
+const fmtDayLong = (d) => { try { return format(new Date(d), 'EEEE d MMMM', { locale: fr }) } catch { return d } }
 
 function StatCard({ label, value, icon: Icon, gradient, subtitle }) {
   return (
@@ -99,6 +104,7 @@ export default function WeddingStats() {
   const invitations = stats.invitations || { generated: 0, sent: 0, viewed: 0 }
   const checkIns = stats.checkIns || { total: 0, unique: 0 }
   const totalGuests = stats.totalGuests || 0
+  const activity = stats.activity || []
 
   const rsvpPieData = Object.entries(rsvp)
     .filter(([, value]) => value > 0)
@@ -285,6 +291,42 @@ export default function WeddingStats() {
           )}
         </div>
       </div>
+
+      {/* Activity timeline — RSVP confirmations & views over time */}
+      {activity.length > 1 && (
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h3 className="text-lg font-bold text-gray-900 mb-1">Activité dans le temps</h3>
+          <p className="text-sm text-gray-500 mb-4">Confirmations cumulées et consultations par jour</p>
+          <ResponsiveContainer width="100%" height={260}>
+            <AreaChart data={activity} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gConfirmed" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gViews" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="date" tickFormatter={fmtDay} tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} minTickGap={20} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} width={40} />
+              <Tooltip
+                labelFormatter={fmtDayLong}
+                formatter={(val, name) => [val, name === 'cumulativeConfirmed' ? 'Confirmés (cumul)' : 'Consultations']}
+                contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
+              />
+              <Area type="monotone" dataKey="views" stroke="#6366f1" strokeWidth={2} fill="url(#gViews)" />
+              <Area type="monotone" dataKey="cumulativeConfirmed" stroke="#10b981" strokeWidth={2} fill="url(#gConfirmed)" />
+            </AreaChart>
+          </ResponsiveContainer>
+          <div className="mt-3 flex items-center gap-5 text-xs text-gray-500">
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Confirmés (cumul)</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-indigo-500" /> Consultations / jour</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

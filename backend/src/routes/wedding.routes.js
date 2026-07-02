@@ -797,6 +797,41 @@ router.delete('/:id', authenticate, isOwner(), async (req, res) => {
 });
 
 /**
+ * Build a daily activity timeline (RSVP responses + invitation views) covering
+ * the window from the first activity to today, capped to the last 30 days.
+ * Returns [{ date:'YYYY-MM-DD', confirmed, declined, views, cumulativeConfirmed }].
+ */
+function buildActivityTimeline(guests) {
+  const dayKey = (d) => new Date(d).toISOString().slice(0, 10);
+  const dates = [];
+  guests.forEach((g) => {
+    if (g.rsvpDate) dates.push(new Date(g.rsvpDate));
+    if (g.invitationViewedAt) dates.push(new Date(g.invitationViewedAt));
+  });
+  if (dates.length === 0) return [];
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  let start = new Date(Math.min(...dates.map((d) => d.getTime()))); start.setHours(0, 0, 0, 0);
+  const thirtyAgo = new Date(today); thirtyAgo.setDate(today.getDate() - 29);
+  if (start < thirtyAgo) start = thirtyAgo;
+
+  const buckets = new Map();
+  for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
+    buckets.set(dayKey(d), { date: dayKey(d), confirmed: 0, declined: 0, views: 0 });
+  }
+  guests.forEach((g) => {
+    if (g.rsvpDate) {
+      const k = dayKey(g.rsvpDate); const b = buckets.get(k);
+      if (b) { if (g.rsvpStatus === 'CONFIRMED') b.confirmed++; else if (g.rsvpStatus === 'DECLINED') b.declined++; }
+    }
+    if (g.invitationViewedAt) { const b = buckets.get(dayKey(g.invitationViewedAt)); if (b) b.views++; }
+  });
+
+  let cumulative = 0;
+  return [...buckets.values()].map((b) => { cumulative += b.confirmed; return { ...b, cumulativeConfirmed: cumulative }; });
+}
+
+/**
  * @route   GET /api/weddings/:id/stats
  * @desc    Get wedding statistics
  * @access  Private
@@ -833,7 +868,9 @@ router.get('/:id/stats', authenticate, isOwner(), async (req, res) => {
         total: wedding.checkIns.length,
         unique: new Set(wedding.checkIns.map(c => c.guestId)).size
       },
-      daysUntil: daysUntilWedding(wedding.weddingDate)
+      daysUntil: daysUntilWedding(wedding.weddingDate),
+      // Daily activity timeline (last 30 days max) for the RSVP/views curves.
+      activity: buildActivityTimeline(wedding.guests)
     };
 
     res.json({ stats });
