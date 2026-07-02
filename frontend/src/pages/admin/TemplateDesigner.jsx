@@ -66,6 +66,15 @@ const DEFAULT_CANVAS_HEIGHT = 1120
 const MAX_CANVAS_DIMENSION = 4000
 const MIN_CANVAS_DIMENSION = 300
 
+// Left-panel tabs (shared by the expanded segmented bar and the collapsed rail).
+const PANEL_TABS = [
+  { id: 'format', label: 'Format', icon: ArrowsPointingOutIcon },
+  { id: 'background', label: 'Fond', icon: PhotoIcon },
+  { id: 'elements', label: 'Éléments', icon: CursorArrowRaysIcon },
+  { id: 'layers', label: 'Calques', icon: RectangleStackIcon },
+  { id: 'settings', label: 'Infos', icon: Cog6ToothIcon }
+]
+
 const FORMAT_PRESETS = [
   { id: 'a5-portrait', label: 'A5 Portrait', w: 874, h: 1240, desc: '148×210 mm' },
   { id: 'a5-landscape', label: 'A5 Paysage', w: 1240, h: 874, desc: '210×148 mm' },
@@ -2111,17 +2120,11 @@ export default function TemplateDesigner({ clientMode = false }) {
             >
               <ChevronDoubleRightIcon className="h-5 w-5" />
             </button>
-            {[
-              { id: 'format', label: 'Format', icon: ArrowsPointingOutIcon },
-              { id: 'background', label: 'Fond', icon: PhotoIcon },
-              { id: 'elements', label: 'Éléments', icon: CursorArrowRaysIcon },
-              { id: 'layers', label: 'Calques', icon: RectangleStackIcon },
-              { id: 'settings', label: 'Infos', icon: Cog6ToothIcon }
-            ].map(tab => (
+            {PANEL_TABS.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => { setActivePanel(tab.id); setPanelCollapsed(false) }}
-                className={`p-2 rounded-lg ${activePanel === tab.id ? 'text-primary-600 bg-primary-50' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`p-2 rounded-lg transition-colors ${activePanel === tab.id ? 'text-primary-600 bg-primary-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
                 title={tab.label}
               >
                 <tab.icon className="h-5 w-5" />
@@ -2132,27 +2135,25 @@ export default function TemplateDesigner({ clientMode = false }) {
 
         {/* Left Panel */}
         <div className={`${panelCollapsed ? 'hidden' : 'w-full lg:w-72 max-h-[45vh] lg:max-h-none'} bg-white border-b lg:border-b-0 lg:border-r flex flex-col shrink-0 overflow-hidden`}>
-          {/* Panel Tabs — soft pills */}
-          <div className="flex items-center gap-1 p-2 border-b">
-            <div className="flex-1 grid grid-cols-5 gap-1">
-              {[
-                { id: 'format', label: 'Format', icon: ArrowsPointingOutIcon },
-                { id: 'background', label: 'Fond', icon: PhotoIcon },
-                { id: 'elements', label: 'Éléments', icon: CursorArrowRaysIcon },
-                { id: 'layers', label: 'Calques', icon: RectangleStackIcon },
-                { id: 'settings', label: 'Infos', icon: Cog6ToothIcon }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActivePanel(tab.id)}
-                  className={`flex flex-col items-center gap-1 py-2 rounded-lg text-[11px] font-medium transition-colors ${
-                    activePanel === tab.id ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100'
-                  }`}
-                >
-                  <tab.icon className="h-4 w-4" />
-                  {tab.label}
-                </button>
-              ))}
+          {/* Panel Tabs — segmented control */}
+          <div className="flex items-center gap-1.5 p-2 border-b">
+            <div className="flex-1 grid grid-cols-5 gap-0.5 bg-gray-100/80 rounded-xl p-1">
+              {PANEL_TABS.map(tab => {
+                const active = activePanel === tab.id
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActivePanel(tab.id)}
+                    className={`flex flex-col items-center gap-1 py-1.5 rounded-lg text-[10px] font-medium leading-none whitespace-nowrap transition-all ${
+                      active ? 'bg-white text-primary-700 shadow-sm ring-1 ring-black/5' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                    title={tab.label}
+                  >
+                    <tab.icon className={`h-[18px] w-[18px] ${active ? 'text-primary-600' : 'text-gray-400'}`} />
+                    {tab.label}
+                  </button>
+                )
+              })}
             </div>
             <button
               onClick={() => setPanelCollapsed(true)}
