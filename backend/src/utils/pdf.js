@@ -1368,6 +1368,9 @@ ${pages.map((pageSnippets, pi) => `
       await page.setViewport({ width: vpW, height: vpH, deviceScaleFactor: 2 });
       await page.setContent(snippet, { waitUntil: 'networkidle0', timeout: 60000 }); // Increased to 60s per invitation
       await page.evaluateHandle('document.fonts.ready');
+      // Shrink long auto-fit texts to fit their box — same as the single PDF/image
+      // render, so the print layout (BàT) matches the editor/preview.
+      await page.evaluate(applyAutoFitInPage);
       // For design-based: capture .canvas; for legacy: capture .page-wrapper
       const container = hasDesignElements
         ? (await page.$('.canvas'))
