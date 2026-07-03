@@ -260,7 +260,9 @@ router.get('/:weddingSlug', async (req, res) => {
         weddingDate: true,
         ceremonyTime: true,
         venueName: true,
+        venueAddress: true,
         venueCity: true,
+        venueMapUrl: true,
         coverPhoto: true,
         logo: true,
         isPublished: true,
@@ -281,7 +283,9 @@ router.get('/:weddingSlug', async (req, res) => {
         weddingDate: wedding.weddingDate,
         ceremonyTime: wedding.ceremonyTime,
         venueName: wedding.venueName,
+        venueAddress: wedding.venueAddress,
         venueCity: wedding.venueCity,
+        venueMapUrl: wedding.venueMapUrl,
         coverPhoto: wedding.coverPhoto,
         logo: wedding.logo
       }

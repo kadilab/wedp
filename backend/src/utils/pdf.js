@@ -840,6 +840,37 @@ function generateDesignBasedHTML(options) {
         return `<div style="${posStyle}box-sizing:border-box;background:${fill};border-radius:${radius};${border}opacity:${op};"></div>`;
       }
 
+      // Map / location card (static, links to Google Maps directions in PDFs).
+      if (el.type === 'map') {
+        const accent = el.color || '#df6746';
+        const bg = el.fillColor || '#ffffff';
+        const radius = el.borderRadius ?? 16;
+        const fs = Math.max(9, Math.round((el.width || 320) / 26));
+        const label = el.mapLabel || "Voir l'itinéraire";
+        const venue = wedding.venueName || el.mapPlaceholder || 'Lieu de l\'événement';
+        const address = [wedding.venueAddress, wedding.venueCity].filter(Boolean).join(', ') || el.mapAddress || '';
+        const mapQuery = (wedding.venueMapUrl && /^https?:\/\//i.test(wedding.venueMapUrl))
+          ? wedding.venueMapUrl
+          : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent([wedding.venueName, wedding.venueAddress, wedding.venueCity, wedding.venueCountry].filter(Boolean).join(', '))}`;
+        const card = `<div style="width:100%;height:100%;overflow:hidden;display:flex;flex-direction:column;background:${bg};border-radius:${radius}px;box-shadow:0 2px 10px rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.06);font-size:${fs}px;">
+          <div style="position:relative;flex:1;background:#e8eef0;background-image:repeating-linear-gradient(90deg,rgba(0,0,0,.05) 0 1px,transparent 1px 26px),repeating-linear-gradient(0deg,rgba(0,0,0,.05) 0 1px,transparent 1px 26px);">
+            <div style="position:absolute;top:38%;left:0;right:0;height:6px;background:#fff;opacity:.8;"></div>
+            <div style="position:absolute;top:0;bottom:0;left:58%;width:6px;background:#fff;opacity:.8;transform:skewX(-12deg);"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+              <svg viewBox="0 0 24 24" width="34" height="34" style="filter:drop-shadow(0 2px 2px rgba(0,0,0,.25));"><path fill="${accent}" d="M12 2C7.9 2 4.5 5.4 4.5 9.5c0 5.2 6.3 11.3 7 11.9.3.3.7.3 1 0 .7-.6 7-6.7 7-11.9C19.5 5.4 16.1 2 12 2z"/><circle cx="12" cy="9.5" r="2.6" fill="#fff"/></svg>
+            </div>
+          </div>
+          <div style="flex-shrink:0;padding:6px 10px;display:flex;align-items:center;gap:8px;">
+            <div style="min-width:0;flex:1;">
+              <div style="font-weight:600;color:#111827;font-size:0.95em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${venue}</div>
+              ${address ? `<div style="color:#6b7280;font-size:0.75em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${address}</div>` : ''}
+            </div>
+            <span style="flex-shrink:0;display:inline-flex;align-items:center;gap:4px;border-radius:9999px;padding:4px 10px;font-weight:600;color:#fff;background:${accent};font-size:0.72em;white-space:nowrap;">➜ ${label}</span>
+          </div>
+        </div>`;
+        return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};"><a href="${mapQuery}" target="_blank" style="text-decoration:none;display:block;width:100%;height:100%;">${card}</a></div>`;
+      }
+
       // QR code element
       if (el.type === 'qrcode' && qrCodeSrc) {
         const alignItems = el.verticalAlign === 'top' ? 'flex-start' : el.verticalAlign === 'bottom' ? 'flex-end' : 'center';

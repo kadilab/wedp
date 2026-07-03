@@ -7,6 +7,7 @@ import FontStyles from './FontStyles'
 import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars, formatEventTime, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, timeComponentVars, getElementDateKey } from '../../utils/dateFormats'
 import MiniCalendar from './MiniCalendar'
 import ShapeElement from './ShapeElement'
+import MapElement from './MapElement'
 import { getEventDisplayTitle } from '../../utils/eventTypes'
 
 // Rich, realistic test data used when no real event is provided (template
@@ -278,6 +279,15 @@ export default function TemplatePreview({ template, className = '', weddingData 
                   return (
                     <div key={el.id || idx} style={{ position: 'absolute', left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: zIdx }}>
                       <ShapeElement el={el} />
+                    </div>
+                  )
+                }
+
+                // Map / location card (static preview).
+                if (el.type === 'map') {
+                  return (
+                    <div key={el.id || idx} style={{ position: 'absolute', left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: zIdx, fontSize: Math.max(9, Math.round((el.width || 320) / 26)) }}>
+                      <MapElement el={el} wedding={wd} />
                     </div>
                   )
                 }

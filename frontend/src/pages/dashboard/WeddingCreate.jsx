@@ -345,6 +345,7 @@ export default function WeddingCreate() {
       venueName: cleanValue(data.venueName),
       venueAddress: cleanValue(data.venueAddress),
       venueCity: cleanValue(data.venueCity),
+      venueMapUrl: cleanValue(data.venueMapUrl),
       // Identity fields, per event type
       ...(isCouple ? { brideName: data.brideName, groomName: data.groomName } : {}),
       ...(isHonoree ? { honoreeName: data.honoreeName } : {}),
@@ -580,6 +581,13 @@ export default function WeddingCreate() {
                   <label className="label text-sm">Adresse</label>
                   <input type="text" className="input" placeholder="Adresse complète" {...register('venueAddress')} />
                 </div>
+                {showField('venueMapUrl') && (
+                  <div>
+                    <label className="label text-sm">Lien Google Maps <span className="text-gray-400 font-normal">— pour le bouton « itinéraire »</span></label>
+                    <input type="url" className="input" placeholder="https://maps.google.com/..." {...register('venueMapUrl')} />
+                    <p className="text-xs text-gray-400 mt-1">Facultatif — sinon l'itinéraire est calculé depuis le nom + l'adresse.</p>
+                  </div>
+                )}
               </div>
               )}
 
@@ -719,6 +727,13 @@ export default function WeddingCreate() {
                   <label className="label text-sm">Adresse</label>
                   <input type="text" className="input" placeholder="Adresse complète" {...register('venueAddress')} />
                 </div>
+                {showField('venueMapUrl') && (
+                  <div>
+                    <label className="label text-sm">Lien Google Maps <span className="text-gray-400 font-normal">— pour le bouton « itinéraire »</span></label>
+                    <input type="url" className="input" placeholder="https://maps.google.com/..." {...register('venueMapUrl')} />
+                    <p className="text-xs text-gray-400 mt-1">Facultatif — sinon l'itinéraire est calculé depuis le nom + l'adresse.</p>
+                  </div>
+                )}
               </div>
               )}
 

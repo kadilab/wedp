@@ -368,6 +368,9 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       fillColor: el.fillColor || '#df6746',
       fillOpacity: el.fillOpacity ?? 100,
       lineThickness: el.lineThickness ?? 2,
+      mapLabel: el.mapLabel || '',
+      mapPlaceholder: el.mapPlaceholder || '',
+      mapAddress: el.mapAddress || '',
       // Per-element animation (played only on the public invitation view)
       animation: el.animation || null
     }));
@@ -612,6 +615,9 @@ router.put('/:id/design', authenticate, async (req, res) => {
       fillColor: el.fillColor || '#df6746',
       fillOpacity: el.fillOpacity ?? 100,
       lineThickness: el.lineThickness ?? 2,
+      mapLabel: el.mapLabel || '',
+      mapPlaceholder: el.mapPlaceholder || '',
+      mapAddress: el.mapAddress || '',
       // Per-element animation (played only on the public invitation view)
       animation: el.animation || null
     }));

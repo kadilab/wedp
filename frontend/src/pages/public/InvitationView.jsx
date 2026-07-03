@@ -11,6 +11,7 @@ import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
 import MiniCalendar from '../../components/templates/MiniCalendar'
 import ShapeElement from '../../components/templates/ShapeElement'
+import MapElement from '../../components/templates/MapElement'
 import AutoFitText from '../../components/templates/AutoFitText'
 import FontStyles from '../../components/templates/FontStyles'
 import { formatEventDate, DATE_VARIABLE_KEYS, DEFAULT_DATE_FORMAT, componentVars, TIME_VARIABLE_KEYS, DEFAULT_TIME_FORMAT, formatEventTime, timeComponentVars, getElementDateKey } from '../../utils/dateFormats'
@@ -518,6 +519,20 @@ export default function InvitationView() {
                     style={{ left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: elZIndex }}
                   >
                     <ShapeElement el={el} />
+                  </AnimatedElement>
+                )
+              }
+
+              // Map / location card — clickable, opens Google Maps directions.
+              if (el.type === 'map') {
+                return (
+                  <AnimatedElement
+                    key={el.id || idx}
+                    el={el}
+                    className="absolute"
+                    style={{ left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: elZIndex, fontSize: Math.max(9, Math.round((el.width || 320) / 26)) }}
+                  >
+                    <MapElement el={el} wedding={wedding} interactive />
                   </AnimatedElement>
                 )
               }

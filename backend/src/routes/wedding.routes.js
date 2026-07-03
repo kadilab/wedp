@@ -60,6 +60,7 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
       venueAddress,
       venueCity,
       venueCountry,
+      venueMapUrl,
       customMessage,
       primaryColor,
       secondaryColor,
@@ -130,6 +131,7 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
         venueAddress,
         venueCity,
         venueCountry,
+        venueMapUrl,
         // Seated tables (strings or {name,seats,x,y}) — only for events with tables
         tables: Array.isArray(tables) ? normalizeTables(tables) : undefined,
         customMessage,

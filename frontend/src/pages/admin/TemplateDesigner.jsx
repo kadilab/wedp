@@ -17,6 +17,7 @@ import { fontAPI } from '../../services/api'
 import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable, formatEventDate, DATE_VARIABLE_KEYS, TIME_FORMAT_OPTIONS, DEFAULT_TIME_FORMAT, containsTimeVariable, formatEventTime, TIME_VARIABLE_KEYS, getElementDateKey } from '../../utils/dateFormats'
 import MiniCalendar, { CALENDAR_MARKER_OPTIONS } from '../../components/templates/MiniCalendar'
 import ShapeElement from '../../components/templates/ShapeElement'
+import MapElement from '../../components/templates/MapElement'
 import { searchIcons, iconPreviewUrl, fetchIconDataUrl, ICON_SUGGESTIONS, EMOJI_GROUPS } from '../../utils/elementLibrary'
 import {
   ArrowLeftIcon,
@@ -49,7 +50,8 @@ import {
   RectangleStackIcon,
   RectangleGroupIcon,
   MinusIcon,
-  Bars2Icon
+  Bars2Icon,
+  MapPinIcon
 } from '@heroicons/react/24/outline'
 
 // ===================== CONSTANTS =====================
@@ -1164,7 +1166,8 @@ export default function TemplateDesigner({ clientMode = false }) {
 
   const layerIcon = (el) => {
     if (el.type === 'photo' || el.type === 'image') return <PhotoIcon className="h-4 w-4" />
-    if (el.type === 'shape') return el.shape === 'line' ? <MinusIcon className="h-4 w-4" /> : <RectangleGroupIcon className="h-4 w-4" />
+    if (el.type === 'map') return <MapPinIcon className="h-4 w-4" />
+    if (el.type === 'shape') return el.shapeKind === 'line' ? <MinusIcon className="h-4 w-4" /> : <RectangleGroupIcon className="h-4 w-4" />
     return <Bars2Icon className="h-4 w-4" />
   }
 
@@ -1232,6 +1235,25 @@ export default function TemplateDesigner({ clientMode = false }) {
       fillColor: isLine ? '#333333' : '#df6746', fillOpacity: 100,
       borderWidth: 0, borderColor: '#333333', borderRadius: 0,
       lineThickness: 2, opacity: 100, rotation: 0
+    }
+    setElements(prev => [...prev, newElement])
+    setSelectedId(id)
+    setActivePanel('properties')
+  }
+
+  // Adds a clickable map / location card. On the invitation it opens Google Maps
+  // (directions) for the event venue; adding it makes the creation form ask for
+  // the location.
+  const addMapElement = () => {
+    const id = `map_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const w = Math.min(340, Math.round(canvasWidth * 0.5))
+    const h = Math.round(w * 0.7)
+    const newElement = {
+      id, type: 'map', label: 'Carte / Localisation', content: '',
+      x: Math.round((canvasWidth - w) / 2), y: Math.round(canvasHeight * 0.55),
+      width: w, height: h, visible: true, locked: false,
+      color: '#df6746', fillColor: '#ffffff', borderRadius: 16,
+      mapLabel: "Voir l'itinéraire", opacity: 100
     }
     setElements(prev => [...prev, newElement])
     setSelectedId(id)
@@ -1310,7 +1332,7 @@ export default function TemplateDesigner({ clientMode = false }) {
     }
   }
 
-  const DELETABLE_TYPES = ['custom', 'photo', 'image', 'shape']
+  const DELETABLE_TYPES = ['custom', 'photo', 'image', 'shape', 'map']
 
   const deleteElement = (id) => {
     const el = elements.find(e => e.id === id)
@@ -1688,6 +1710,10 @@ export default function TemplateDesigner({ clientMode = false }) {
         fillColor: el.fillColor || '#df6746',
         fillOpacity: el.fillOpacity ?? 100,
         lineThickness: el.lineThickness ?? 2,
+        // Map / location element
+        mapLabel: el.mapLabel || '',
+        mapPlaceholder: el.mapPlaceholder || '',
+        mapAddress: el.mapAddress || '',
         // Per-element animation (played only on the public invitation view)
         animation: el.animation || null
       }))
@@ -1797,6 +1823,11 @@ export default function TemplateDesigner({ clientMode = false }) {
     // Decorative shape (rectangle / circle / line) — no text content.
     if (el.type === 'shape') {
       return <ShapeElement el={el} />
+    }
+
+    // Map / location card (static preview in the editor).
+    if (el.type === 'map') {
+      return <div className="w-full h-full" style={{ fontSize: Math.max(9, Math.round((el.width || 320) / 26)) }}><MapElement el={el} /></div>
     }
 
     // Helper pour formater une date en JJ-MM-YYYY HH:mm
@@ -2478,6 +2509,10 @@ export default function TemplateDesigner({ clientMode = false }) {
                     <span className="text-[11px] font-medium">Ligne</span>
                   </button>
                 </div>
+                <button onClick={addMapElement} className="mt-1.5 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600 transition-colors">
+                  <MapPinIcon className="h-5 w-5" />
+                  <span className="text-[11px] font-medium">Carte / Localisation</span>
+                </button>
               </div>
 
               {/* ===== Element library: icons (Iconify) + emojis ===== */}
@@ -2993,7 +3028,45 @@ export default function TemplateDesigner({ clientMode = false }) {
                       </div>
                     )}
 
-                    {selectedElement.type !== 'shape' && (<>
+                    {/* ===== Map / location element properties ===== */}
+                    {selectedElement.type === 'map' && (
+                      <div className="space-y-4">
+                        <div className="rounded-lg bg-blue-50 border border-blue-100 p-2.5 text-[11px] text-blue-700">
+                          📍 Carte cliquable : sur l'invitation, un clic ouvre l'itinéraire Google Maps. En ajoutant cet élément, le formulaire de création demandera la <strong>localisation de l'événement</strong>.
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Texte du bouton</label>
+                          <input type="text" value={selectedElement.mapLabel || ''} onChange={(e) => updateElement(selectedId, { mapLabel: e.target.value })} placeholder="Voir l'itinéraire" className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Couleur d'accent (pin + bouton)</label>
+                          <div className="flex items-center gap-2">
+                            <input type="color" value={selectedElement.color || '#df6746'} onChange={(e) => updateElement(selectedId, { color: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
+                            <input type="text" value={selectedElement.color || '#df6746'} onChange={(e) => updateElement(selectedId, { color: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border rounded font-mono" />
+                          </div>
+                          {palette.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              {palette.map((c) => (
+                                <button key={c} onClick={() => updateElement(selectedId, { color: c })} className="w-6 h-6 rounded-full border-2 border-gray-200 hover:scale-110 transition-transform" style={{ backgroundColor: c }} title={c} />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Couleur du fond</label>
+                          <div className="flex items-center gap-2">
+                            <input type="color" value={selectedElement.fillColor || '#ffffff'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
+                            <input type="text" value={selectedElement.fillColor || '#ffffff'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border rounded font-mono" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1"><span>Arrondi des coins</span><span className="text-gray-400">{selectedElement.borderRadius ?? 16}px</span></label>
+                          <input type="range" min="0" max="40" value={selectedElement.borderRadius ?? 16} onChange={(e) => updateElement(selectedId, { borderRadius: parseInt(e.target.value) })} className="w-full accent-primary-600" />
+                        </div>
+                      </div>
+                    )}
+
+                    {!['shape', 'map'].includes(selectedElement.type) && (<>
                     {/* Content */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Contenu</label>

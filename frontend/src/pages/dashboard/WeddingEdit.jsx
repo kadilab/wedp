@@ -96,6 +96,7 @@ export default function WeddingEdit() {
       venueName: wedding.venueName || '',
       venueAddress: wedding.venueAddress || '',
       venueCity: wedding.venueCity || '',
+      venueMapUrl: wedding.venueMapUrl || '',
       customMessage: wedding.customMessage || '',
       templateId: wedding.templateId || '',
       status: wedding.status,
@@ -224,6 +225,7 @@ export default function WeddingEdit() {
       venueName: cleanValue(data.venueName),
       venueAddress: cleanValue(data.venueAddress),
       venueCity: cleanValue(data.venueCity),
+      venueMapUrl: cleanValue(data.venueMapUrl),
       // Identity fields, per event type
       ...(isCouple ? { brideName: data.brideName, groomName: data.groomName } : {}),
       ...(isHonoree ? { honoreeName: data.honoreeName } : {}),
@@ -354,6 +356,11 @@ export default function WeddingEdit() {
             <div>
               <label className="label text-sm">Adresse</label>
               <input type="text" className="input" {...register('venueAddress')} />
+            </div>
+            <div>
+              <label className="label text-sm">Lien Google Maps <span className="text-gray-400 font-normal">— pour la carte cliquable de l'invitation</span></label>
+              <input type="url" className="input" placeholder="https://maps.google.com/..." {...register('venueMapUrl')} />
+              <p className="text-xs text-gray-400 mt-1">Facultatif — sinon l'itinéraire est calculé depuis le nom + l'adresse.</p>
             </div>
           </div>
 

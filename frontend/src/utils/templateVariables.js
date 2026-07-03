@@ -58,6 +58,8 @@ export function getUsedVariables(template) {
     matches.forEach((m) => used.add(m.replace(/[{}]/g, '').trim()))
     // Photo/image element → the client needs the couple/photo upload.
     if (el?.type === 'photo') used.add('__photo__')
+    // Map element → the client needs to provide the event location.
+    if (el?.type === 'map') used.add('__map__')
   }
   return used
 }
@@ -68,7 +70,14 @@ export function getVisibleFields(template) {
   const fields = new Set(ALWAYS_VISIBLE_FIELDS)
   used.forEach((v) => { if (VAR_TO_FIELD[v]) fields.add(VAR_TO_FIELD[v]) })
   if (used.has('__photo__')) fields.add('__photo__')
+  // A map/location element makes the venue location fields relevant.
+  if (used.has('__map__')) { fields.add('venueName'); fields.add('venueAddress'); fields.add('venueCity'); fields.add('venueMapUrl') }
   return fields
+}
+
+// Does the template include a clickable map/location element?
+export function templateUsesMap(template) {
+  return getUsedVariables(template).has('__map__')
 }
 
 // Does the template use any of the wedding programme (commune/eglise/reception)
