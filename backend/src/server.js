@@ -142,7 +142,7 @@ app.get('/api/settings/public', async (req, res) => {
     const { PrismaClient } = require('@prisma/client');
     const prisma = new PrismaClient();
     const records = await prisma.setting.findMany({
-      where: { key: { in: ['siteName', 'siteLogo', 'logoHeight', 'contactEmail', 'supportPhone'] } }
+      where: { key: { in: ['siteName', 'siteLogo', 'logoHeight', 'contactEmail', 'supportPhone', 'printServiceEnabled'] } }
     });
     const result = {};
     records.forEach(r => { result[r.key] = r.value; });

@@ -33,7 +33,8 @@ const DEFAULT_FORM = {
   telegramChatId: '',
   telegramNotificationsEnabled: false,
   enableEmailNotifications: true,
-  enableAdminNotifications: true
+  enableAdminNotifications: true,
+  printServiceEnabled: false
 }
 
 export default function AdminSettings() {
@@ -78,7 +79,8 @@ export default function AdminSettings() {
       telegramChatId: s.telegramChatId || '',
       telegramNotificationsEnabled: s.telegramNotificationsEnabled === 'true' || s.telegramNotificationsEnabled === true,
       enableEmailNotifications: s.enableEmailNotifications !== 'false' && s.enableEmailNotifications !== false,
-      enableAdminNotifications: s.enableAdminNotifications !== 'false' && s.enableAdminNotifications !== false
+      enableAdminNotifications: s.enableAdminNotifications !== 'false' && s.enableAdminNotifications !== false,
+      printServiceEnabled: s.printServiceEnabled === 'true' || s.printServiceEnabled === true
     })
     // Sync logo preview
     if (s.siteLogo) setLogoPreview(s.siteLogo)
@@ -396,6 +398,25 @@ export default function AdminSettings() {
                 <p className="text-xs text-gray-400">
                   Cet email et ce numéro sont affichés publiquement dans la section Contact de la page d'accueil.
                 </p>
+
+                {/* Print service toggle */}
+                <div className="pt-6 border-t">
+                  <h3 className="text-sm font-semibold text-gray-800 mb-2">Service d'impression</h3>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-1 w-5 h-5 rounded border-gray-300 text-primary-600"
+                      checked={formData.printServiceEnabled}
+                      onChange={(e) => updateField('printServiceEnabled', e.target.checked)}
+                    />
+                    <div>
+                      <p className="font-medium text-gray-900">Activer la commande d'impression pour les clients</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Lorsque désactivé, les clients peuvent toujours télécharger leurs fichiers d'impression depuis le tableau de bord de l'événement, mais le bouton « Commander l'impression chez nous » est masqué.
+                      </p>
+                    </div>
+                  </label>
+                </div>
               </div>
             )}
 

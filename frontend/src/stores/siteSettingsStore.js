@@ -34,6 +34,7 @@ const useSiteSettingsStore = create((set, get) => ({
   logoHeight: 32,
   contactEmail: '',
   supportPhone: '',
+  printServiceEnabled: false,
   loaded: false,
 
   fetchSettings: async () => {
@@ -47,6 +48,7 @@ const useSiteSettingsStore = create((set, get) => ({
         logoHeight: parseInt(data.logoHeight) || 32,
         contactEmail: data.contactEmail || '',
         supportPhone: data.supportPhone || '',
+        printServiceEnabled: data.printServiceEnabled === 'true' || data.printServiceEnabled === true,
         loaded: true
       })
       // Update page title
