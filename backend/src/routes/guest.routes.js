@@ -34,7 +34,7 @@ router.post('/:weddingId', authenticate, createGuestValidation, async (req, res)
     });
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
     // Check for duplicate email if provided
@@ -43,7 +43,7 @@ router.post('/:weddingId', authenticate, createGuestValidation, async (req, res)
         where: { weddingId, email }
       });
       if (existingGuest) {
-        return res.status(400).json({ error: 'Un invitÃ© avec cet email existe dÃ©jÃ ' });
+        return res.status(400).json({ error: 'Un invité avec cet email existe déjà' });
       }
     }
 
@@ -69,12 +69,12 @@ router.post('/:weddingId', authenticate, createGuestValidation, async (req, res)
     });
 
     res.status(201).json({
-      message: 'InvitÃ© ajoutÃ© avec succÃ¨s',
+      message: 'Invité ajouté avec succès',
       guest
     });
   } catch (error) {
     logger.error('Add guest error:', error);
-    res.status(500).json({ error: 'Erreur lors de l\'ajout de l\'invitÃ©' });
+    res.status(500).json({ error: 'Erreur lors de l\'ajout de l\'invité' });
   }
 });
 
@@ -88,7 +88,7 @@ router.post('/:weddingId/import', authenticate, uploadSingle('file'), handleUplo
     const { weddingId } = req.params;
 
     if (!req.file) {
-      return res.status(400).json({ error: 'Aucun fichier uploadÃ©' });
+      return res.status(400).json({ error: 'Aucun fichier uploadé' });
     }
 
     // Verify wedding ownership
@@ -100,7 +100,7 @@ router.post('/:weddingId/import', authenticate, uploadSingle('file'), handleUplo
     });
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
     let guests = [];
@@ -128,7 +128,7 @@ router.post('/:weddingId/import', authenticate, uploadSingle('file'), handleUplo
     const validGuests = guests.filter(g => g.firstName && g.lastName);
 
     if (validGuests.length === 0) {
-      return res.status(400).json({ error: 'Aucun invitÃ© valide trouvÃ© dans le fichier' });
+      return res.status(400).json({ error: 'Aucun invité valide trouvé dans le fichier' });
     }
 
     // Create guests
@@ -179,7 +179,7 @@ router.post('/:weddingId/import', authenticate, uploadSingle('file'), handleUplo
     await fs.unlink(filePath).catch(() => {});
 
     res.json({
-      message: `Import terminÃ©: ${results.created} crÃ©Ã©s, ${results.skipped} ignorÃ©s`,
+      message: `Import terminé: ${results.created} créés, ${results.skipped} ignorés`,
       results
     });
   } catch (error) {
@@ -208,7 +208,7 @@ router.get('/:weddingId', authenticate, paginationValidation, async (req, res) =
     });
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
     const where = {
@@ -251,7 +251,7 @@ router.get('/:weddingId', authenticate, paginationValidation, async (req, res) =
     });
   } catch (error) {
     logger.error('Get guests error:', error);
-    res.status(500).json({ error: 'Erreur lors de la rÃ©cupÃ©ration des invitÃ©s' });
+    res.status(500).json({ error: 'Erreur lors de la récupération des invités' });
   }
 });
 
@@ -337,6 +337,76 @@ router.get('/:weddingId/template', authenticate, async (req, res) => {
 });
 
 /**
+ * @route   GET /api/guests/:weddingId/export
+ * @desc    Export guests to CSV or Excel. Declared BEFORE /:weddingId/:guestId
+ *          so "export" isn't captured as a guestId (which returned 404).
+ * @access  Private
+ */
+router.get('/:weddingId/export', authenticate, async (req, res) => {
+  try {
+    const { weddingId } = req.params;
+
+    // Verify wedding ownership
+    const wedding = await prisma.wedding.findFirst({
+      where: {
+        id: weddingId,
+        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
+      }
+    });
+
+    if (!wedding) {
+      return res.status(404).json({ error: 'Événement non trouvé' });
+    }
+
+    const guests = await prisma.guest.findMany({
+      where: { weddingId },
+      include: {
+        invitation: {
+          select: { uniqueCode: true }
+        }
+      },
+      orderBy: { lastName: 'asc' }
+    });
+
+    // Build the rows with clean UTF-8 French headers.
+    const data = guests.map(g => ({
+      'Prénom': g.firstName,
+      'Nom': g.lastName,
+      'Email': g.email || '',
+      'Téléphone': g.phone || '',
+      'Table': g.tableNumber || '',
+      'Catégorie': g.category || '',
+      'Accompagnants': g.plusOnes,
+      'Statut RSVP': g.rsvpStatus,
+      'Régime alimentaire': g.dietaryRestrictions || '',
+      'Notes': g.notes || '',
+      'Code Invitation': g.invitation?.uniqueCode || ''
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const format = String(req.query.format || 'xlsx').toLowerCase();
+
+    if (format === 'csv') {
+      // Prepend a UTF-8 BOM so Excel opens accents correctly.
+      const csv = '﻿' + XLSX.utils.sheet_to_csv(worksheet);
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename=invites_${wedding.slug}.csv`);
+      return res.send(csv);
+    }
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Invités');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=invites_${wedding.slug}.xlsx`);
+    res.send(buffer);
+  } catch (error) {
+    logger.error('Export guests error:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'export' });
+  }
+});
+
+/**
  * @route   GET /api/guests/:weddingId/:guestId
  * @desc    Get a single guest
  * @access  Private
@@ -354,7 +424,7 @@ router.get('/:weddingId/:guestId', authenticate, async (req, res) => {
     });
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
     const guest = await prisma.guest.findFirst({
@@ -377,13 +447,13 @@ router.get('/:weddingId/:guestId', authenticate, async (req, res) => {
     });
 
     if (!guest) {
-      return res.status(404).json({ error: 'InvitÃ© non trouvÃ©' });
+      return res.status(404).json({ error: 'Invité non trouvé' });
     }
 
     res.json({ guest });
   } catch (error) {
     logger.error('Get guest error:', error);
-    res.status(500).json({ error: 'Erreur lors de la rÃ©cupÃ©ration de l\'invitÃ©' });
+    res.status(500).json({ error: 'Erreur lors de la récupération de l\'invité' });
   }
 });
 
@@ -398,7 +468,7 @@ router.post('/:weddingId/bulk', authenticate, async (req, res) => {
     const { guests } = req.body;
 
     if (!guests || !Array.isArray(guests) || guests.length === 0) {
-      return res.status(400).json({ error: 'Liste d\'invitÃ©s requise' });
+      return res.status(400).json({ error: 'Liste d\'invités requise' });
     }
 
     // Verify wedding ownership
@@ -410,7 +480,7 @@ router.post('/:weddingId/bulk', authenticate, async (req, res) => {
     });
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
     const results = { created: 0, skipped: 0, errors: [] };
@@ -465,7 +535,7 @@ router.post('/:weddingId/bulk', authenticate, async (req, res) => {
     });
 
     res.status(201).json({
-      message: `${results.created} invitÃ©s ajoutÃ©s, ${results.skipped} ignorÃ©s`,
+      message: `${results.created} invités ajoutés, ${results.skipped} ignorés`,
       results
     });
   } catch (error) {
@@ -493,7 +563,7 @@ router.put('/:weddingId/:guestId', authenticate, async (req, res) => {
     });
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
     const guest = await prisma.guest.update({
@@ -513,12 +583,12 @@ router.put('/:weddingId/:guestId', authenticate, async (req, res) => {
     });
 
     res.json({
-      message: 'InvitÃ© mis Ã  jour',
+      message: 'Invité mis à jour',
       guest
     });
   } catch (error) {
     logger.error('Update guest error:', error);
-    res.status(500).json({ error: 'Erreur lors de la mise Ã  jour' });
+    res.status(500).json({ error: 'Erreur lors de la mise à jour' });
   }
 });
 
@@ -540,86 +610,17 @@ router.delete('/:weddingId/:guestId', authenticate, async (req, res) => {
     });
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
     await prisma.guest.delete({
       where: { id: guestId }
     });
 
-    res.json({ message: 'InvitÃ© supprimÃ©' });
+    res.json({ message: 'Invité supprimé' });
   } catch (error) {
     logger.error('Delete guest error:', error);
     res.status(500).json({ error: 'Erreur lors de la suppression' });
-  }
-});
-
-/**
- * @route   GET /api/guests/:weddingId/export
- * @desc    Export guests to Excel
- * @access  Private
- */
-router.get('/:weddingId/export', authenticate, async (req, res) => {
-  try {
-    const { weddingId } = req.params;
-
-    // Verify wedding ownership
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      }
-    });
-
-    if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
-    }
-
-    const guests = await prisma.guest.findMany({
-      where: { weddingId },
-      include: {
-        invitation: {
-          select: { uniqueCode: true }
-        }
-      },
-      orderBy: { lastName: 'asc' }
-    });
-
-    // Build the rows with clean UTF-8 French headers.
-    const data = guests.map(g => ({
-      'Prénom': g.firstName,
-      'Nom': g.lastName,
-      'Email': g.email || '',
-      'Téléphone': g.phone || '',
-      'Table': g.tableNumber || '',
-      'Catégorie': g.category || '',
-      'Accompagnants': g.plusOnes,
-      'Statut RSVP': g.rsvpStatus,
-      'Régime alimentaire': g.dietaryRestrictions || '',
-      'Notes': g.notes || '',
-      'Code Invitation': g.invitation?.uniqueCode || ''
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const format = String(req.query.format || 'xlsx').toLowerCase();
-
-    if (format === 'csv') {
-      // Prepend a UTF-8 BOM so Excel opens accents correctly.
-      const csv = '﻿' + XLSX.utils.sheet_to_csv(worksheet);
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename=invites_${wedding.slug}.csv`);
-      return res.send(csv);
-    }
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Invités');
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=invites_${wedding.slug}.xlsx`);
-    res.send(buffer);
-  } catch (error) {
-    logger.error('Export guests error:', error);
-    res.status(500).json({ error: 'Erreur lors de l\'export' });
   }
 });
 
