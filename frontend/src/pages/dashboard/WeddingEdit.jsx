@@ -12,7 +12,7 @@ import { eventUsesCouple, eventUsesHonoree, eventUsesFreeTitle, eventUsesTables,
 import {
   ArrowLeftIcon, TrashIcon, BuildingLibraryIcon, MusicalNoteIcon,
   CalendarDaysIcon, HeartIcon,
-  QrCodeIcon, PrinterIcon, SparklesIcon,
+  QrCodeIcon, SparklesIcon,
   SwatchIcon, ExclamationTriangleIcon,
   EyeIcon, UserIcon, PhotoIcon
 } from '@heroicons/react/24/outline'
@@ -30,23 +30,6 @@ const QR_STYLES = [
   { id: 'elegant', name: 'Élégant', desc: 'Style premium', pattern: 'elegant', color: '#8B7355' }
 ]
 
-const PAPER_TYPES = [
-  { id: 'standard', name: 'Standard', desc: 'Papier couché 250g', extra: '0€' },
-  { id: 'premium', name: 'Premium', desc: 'Papier texturé 300g', extra: '+0,50€/u' },
-  { id: 'luxury', name: 'Luxe', desc: 'Papier coton 350g', extra: '+1,50€/u' }
-]
-
-const PRINT_FINISHES = [
-  { id: 'mat', name: 'Mat', desc: 'Finition mate élégante' },
-  { id: 'glossy', name: 'Brillant', desc: 'Finition brillante' },
-  { id: 'satin', name: 'Satiné', desc: 'Finition satinée' }
-]
-
-const PRINT_SIZES = [
-  { id: 'A6', name: 'A6 (10.5×14.8cm)', desc: 'Carte postale' },
-  { id: 'A5', name: 'A5 (14.8×21cm)', desc: 'Format standard' },
-  { id: 'custom', name: 'Personnalisé', desc: 'Sur mesure' }
-]
 
 const TEMPLATE_CATEGORIES = {
   ELEGANT: 'Élégant',
@@ -119,20 +102,12 @@ export default function WeddingEdit() {
       qrCodeBgColor: wedding.qrCodeBgColor === 'transparent' ? '#FFFFFF' : (wedding.qrCodeBgColor || '#FFFFFF'),
       qrCodeSize: wedding.qrCodeSize || 300,
       qrCodeTransparentBg: wedding.qrCodeBgColor === 'transparent',
-      // Print
-      wantsPrintService: wedding.wantsPrintService || false,
-      printPaperType: wedding.printPaperType || 'premium',
-      printFinish: wedding.printFinish || 'mat',
-      printSize: wedding.printSize || 'A5',
-      printQuantity: wedding.printQuantity || 50,
-      printNotes: wedding.printNotes || '',
       // Extra
       rsvpDeadline: wedding.rsvpDeadline?.split('T')[0] || '',
       additionalInfo: wedding.additionalInfo || ''
     } : undefined
   })
 
-  const wantsPrint = watch('wantsPrintService')
   const selectedTemplateId = watch('templateId')
 
   // Photo placeholders of the bound template - drives the per-placeholder uploads
@@ -251,13 +226,6 @@ export default function WeddingEdit() {
       qrCodeColor: data.qrCodeColor || '#000000',
       qrCodeBgColor: data.qrCodeTransparentBg ? 'transparent' : (data.qrCodeBgColor || '#FFFFFF'),
       qrCodeSize: parseInt(data.qrCodeSize) || 300,
-      // Print
-      wantsPrintService: data.wantsPrintService === true || data.wantsPrintService === 'true',
-      printQuantity: data.wantsPrintService ? parseInt(data.printQuantity) || null : null,
-      printPaperType: data.wantsPrintService ? data.printPaperType : null,
-      printFinish: data.wantsPrintService ? data.printFinish : null,
-      printSize: data.wantsPrintService ? data.printSize : null,
-      printNotes: data.wantsPrintService ? cleanValue(data.printNotes) : null,
       // Extra
       rsvpDeadline: data.rsvpDeadline ? new Date(data.rsvpDeadline).toISOString() : null,
       additionalInfo: cleanValue(data.additionalInfo)
@@ -865,95 +833,6 @@ export default function WeddingEdit() {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* ==================== Section 5: Print Service ==================== */}
-        <div className="bg-white rounded-xl shadow-lg p-8 space-y-6">
-          <h2 className="text-xl font-serif font-bold text-gray-900 flex items-center gap-2">
-            <PrinterIcon className="h-6 w-6 text-primary-500" />
-            Service d'impression
-          </h2>
-          <p className="text-gray-600">Nous pouvons imprimer et livrer vos invitations sur papier de qualité professionnelle</p>
-
-          <div className="bg-gradient-to-r from-primary-50 to-amber-50 rounded-xl p-6 border border-primary-200">
-            <label className="flex items-center cursor-pointer">
-              <input type="checkbox" className="w-5 h-5 rounded border-gray-300 text-primary-600 mr-4" {...register('wantsPrintService')} />
-              <div>
-                <p className="font-semibold text-gray-900">Oui, je souhaite faire imprimer mes invitations</p>
-                <p className="text-sm text-gray-600">Notre équipe imprimera et livrera vos invitations chez vous</p>
-              </div>
-            </label>
-          </div>
-
-          {wantsPrint && (
-            <div className="space-y-6 animate-fadeIn">
-              <div>
-                <label className="label">Nombre d'exemplaires (min. 10)</label>
-                <input type="number" min="10" max="1000" className="input w-40" {...register('printQuantity', { min: 10 })} />
-              </div>
-
-              <div>
-                <label className="label">Type de papier</label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {PAPER_TYPES.map(paper => (
-                    <label key={paper.id} className={`cursor-pointer p-4 rounded-xl border-2 transition-all ${
-                      watch('printPaperType') === paper.id ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
-                    }`}>
-                      <input type="radio" value={paper.id} className="hidden" {...register('printPaperType')} />
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-medium text-gray-900">{paper.name}</p>
-                          <p className="text-xs text-gray-500 mt-1">{paper.desc}</p>
-                        </div>
-                        <span className="text-xs font-semibold text-primary-600">{paper.extra}</span>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="label">Finition</label>
-                <div className="grid grid-cols-3 gap-3">
-                  {PRINT_FINISHES.map(finish => (
-                    <label key={finish.id} className={`cursor-pointer p-3 rounded-lg border-2 text-center transition-all ${
-                      watch('printFinish') === finish.id ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
-                    }`}>
-                      <input type="radio" value={finish.id} className="hidden" {...register('printFinish')} />
-                      <p className="font-medium text-sm">{finish.name}</p>
-                      <p className="text-xs text-gray-500">{finish.desc}</p>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="label">Format</label>
-                <div className="grid grid-cols-3 gap-3">
-                  {PRINT_SIZES.map(size => (
-                    <label key={size.id} className={`cursor-pointer p-3 rounded-lg border-2 text-center transition-all ${
-                      watch('printSize') === size.id ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
-                    }`}>
-                      <input type="radio" value={size.id} className="hidden" {...register('printSize')} />
-                      <p className="font-medium text-sm">{size.name}</p>
-                      <p className="text-xs text-gray-500">{size.desc}</p>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="label">Instructions spéciales</label>
-                <textarea className="input" rows={3} placeholder="Ex: Inclure des enveloppes, finition dorée sur le texte..." {...register('printNotes')} />
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">
-                  <strong>📋 Info :</strong> Un devis sera calculé après la création. Réductions : -10% dès 50 ex., -15% dès 100 ex., -20% dès 200 ex.
-                </p>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ==================== Section 6: Statut ==================== */}
