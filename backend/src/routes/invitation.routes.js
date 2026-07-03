@@ -374,6 +374,9 @@ router.get('/:weddingId/download-all', authenticate, async (req, res) => {
   try {
     const { weddingId } = req.params;
     const { type = 'pdf' } = req.query; // 'pdf' or 'image'
+    // Optional selection: only include these guests' invitations (comma-separated).
+    const selectedIds = String(req.query.guestIds || '').split(',').map(s => s.trim()).filter(Boolean);
+    const selectedSet = selectedIds.length ? new Set(selectedIds) : null;
 
     const wedding = await prisma.wedding.findFirst({
       where: {
@@ -390,31 +393,34 @@ router.get('/:weddingId/download-all', authenticate, async (req, res) => {
     });
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Événement non trouvé' });
     }
+
+    // Restrict to the selected guests when a selection was provided.
+    const eligibleGuests = selectedSet ? wedding.guests.filter(g => selectedSet.has(g.id)) : wedding.guests;
 
     let filesToDownload;
     let fileExtension;
     let errorMessage;
 
     if (type === 'image') {
-      filesToDownload = wedding.guests
+      filesToDownload = eligibleGuests
         .filter(g => g.invitation?.imageUrl)
         .map(g => ({
           name: `${g.firstName}_${g.lastName}.png`,
           path: path.join(__dirname, '../../', g.invitation.imageUrl)
         }));
       fileExtension = 'images';
-      errorMessage = 'Aucune image disponible. GÃ©nÃ©rez d\'abord les images.';
+      errorMessage = 'Aucune image disponible. Générez d\'abord les images.';
     } else {
-      filesToDownload = wedding.guests
+      filesToDownload = eligibleGuests
         .filter(g => g.invitation?.pdfUrl)
         .map(g => ({
           name: `${g.firstName}_${g.lastName}.pdf`,
           path: path.join(__dirname, '../../', g.invitation.pdfUrl)
         }));
       fileExtension = 'pdfs';
-      errorMessage = 'Aucun PDF disponible. GÃ©nÃ©rez d\'abord les PDFs.';
+      errorMessage = 'Aucun PDF disponible. Générez d\'abord les PDFs.';
     }
 
     if (filesToDownload.length === 0) {

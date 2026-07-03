@@ -178,7 +178,7 @@ export const invitationAPI = {
   generate: (weddingId, guestIds) => api.post(`/invitations/${weddingId}/generate`, { guestIds }),
   generatePDFs: (weddingId, guestIds) => api.post(`/invitations/${weddingId}/generate-pdfs`, { guestIds }),
   generateImages: (weddingId, guestIds) => api.post(`/invitations/${weddingId}/generate-images`, { guestIds }),
-  downloadAll: (weddingId, type = 'pdf') => api.get(`/invitations/${weddingId}/download-all`, { params: { type }, responseType: 'blob' }),
+  downloadAll: (weddingId, type = 'pdf', guestIds) => api.get(`/invitations/${weddingId}/download-all`, { params: { type, ...(guestIds && guestIds.length ? { guestIds: guestIds.join(',') } : {}) }, responseType: 'blob' }),
   regenerate: (weddingId, guestId) => api.post(`/invitations/${weddingId}/${guestId}/regenerate`)
 }
 

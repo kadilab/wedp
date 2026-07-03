@@ -1,6 +1,7 @@
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { weddingAPI } from '../../services/api'
+import PrintSection from '../../components/invitations/PrintSection'
 import { eventUsesTables, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
 import { tableName } from '../../utils/tables'
 import { format, differenceInCalendarDays } from 'date-fns'
@@ -285,6 +286,9 @@ export default function WeddingDetail() {
           </Link>
         ))}
       </div>
+
+      {/* Print files + optional print service order */}
+      <PrintSection weddingId={id} />
 
       {/* Details */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
