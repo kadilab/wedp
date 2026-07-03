@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { authenticate } = require('../middleware/auth.middleware');
 const { generateQRCode, generateUniqueCode, generateQRCodeBase64 } = require('../utils/qrcode');
-const { generateInvitationPDF, generateBatchPDFs, generateInvitationImage } = require('../utils/pdf');
+const { generateInvitationPDF, generateBatchPDFs, generateInvitationImage, generatePrintLayoutPDF, calculateImposition } = require('../utils/pdf');
 const { getWeddingQuota } = require('../utils/invitationQuota');
 const logger = require('../utils/logger');
 
@@ -448,6 +448,54 @@ router.get('/:weddingId/download-all', authenticate, async (req, res) => {
   } catch (error) {
     logger.error('Download all error:', error);
     res.status(500).json({ error: 'Erreur lors du tÃ©lÃ©chargement' });
+  }
+});
+
+/**
+ * @route   POST /api/invitations/:weddingId/print-layout
+ * @desc    Generate a print-ready imposition PDF ("BàT" / bon à tirer) for the
+ *          SELECTED invitations only. Multiple cards per A4 page with crop marks.
+ *          Declared before /:weddingId/:guestId so "print-layout" isn't captured
+ *          as a guestId.
+ * @access  Private (owner)
+ */
+router.post('/:weddingId/print-layout', authenticate, async (req, res) => {
+  try {
+    const { weddingId } = req.params;
+    const { guestIds, printSize = 'A6' } = req.body;
+    const ids = Array.isArray(guestIds) ? guestIds.filter(Boolean) : [];
+
+    const wedding = await prisma.wedding.findFirst({
+      where: {
+        id: weddingId,
+        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
+      },
+      include: {
+        template: true,
+        guests: {
+          where: { invitation: { isNot: null }, ...(ids.length ? { id: { in: ids } } : {}) },
+          include: { invitation: true }
+        }
+      }
+    });
+
+    if (!wedding) return res.status(404).json({ error: 'Événement non trouvé' });
+    if (wedding.guests.length === 0) {
+      return res.status(400).json({ error: 'Aucune invitation générée dans la sélection. Générez d\'abord les invitations.' });
+    }
+
+    const size = ['A6', 'A5', 'custom'].includes(printSize) ? printSize : 'A6';
+    const pdfUrl = await generatePrintLayoutPDF({
+      wedding,
+      guests: wedding.guests,
+      template: wedding.template,
+      printSize: size
+    });
+
+    res.json({ pdfUrl, count: wedding.guests.length, size });
+  } catch (error) {
+    logger.error('Client print-layout error:', error);
+    res.status(500).json({ error: 'Erreur lors de la génération du fichier d\'impression' });
   }
 });
 

@@ -4,62 +4,82 @@ import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { invitationAPI } from '../../services/api'
 import useSiteSettingsStore from '../../stores/siteSettingsStore'
+import PrintOrderModal from './PrintOrderModal'
 import {
-  PrinterIcon, ArrowDownTrayIcon, DocumentIcon, PhotoIcon, TruckIcon
+  PrinterIcon, ArrowDownTrayIcon, DocumentIcon, TruckIcon
 } from '@heroicons/react/24/outline'
 
-// Event-dashboard section: download print-ready files for a chosen subset of
-// invitations (so the client only produces print files for the ones they'll
-// actually print, not the ones sent digitally), plus an optional "order our
-// printing service" button gated by the admin setting.
+const apiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || ''
+
+// Event-dashboard section: produce a print-ready file ("BàT" / bon à tirer) for
+// a chosen subset of invitations — an A4 imposition PDF with crop marks — so the
+// client only prints the ones they want. Optional "order our printing" flow,
+// gated by the admin setting.
 export default function PrintSection({ weddingId }) {
   const printServiceEnabled = useSiteSettingsStore((s) => s.printServiceEnabled)
-  const [fmt, setFmt] = useState('pdf') // 'pdf' | 'image'
+  const [size, setSize] = useState('A6') // print card size for the imposition
   const [selected, setSelected] = useState(null) // Set<guestId> | null (=> all)
-  const [downloading, setDownloading] = useState(false)
+  const [busy, setBusy] = useState('') // '' | 'bat' | 'zip'
+  const [showOrder, setShowOrder] = useState(false)
 
   const { data, isLoading } = useQuery(
     ['print-invitations', weddingId],
     () => invitationAPI.getAll(weddingId)
   )
-  // Each generated invitation carries its guest — those are the printable ones.
   const guests = (data?.data?.invitations || []).map((inv) => inv.guest).filter(Boolean)
 
   const sel = selected ?? new Set(guests.map((g) => g.id))
   const allSelected = guests.length > 0 && guests.every((g) => sel.has(g.id))
-  const toggle = (id) => {
-    const n = new Set(sel)
-    n.has(id) ? n.delete(id) : n.add(id)
-    setSelected(n)
-  }
+  const toggle = (id) => { const n = new Set(sel); n.has(id) ? n.delete(id) : n.add(id); setSelected(n) }
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(guests.map((g) => g.id)))
 
-  const download = async () => {
+  const readErr = async (e, fallback) => {
+    try { const txt = await e.response?.data?.text?.(); if (txt) return JSON.parse(txt).error || fallback } catch { /* noop */ }
+    return e.response?.data?.error || fallback
+  }
+
+  // Generate the print-ready imposition PDF (BàT) for the selected invitations.
+  const generateBat = async () => {
     const ids = [...sel]
-    if (ids.length === 0) return toast.error('Sélectionnez au moins une invitation à imprimer')
-    setDownloading(true)
-    const t = toast.loading('Préparation des fichiers d\'impression…')
+    if (ids.length === 0) return toast.error('Sélectionnez au moins une invitation')
+    setBusy('bat')
+    const t = toast.loading('Génération du fichier d\'impression (BàT)…')
     try {
-      // 1) Make sure the print files exist for the chosen format.
-      if (fmt === 'image') await invitationAPI.generateImages(weddingId, ids)
-      else await invitationAPI.generatePDFs(weddingId, ids)
-      // 2) Download a ZIP of exactly the selected invitations.
-      const res = await invitationAPI.downloadAll(weddingId, fmt, ids)
-      const url = window.URL.createObjectURL(new Blob([res.data]))
+      // Ensure the underlying invitation PDFs exist, then build the A4 layout.
+      await invitationAPI.generatePDFs(weddingId, ids)
+      const res = await invitationAPI.printLayout(weddingId, { guestIds: ids, printSize: size })
+      const url = res.data?.pdfUrl
+      if (!url) throw new Error('no url')
       const a = document.createElement('a')
-      a.href = url
-      a.download = `invitations_${fmt === 'image' ? 'images' : 'pdf'}.zip`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      window.URL.revokeObjectURL(url)
-      toast.success(`${ids.length} fichier(s) d'impression téléchargé(s)`, { id: t })
+      a.href = `${apiBase}${url}`
+      a.download = `BAT_impression_${size}.pdf`
+      a.target = '_blank'
+      document.body.appendChild(a); a.click(); a.remove()
+      toast.success(`BàT prêt (${res.data.count} invitation(s), ${size})`, { id: t })
     } catch (e) {
-      let msg = 'Échec du téléchargement'
-      try { const txt = await e.response?.data?.text?.(); if (txt) msg = JSON.parse(txt).error || msg } catch { /* keep */ }
-      toast.error(msg, { id: t })
+      toast.error(await readErr(e, 'Échec de la génération du BàT'), { id: t })
     } finally {
-      setDownloading(false)
+      setBusy('')
+    }
+  }
+
+  // Secondary: individual PDF files zipped (one file per invitation).
+  const downloadZip = async () => {
+    const ids = [...sel]
+    if (ids.length === 0) return toast.error('Sélectionnez au moins une invitation')
+    setBusy('zip')
+    const t = toast.loading('Préparation des fichiers…')
+    try {
+      await invitationAPI.generatePDFs(weddingId, ids)
+      const res = await invitationAPI.downloadAll(weddingId, 'pdf', ids)
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement('a'); a.href = url; a.download = 'invitations_pdf.zip'
+      document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url)
+      toast.success('Fichiers téléchargés', { id: t })
+    } catch (e) {
+      toast.error(await readErr(e, 'Échec du téléchargement'), { id: t })
+    } finally {
+      setBusy('')
     }
   }
 
@@ -70,7 +90,7 @@ export default function PrintSection({ weddingId }) {
         <h3 className="text-lg font-serif font-bold text-gray-900">Impression</h3>
       </div>
       <p className="text-sm text-gray-500 mb-4">
-        Téléchargez les fichiers prêts à imprimer pour les invitations de votre choix.
+        Générez un fichier prêt à imprimer (BàT) pour les invitations de votre choix.
       </p>
 
       {isLoading ? (
@@ -82,17 +102,17 @@ export default function PrintSection({ weddingId }) {
         </div>
       ) : (
         <>
-          {/* Format */}
+          {/* Print size */}
           <div className="mb-4">
-            <p className="text-xs font-medium text-gray-700 mb-1.5">Format du fichier</p>
+            <p className="text-xs font-medium text-gray-700 mb-1.5">Format d'impression (par carte)</p>
             <div className="inline-flex rounded-lg bg-gray-100 p-1">
-              <button onClick={() => setFmt('pdf')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${fmt === 'pdf' ? 'bg-white shadow-sm text-primary-700' : 'text-gray-500'}`}>
-                <DocumentIcon className="h-4 w-4" /> PDF
-              </button>
-              <button onClick={() => setFmt('image')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${fmt === 'image' ? 'bg-white shadow-sm text-primary-700' : 'text-gray-500'}`}>
-                <PhotoIcon className="h-4 w-4" /> Image (PNG)
-              </button>
+              {['A6', 'A5'].map((s) => (
+                <button key={s} onClick={() => setSize(s)} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${size === s ? 'bg-white shadow-sm text-primary-700' : 'text-gray-500'}`}>
+                  {s} {s === 'A6' ? '(10,5×14,8)' : '(14,8×21)'}
+                </button>
+              ))}
             </div>
+            <p className="text-[11px] text-gray-400 mt-1">Le BàT dispose plusieurs invitations par page A4 avec traits de coupe.</p>
           </div>
 
           {/* Selection */}
@@ -108,7 +128,6 @@ export default function PrintSection({ weddingId }) {
                 <label key={g.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer">
                   <input type="checkbox" checked={sel.has(g.id)} onChange={() => toggle(g.id)} className="w-4 h-4 rounded border-gray-300 text-primary-600" />
                   <span className="text-sm text-gray-800 truncate">{g.firstName} {g.lastName}</span>
-                  {g.tableNumber && <span className="ml-auto text-[11px] text-gray-400 shrink-0">🪑 {g.tableNumber}</span>}
                 </label>
               ))}
             </div>
@@ -116,18 +135,30 @@ export default function PrintSection({ weddingId }) {
 
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={download} disabled={downloading || sel.size === 0} className="btn-primary btn-sm disabled:opacity-50">
+            <button onClick={generateBat} disabled={!!busy || sel.size === 0} className="btn-primary btn-sm disabled:opacity-50">
+              <PrinterIcon className="h-4 w-4 mr-1.5" />
+              {busy === 'bat' ? 'Génération…' : `Générer le BàT (${sel.size})`}
+            </button>
+            <button onClick={downloadZip} disabled={!!busy || sel.size === 0} className="btn-secondary btn-sm disabled:opacity-50">
               <ArrowDownTrayIcon className="h-4 w-4 mr-1.5" />
-              {downloading ? 'Préparation…' : `Télécharger (${sel.size})`}
+              {busy === 'zip' ? 'Préparation…' : 'Fichiers individuels (ZIP)'}
             </button>
             {printServiceEnabled && (
-              <Link to="/print-orders" className="btn-secondary btn-sm">
+              <button onClick={() => setShowOrder(true)} className="btn-secondary btn-sm">
                 <TruckIcon className="h-4 w-4 mr-1.5" />
                 Commander l'impression chez nous
-              </Link>
+              </button>
             )}
           </div>
         </>
+      )}
+
+      {showOrder && (
+        <PrintOrderModal
+          weddingId={weddingId}
+          defaultQuantity={sel.size || 50}
+          onClose={() => setShowOrder(false)}
+        />
       )}
     </div>
   )
