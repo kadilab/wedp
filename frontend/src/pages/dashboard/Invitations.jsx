@@ -20,7 +20,8 @@ import {
   XCircleIcon,
   ClockIcon,
   LinkIcon,
-  ShoppingCartIcon
+  ShoppingCartIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline'
 
 const RSVP_BADGE = {
@@ -38,6 +39,9 @@ export default function Invitations() {
   const downloadMenuRef = useRef(null)
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
+  // Staff (admin / super admin) generate invitations for free — no quota — to
+  // make testing easy. The backend already bypasses the quota for these roles.
+  const isStaff = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN'
   const [searchParams, setSearchParams] = useSearchParams()
 
   // K-PAY return/cancel handling: the client is redirected back here after the
@@ -342,8 +346,15 @@ export default function Invitations() {
         </div>
       </div>
 
-      {/* Quota Banner */}
-      {quota && (
+      {/* Quota Banner — staff generate for free (testing) */}
+      {isStaff ? (
+        <div className="flex items-center gap-2 rounded-xl p-4 border bg-emerald-50 border-emerald-200">
+          <SparklesIcon className="h-5 w-5 text-emerald-600 shrink-0" />
+          <p className="text-sm font-medium text-emerald-800">
+            Compte staff — génération d'invitations gratuite et illimitée (mode test).
+          </p>
+        </div>
+      ) : quota && (
         <div className={`flex items-center justify-between rounded-xl p-4 border ${
           quota.remaining > 0 ? 'bg-blue-50 border-blue-200' : 'bg-amber-50 border-amber-200'
         }`}>
@@ -374,7 +385,7 @@ export default function Invitations() {
               <p className="text-sm text-gray-600">
                 Sélectionnez les invités pour générer leurs invitations
               </p>
-              {quota && selectedGuests.length > quota.remaining && (
+              {!isStaff && quota && selectedGuests.length > quota.remaining && (
                 <p className="text-sm text-amber-600 font-medium mt-1">
                   Vous avez sélectionné plus d'invitations que votre quota restant ({quota.remaining}).
                 </p>
@@ -386,7 +397,7 @@ export default function Invitations() {
               </button>
               <button
                 onClick={() => generateMutation.mutate(selectedGuests)}
-                disabled={selectedGuests.length === 0 || generateMutation.isLoading || (quota && selectedGuests.length > quota.remaining)}
+                disabled={selectedGuests.length === 0 || generateMutation.isLoading || (!isStaff && quota && selectedGuests.length > quota.remaining)}
                 className="btn-gold"
               >
                 <QrCodeIcon className="h-5 w-5 mr-2" />
