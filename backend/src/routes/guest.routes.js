@@ -585,28 +585,35 @@ router.get('/:weddingId/export', authenticate, async (req, res) => {
       orderBy: { lastName: 'asc' }
     });
 
-    // Create Excel workbook
+    // Build the rows with clean UTF-8 French headers.
     const data = guests.map(g => ({
-      'PrÃ©nom': g.firstName,
+      'Prénom': g.firstName,
       'Nom': g.lastName,
       'Email': g.email || '',
-      'TÃ©lÃ©phone': g.phone || '',
+      'Téléphone': g.phone || '',
       'Table': g.tableNumber || '',
-      'CatÃ©gorie': g.category || '',
+      'Catégorie': g.category || '',
       'Accompagnants': g.plusOnes,
       'Statut RSVP': g.rsvpStatus,
-      'RÃ©gime alimentaire': g.dietaryRestrictions || '',
+      'Régime alimentaire': g.dietaryRestrictions || '',
       'Notes': g.notes || '',
       'Code Invitation': g.invitation?.uniqueCode || ''
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
+    const format = String(req.query.format || 'xlsx').toLowerCase();
+
+    if (format === 'csv') {
+      // Prepend a UTF-8 BOM so Excel opens accents correctly.
+      const csv = '﻿' + XLSX.utils.sheet_to_csv(worksheet);
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename=invites_${wedding.slug}.csv`);
+      return res.send(csv);
+    }
+
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'InvitÃ©s');
-
-    // Generate buffer
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Invités');
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=invites_${wedding.slug}.xlsx`);
     res.send(buffer);

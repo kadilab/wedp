@@ -104,6 +104,33 @@ export default function Guests() {
 
   const fileInputRef = useRef(null)
   const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(null) // 'csv' | 'xlsx' | null
+
+  const exportGuests = async (format) => {
+    setExporting(format)
+    try {
+      const response = await guestAPI.export(weddingId, format)
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `invites.${format === 'xlsx' ? 'xlsx' : 'csv'}`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      toast.success('Export réussi')
+    } catch (error) {
+      // With responseType 'blob', an error body comes back as a Blob — read it.
+      let msg = "Erreur lors de l'export"
+      try {
+        const txt = await error.response?.data?.text?.()
+        if (txt) msg = JSON.parse(txt).error || msg
+      } catch { /* keep default */ }
+      toast.error(msg)
+    } finally {
+      setExporting(null)
+    }
+  }
 
   const handleImportFile = async (e) => {
     const file = e.target.files?.[0]
@@ -234,6 +261,14 @@ export default function Guests() {
           >
             <ArrowUpTrayIcon className="h-4 w-4 mr-1" />
             {importing ? 'Import...' : 'Importer Excel'}
+          </button>
+          <button onClick={() => exportGuests('csv')} disabled={exporting === 'csv'} className="btn-secondary btn-sm disabled:opacity-50">
+            <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
+            {exporting === 'csv' ? 'Export...' : 'CSV'}
+          </button>
+          <button onClick={() => exportGuests('xlsx')} disabled={exporting === 'xlsx'} className="btn-secondary btn-sm disabled:opacity-50">
+            <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
+            {exporting === 'xlsx' ? 'Export...' : 'Excel'}
           </button>
           <button
             onClick={() => setShowWaBulk(true)}
