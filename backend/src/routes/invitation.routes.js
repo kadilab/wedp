@@ -462,7 +462,7 @@ router.get('/:weddingId/download-all', authenticate, async (req, res) => {
 router.post('/:weddingId/print-layout', authenticate, async (req, res) => {
   try {
     const { weddingId } = req.params;
-    const { guestIds, printSize = 'A6' } = req.body;
+    const { guestIds, printSize = 'A6', sheetSize = 'A4', orientation = 'portrait' } = req.body;
     const ids = Array.isArray(guestIds) ? guestIds.filter(Boolean) : [];
 
     const wedding = await prisma.wedding.findFirst({
@@ -485,14 +485,18 @@ router.post('/:weddingId/print-layout', authenticate, async (req, res) => {
     }
 
     const size = ['A6', 'A5', 'custom'].includes(printSize) ? printSize : 'A6';
+    const sheet = ['A4', 'A3'].includes(sheetSize) ? sheetSize : 'A4';
+    const orient = orientation === 'landscape' ? 'landscape' : 'portrait';
     const pdfUrl = await generatePrintLayoutPDF({
       wedding,
       guests: wedding.guests,
       template: wedding.template,
-      printSize: size
+      printSize: size,
+      sheetSize: sheet,
+      orientation: orient
     });
 
-    res.json({ pdfUrl, count: wedding.guests.length, size });
+    res.json({ pdfUrl, count: wedding.guests.length, size, sheetSize: sheet, orientation: orient });
   } catch (error) {
     logger.error('Client print-layout error:', error);
     res.status(500).json({ error: 'Erreur lors de la génération du fichier d\'impression' });

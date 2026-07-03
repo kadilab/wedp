@@ -1200,14 +1200,32 @@ const PRINT_SIZES_MM = {
   custom: { width: 148, height: 210 }
 };
 
-const SHEET_SIZE_MM = { width: 210, height: 297 }; // A4
+// Printable sheet (paper) dimensions in mm, portrait orientation.
+const SHEET_SIZES_MM = {
+  A4: { width: 210, height: 297 },
+  A3: { width: 297, height: 420 }
+};
+const SHEET_SIZE_MM = SHEET_SIZES_MM.A4; // backward-compat default
+
+// Resolve the sheet dimensions for a given paper size + orientation.
+function resolveSheet(sheetSize = 'A4', orientation = 'portrait') {
+  const base = SHEET_SIZES_MM[sheetSize] || SHEET_SIZES_MM.A4;
+  const landscape = orientation === 'landscape';
+  return {
+    size: SHEET_SIZES_MM[sheetSize] ? sheetSize : 'A4',
+    orientation: landscape ? 'landscape' : 'portrait',
+    width: landscape ? base.height : base.width,
+    height: landscape ? base.width : base.height
+  };
+}
 
 /**
- * Calculate how many invitations fit on one A4 sheet.
+ * Calculate how many invitations fit on one sheet.
  * If template config provides canvas dimensions, uses its aspect ratio
  * to compute the best-fit card size within the requested print size.
+ * `sheet` = { width, height } in mm (defaults to A4 portrait).
  */
-function calculateImposition(printSize, templateConfig) {
+function calculateImposition(printSize, templateConfig, sheet = SHEET_SIZE_MM) {
   const baseDims = PRINT_SIZES_MM[printSize] || PRINT_SIZES_MM.A5;
   let cardW = baseDims.width;
   let cardH = baseDims.height;
@@ -1231,8 +1249,8 @@ function calculateImposition(printSize, templateConfig) {
     }
   }
 
-  const cols = Math.max(1, Math.floor(SHEET_SIZE_MM.width / cardW));
-  const rows = Math.max(1, Math.floor(SHEET_SIZE_MM.height / cardH));
+  const cols = Math.max(1, Math.floor(sheet.width / cardW));
+  const rows = Math.max(1, Math.floor(sheet.height / cardH));
   return { cols, rows, perPage: cols * rows, cardWidth: cardW, cardHeight: cardH };
 }
 
@@ -1243,18 +1261,19 @@ function calculateImposition(printSize, templateConfig) {
  * @returns {Promise<string>} - Path to generated PDF
  */
 async function generatePrintLayoutPDF(options) {
-  const { wedding, guests, template, printSize = 'A6' } = options;
+  const { wedding, guests, template, printSize = 'A6', sheetSize = 'A4', orientation = 'portrait' } = options;
 
   const templateConfig = template?.config || {};
   const hasDesignElements = Array.isArray(templateConfig.designElements) && templateConfig.designElements.length > 0;
   const canvasW = templateConfig.canvasWidth || 800;
   const canvasH = templateConfig.canvasHeight || 1120;
 
-  const imposition = calculateImposition(printSize, hasDesignElements ? templateConfig : null);
+  const sheet = resolveSheet(sheetSize, orientation); // { size, orientation, width, height } in mm
+  const imposition = calculateImposition(printSize, hasDesignElements ? templateConfig : null, sheet);
   const { cols, rows, perPage, cardWidth, cardHeight } = imposition;
-  
+
   if (perPage < 1) {
-    throw new Error(`Le format ${printSize} est trop grand pour une page A4`);
+    throw new Error(`Le format ${printSize} est trop grand pour une planche ${sheet.size} ${sheet.orientation}`);
   }
 
   // Generate individual invitation HTML snippets
@@ -1389,8 +1408,8 @@ ${pages.map((pageSnippets, pi) => `
       gridPages.push(cardImages.slice(i, i + perPage));
     }
 
-    const marginTop = Math.floor((297 - rows * cardHeight) / 2);
-    const marginLeft = Math.floor((210 - cols * cardWidth) / 2);
+    const marginTop = Math.floor((sheet.height - rows * cardHeight) / 2);
+    const marginLeft = Math.floor((sheet.width - cols * cardWidth) / 2);
 
     const gridHTML = `
 <!DOCTYPE html>
@@ -1398,11 +1417,11 @@ ${pages.map((pageSnippets, pi) => `
 <head>
   <meta charset="UTF-8">
   <style>
-    @page { size: A4; margin: 0; }
+    @page { size: ${sheet.size} ${sheet.orientation}; margin: 0; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { margin: 0; }
     .page {
-      width: 210mm; height: 297mm;
+      width: ${sheet.width}mm; height: ${sheet.height}mm;
       position: relative;
       page-break-after: always;
     }
@@ -1452,7 +1471,8 @@ ${gridPages.map((imgs, pi) => `
 
     await gridPage.pdf({
       path: outputPath,
-      format: 'A4',
+      format: sheet.size,
+      landscape: sheet.orientation === 'landscape',
       printBackground: true,
       margin: { top: '0', right: '0', bottom: '0', left: '0' }
     });
