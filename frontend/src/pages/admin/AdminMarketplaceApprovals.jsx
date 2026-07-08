@@ -32,7 +32,7 @@ export default function AdminMarketplaceApprovals() {
   const [statusFilter, setStatusFilter] = useState('PENDING_REVIEW')
   const [selectedSubmission, setSelectedSubmission] = useState(null)
   const [showReviewModal, setShowReviewModal] = useState(false)
-  const [reviewData, setReviewData] = useState({ status: 'APPROVED', adminNote: '', priceUSD: '', commissionPercentage: '30' })
+  const [reviewData, setReviewData] = useState({ status: 'APPROVED', adminNote: '', priceUSD: '', commissionPercentage: '40' })
   const [previewTemplate, setPreviewTemplate] = useState(null)
   const [page, setPage] = useState(1)
 
@@ -84,7 +84,7 @@ export default function AdminMarketplaceApprovals() {
         toast.success('Template review submitted')
         setShowReviewModal(false)
         setSelectedSubmission(null)
-        setReviewData({ status: 'APPROVED', adminNote: '', priceUSD: '', commissionPercentage: '30' })
+        setReviewData({ status: 'APPROVED', adminNote: '', priceUSD: '', commissionPercentage: '40' })
       },
       onError: (err) =>
         toast.error(err.response?.data?.message || 'Error reviewing template')
@@ -123,7 +123,7 @@ export default function AdminMarketplaceApprovals() {
       status,
       adminNote: '',
       priceUSD: submission.priceUSD ? String(submission.priceUSD) : '',
-      commissionPercentage: submission.commissionPercentage ? String(submission.commissionPercentage) : '30'
+      commissionPercentage: submission.commissionPercentage ? String(submission.commissionPercentage) : '40'
     })
     setShowReviewModal(true)
   }
@@ -226,14 +226,13 @@ export default function AdminMarketplaceApprovals() {
               {submissions.map((submission) => (
                 <div
                   key={submission.id}
-                  className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl hover:border-primary-200 transition-all duration-300 group"
+                  className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg hover:border-primary-200 transition-all duration-200 group flex flex-col"
                 >
-                  {/* Template Preview */}
-                  <div className="aspect-[3/4] bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden relative cursor-pointer" onClick={() => setPreviewTemplate(submission.template)}>
+                  {/* Template Preview — capped height so the card stays compact */}
+                  <div className="h-44 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden relative cursor-pointer" onClick={() => setPreviewTemplate(submission.template)}>
                     <TemplatePreview
                       template={{ config: submission.template.config || {} }}
                       fit="cover"
-                      className="group-hover:scale-110 transition-transform duration-300"
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
                       <span className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 px-3 py-1.5 bg-white/95 text-gray-800 rounded-full text-xs font-semibold shadow">
@@ -243,79 +242,53 @@ export default function AdminMarketplaceApprovals() {
                   </div>
 
                   {/* Info */}
-                  <div className="p-5 space-y-4">
-                    <div className="space-y-1">
-                      <h3 className="font-bold text-gray-900 text-lg">{submission.templateName}</h3>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary-100 text-primary-800">
+                  <div className="p-4 flex flex-1 flex-col gap-3">
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-bold text-gray-900 truncate">{submission.templateName}</h3>
+                        <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-100 text-primary-800">
                           {EVENT_TYPE_LABELS[submission.eventType] || submission.eventType}
                         </span>
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gold-100 text-gold-800">
-                          {submission.category}
-                        </span>
                       </div>
+                      <p className="mt-0.5 text-xs text-gray-500 truncate">
+                        par <span className="font-medium text-gray-700">{submission.creator.displayName}</span>
+                        {submission.creator.verified && <span className="text-green-600"> · ✓</span>}
+                        {submission.category ? ` · ${submission.category}` : ''}
+                      </p>
                     </div>
 
-                    {/* Creator Info */}
-                    <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-xl p-3 flex items-center gap-3 border border-primary-100">
-                      {submission.creator.profileImage && (
-                        <img
-                          src={submission.creator.profileImage}
-                          alt={submission.creator.displayName}
-                          className="w-10 h-10 rounded-full object-cover ring-2 ring-white"
-                        />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 truncate">
-                          {submission.creator.displayName}
-                        </p>
-                        {submission.creator.verified && (
-                          <p className="text-xs text-green-600 font-medium">✓ Vérifié</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Pricing Info */}
-                    <div className="grid grid-cols-2 gap-3 bg-gray-50 rounded-xl p-4 border border-gray-200">
+                    {/* Price (set by the creator) + creator share */}
+                    <div className="flex items-center justify-between rounded-xl bg-gray-50 border border-gray-200 px-3 py-2">
                       <div>
-                        <p className="text-xs text-gray-600 font-medium mb-1">Prix</p>
-                        <p className="text-lg font-bold text-gray-900">${submission.priceUSD.toFixed(2)}</p>
+                        <p className="text-[10px] text-gray-500 font-medium">Prix fixé par le créateur</p>
+                        <p className="text-base font-bold text-gray-900">{submission.priceUSD > 0 ? formatMoney(submission.priceUSD) : 'Gratuit'}</p>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-600 font-medium mb-1">Commission</p>
-                        <p className="text-lg font-bold text-primary-600">{submission.commissionPercentage}%</p>
+                      <div className="text-right">
+                        <p className="text-[10px] text-gray-500 font-medium">Part créateur</p>
+                        <p className="text-sm font-bold text-primary-600">{submission.commissionPercentage}%</p>
                       </div>
                     </div>
 
                     {/* Real usage data (approved templates) */}
                     {submission.status === 'APPROVED' && (
-                      <div className="grid grid-cols-2 gap-3 bg-green-50 rounded-xl p-4 border border-green-200">
-                        <div>
-                          <p className="text-xs text-gray-600 font-medium mb-1">Utilisations</p>
-                          <p className="text-lg font-bold text-gray-900">{submission.usageCount ?? 0}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-600 font-medium mb-1">Revenu généré</p>
-                          <p className="text-lg font-bold text-green-700">${(submission.revenueGenerated ?? 0).toFixed(2)}</p>
-                        </div>
+                      <div className="flex items-center justify-between rounded-xl bg-green-50 border border-green-200 px-3 py-2 text-sm">
+                        <span className="text-gray-600">{submission.usageCount ?? 0} utilisation(s)</span>
+                        <span className="font-bold text-green-700">{formatMoney(submission.revenueGenerated ?? 0)}</span>
                       </div>
                     )}
 
-                    {/* Status Badge */}
-                    <div className="text-center py-2 px-3 rounded-lg bg-gradient-to-r from-gray-100 to-gray-50 border border-gray-200">
-                      <p className="text-xs text-gray-600 font-medium">
-                        {submission.status === 'APPROVED' && submission.reviewedAt
-                          ? `Approuvé le ${new Date(submission.reviewedAt).toLocaleDateString('fr-FR')}`
-                          : `Soumis le ${new Date(submission.submittedAt).toLocaleDateString('fr-FR')}`}
-                      </p>
-                    </div>
+                    <p className="text-[11px] text-gray-400">
+                      {submission.status === 'APPROVED' && submission.reviewedAt
+                        ? `Approuvé le ${new Date(submission.reviewedAt).toLocaleDateString('fr-FR')}`
+                        : `Soumis le ${new Date(submission.submittedAt).toLocaleDateString('fr-FR')}`}
+                    </p>
 
                     {/* Actions - Only show for PENDING_REVIEW */}
                     {statusFilter === 'PENDING_REVIEW' && (
-                      <div className="flex gap-2 pt-2">
+                      <div className="mt-auto flex gap-2 pt-1">
                         <button
                           onClick={() => openReviewModal(submission, 'APPROVED')}
-                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50"
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
                           disabled={reviewMutation.isLoading}
                         >
                           <DocumentCheckIcon className="w-4 h-4" />
@@ -323,7 +296,7 @@ export default function AdminMarketplaceApprovals() {
                         </button>
                         <button
                           onClick={() => openReviewModal(submission, 'REJECTED')}
-                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50"
+                          className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
                           disabled={reviewMutation.isLoading}
                         >
                           <XMarkIcon className="w-4 h-4" />
@@ -475,10 +448,10 @@ export default function AdminMarketplaceApprovals() {
                         <div className="grid grid-cols-2 gap-2">
                           <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
                             <p className="text-[10px] text-gray-500 font-medium">Prix</p>
-                            <p className="text-sm font-bold text-gray-900">${submission.priceUSD.toFixed(2)}</p>
+                            <p className="text-sm font-bold text-gray-900">{submission.priceUSD > 0 ? formatMoney(submission.priceUSD) : 'Gratuit'}</p>
                           </div>
                           <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
-                            <p className="text-[10px] text-gray-500 font-medium">Commission</p>
+                            <p className="text-[10px] text-gray-500 font-medium">Part créateur</p>
                             <p className="text-sm font-bold text-primary-600">{submission.commissionPercentage}%</p>
                           </div>
                         </div>
@@ -541,60 +514,61 @@ export default function AdminMarketplaceApprovals() {
                 </div>
               )}
 
-              {reviewData.status === 'APPROVED' && (
+              {reviewData.status === 'APPROVED' && (() => {
+                const price = parseFloat(reviewData.priceUSD) || 0
+                const creatorPrice = selectedSubmission?.priceUSD || 0
+                const part = (pct) => Math.round(price * pct / 100).toLocaleString('fr-FR')
+                return (
                 <div className="space-y-5">
                   <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                    <p className="text-sm font-medium text-green-900">
-                      ✓ Le créateur gagne sa <strong>commission</strong> sur chaque achat d'invitations
-                      effectué par les clients qui utilisent ce template. Le prix ci-dessous est seulement
-                      le prix affiché dans la marketplace.
+                    <p className="text-sm text-green-900">
+                      Prix proposé par le créateur : <strong>{creatorPrice > 0 ? formatMoney(creatorPrice) : 'Gratuit'}</strong>.
+                      Vous pouvez l'ajuster avant d'approuver.
                     </p>
                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Prix affiché dans la marketplace (USD)
+                      Prix affiché dans la marketplace (FC)
                     </label>
                     <div className="flex">
-                      <span className="inline-flex items-center px-3 bg-gray-200 text-gray-700 text-sm rounded-l-xl">$</span>
                       <input
                         type="number"
                         min="0"
-                        step="0.01"
+                        step="1"
                         value={reviewData.priceUSD}
                         onChange={(e) => setReviewData({ ...reviewData, priceUSD: e.target.value })}
-                        placeholder="0.00"
-                        className="flex-1 px-4 py-3 border border-gray-300 rounded-r-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition bg-gray-50 hover:bg-white"
+                        placeholder="0"
+                        className="flex-1 px-4 py-3 border border-gray-300 rounded-l-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition bg-gray-50 hover:bg-white"
                       />
+                      <span className="inline-flex items-center px-4 bg-gray-100 text-gray-700 text-sm font-medium rounded-r-xl border border-l-0 border-gray-300">FC</span>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Commission créateur (%)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={reviewData.commissionPercentage}
-                      onChange={(e) => setReviewData({ ...reviewData, commissionPercentage: e.target.value })}
-                      placeholder="30"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition bg-gray-50 hover:bg-white"
-                    />
-                  </div>
-
+                  {/* Fixed revenue split */}
                   <div className="bg-primary-50 border border-primary-200 rounded-xl p-4">
-                    <p className="text-xs text-gray-600 mb-1">Exemple : sur une commande d'invitations de $100</p>
-                    <p className="text-2xl font-bold text-primary-600">
-                      ${(100 * (parseFloat(reviewData.commissionPercentage) || 0) / 100).toFixed(2)} <span className="text-sm font-medium text-gray-500">pour le créateur</span>
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Commission = {reviewData.commissionPercentage || '0'}% du montant payé par le client
-                    </p>
+                    <p className="text-xs font-semibold text-gray-700 mb-3">Répartition sur ce prix</p>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-lg bg-white border border-primary-200 p-2">
+                        <p className="text-lg font-bold text-primary-600">40%</p>
+                        <p className="text-[10px] text-gray-500">Créateur</p>
+                        {price > 0 && <p className="text-[10px] text-gray-400">{part(40)} FC</p>}
+                      </div>
+                      <div className="rounded-lg bg-white border border-gray-200 p-2">
+                        <p className="text-lg font-bold text-gray-700">40%</p>
+                        <p className="text-[10px] text-gray-500">Winvite</p>
+                        {price > 0 && <p className="text-[10px] text-gray-400">{part(40)} FC</p>}
+                      </div>
+                      <div className="rounded-lg bg-white border border-gray-200 p-2">
+                        <p className="text-lg font-bold text-gray-700">20%</p>
+                        <p className="text-[10px] text-gray-500">Frais</p>
+                        {price > 0 && <p className="text-[10px] text-gray-400">{part(20)} FC</p>}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
+                )
+              })()}
 
               <div className="flex gap-3 pt-4">
                 <button

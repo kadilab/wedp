@@ -378,8 +378,12 @@ router.get('/creators/:creatorId', paginationValidation, async (req, res) => {
 router.post('/:templateId/publish', authenticate, async (req, res) => {
   try {
     const { templateId } = req.params;
-    const { description, name, eventType, category } = req.body;
+    const { description, name, eventType, category, priceUSD } = req.body;
     const userId = req.user.id;
+
+    // Revenue split (fixed platform rule): creator 40% · Winvite 30% · transaction fees 20%.
+    const CREATOR_SHARE = 40;
+    const proposedPrice = Math.max(0, parseFloat(priceUSD) || 0);
 
     // Get user's creator profile
     const creatorProfile = await prisma.creatorProfile.findUnique({
@@ -445,13 +449,15 @@ router.post('/:templateId/publish', authenticate, async (req, res) => {
       template: { select: { name: true } }
     };
 
-    // Price and commission are decided by the admin at review time, so the
-    // initial listing keeps the schema defaults (priceUSD 0, commission 30).
+    // The CREATOR sets the price at submission; the split is fixed (creator 40%).
+    // The admin then reviews and can adjust the price before approving.
     const marketplace = existingMarketplace
       ? await prisma.templateMarketplace.update({
           where: { templateId },
           data: {
             status: 'PENDING_REVIEW',
+            priceUSD: proposedPrice,
+            commissionPercentage: CREATOR_SHARE,
             adminNote: null,
             reviewedBy: null,
             reviewedAt: null
@@ -462,7 +468,9 @@ router.post('/:templateId/publish', authenticate, async (req, res) => {
           data: {
             templateId,
             creatorId: creatorProfile.id,
-            status: 'PENDING_REVIEW'
+            status: 'PENDING_REVIEW',
+            priceUSD: proposedPrice,
+            commissionPercentage: CREATOR_SHARE
           },
           include: includeRefs
         });

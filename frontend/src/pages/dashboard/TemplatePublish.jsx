@@ -33,8 +33,14 @@ export default function TemplatePublish() {
     name: '',
     eventType: 'WEDDING',
     category: 'MODERN',
-    description: ''
+    description: '',
+    priceUSD: ''
   });
+
+  // Fixed revenue split applied to the price the creator sets.
+  const CREATOR_SHARE = 40;
+  const SITE_SHARE = 40;
+  const FEES_SHARE = 20;
 
   // Fetch template
   const { data: templateData, isLoading: templateLoading } = useQuery(
@@ -126,13 +132,15 @@ export default function TemplatePublish() {
     setLoading(true);
 
     try {
-      // The creator sets name/event type/category/description here.
-      // Price and commission are decided by the admin at review time.
+      // The creator sets name/event type/category/description AND the price.
+      // The split is fixed (creator 40% / Winvite 30% / fees 20%); the admin
+      // validates and may adjust the price.
       await api.post(`/marketplace/${templateId}/publish`, {
         name: formData.name.trim(),
         eventType: formData.eventType,
         category: formData.category,
-        description: formData.description.trim()
+        description: formData.description.trim(),
+        priceUSD: parseFloat(formData.priceUSD) || 0
       });
       setStep(3);
     } catch (err) {
@@ -220,39 +228,73 @@ export default function TemplatePublish() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
+
+              {/* Price set by the creator */}
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">Prix du template *</label>
+                <div className="flex">
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={formData.priceUSD}
+                    onChange={(e) => handleInputChange('priceUSD', e.target.value)}
+                    placeholder="Ex: 2000"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                  <span className="inline-flex items-center px-4 bg-gray-100 text-gray-600 text-sm font-medium rounded-r-lg border border-l-0 border-gray-300">FC</span>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">C'est le prix affiché dans la marketplace. Vous en percevez {CREATOR_SHARE}% (voir l'étape suivante).</p>
+              </div>
             </div>
           )}
 
-          {/* Step 2: How you earn */}
-          {step === 2 && (
-            <div className="space-y-6">
-              <h2 className="text-xl font-serif font-bold">Comment vous gagnez de l'argent</h2>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-                <p className="text-sm text-blue-900">
-                  Le <strong>prix de vente</strong> et votre <strong>pourcentage de commission</strong> sont
-                  définis par notre équipe lors de la validation.
-                </p>
-                <p className="text-sm text-blue-900">
-                  Quand un client choisit votre template et <strong>achète des invitations</strong>, vous gagnez
-                  votre commission. Vos gains s'accumulent et sont versés depuis votre espace créateur.
+          {/* Step 2: Revenue split */}
+          {step === 2 && (() => {
+            const price = Math.max(0, parseFloat(formData.priceUSD) || 0)
+            const share = (pct) => Math.round(price * pct / 100).toLocaleString('fr-FR')
+            return (
+              <div className="space-y-6">
+                <h2 className="text-xl font-serif font-bold">Votre rémunération</h2>
+                <div className="rounded-xl border border-primary-200 bg-primary-50 p-4">
+                  <p className="text-sm text-gray-700">
+                    Sur chaque vente de ce template, la répartition est la suivante :
+                  </p>
+                  <div className="mt-3 grid grid-cols-3 gap-3 text-center">
+                    <div className="rounded-xl bg-white border border-primary-200 p-3">
+                      <p className="text-2xl font-bold text-primary-600">{CREATOR_SHARE}%</p>
+                      <p className="mt-1 text-xs font-medium text-gray-700">Vous (créateur)</p>
+                      {price > 0 && <p className="text-[11px] text-gray-400">{share(CREATOR_SHARE)} FC</p>}
+                    </div>
+                    <div className="rounded-xl bg-white border border-gray-200 p-3">
+                      <p className="text-2xl font-bold text-gray-700">{SITE_SHARE}%</p>
+                      <p className="mt-1 text-xs font-medium text-gray-700">Winvite</p>
+                      {price > 0 && <p className="text-[11px] text-gray-400">{share(SITE_SHARE)} FC</p>}
+                    </div>
+                    <div className="rounded-xl bg-white border border-gray-200 p-3">
+                      <p className="text-2xl font-bold text-gray-700">{FEES_SHARE}%</p>
+                      <p className="mt-1 text-xs font-medium text-gray-700">Frais de transaction</p>
+                      {price > 0 && <p className="text-[11px] text-gray-400">{share(FEES_SHARE)} FC</p>}
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Prix fixé</span>
+                    <span className="text-sm font-semibold text-gray-900">{price > 0 ? `${price.toLocaleString('fr-FR')} FC` : '—'}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Vous percevez ({CREATOR_SHARE}%)</span>
+                    <span className="text-lg font-bold text-primary-600">{price > 0 ? `${share(CREATOR_SHARE)} FC` : '—'}</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Vos gains s'accumulent à chaque utilisation de votre template et sont versés depuis votre espace créateur.
+                  Notre équipe valide votre soumission (elle peut ajuster le prix) avant la mise en ligne.
                 </p>
               </div>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                  <p className="text-2xl mb-1">📤</p>
-                  <p className="text-xs text-gray-600">Vous soumettez</p>
-                </div>
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                  <p className="text-2xl mb-1">✅</p>
-                  <p className="text-xs text-gray-600">L'admin fixe prix & commission</p>
-                </div>
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                  <p className="text-2xl mb-1">💰</p>
-                  <p className="text-xs text-gray-600">Gain à chaque achat d'invitations</p>
-                </div>
-              </div>
-            </div>
-          )}
+            )
+          })()}
 
           {/* Actions */}
           <div className="flex gap-4 pt-6 border-t">
@@ -269,6 +311,7 @@ export default function TemplatePublish() {
               <button
                 onClick={() => {
                   if (!formData.name.trim()) { setError('Le nom du template est requis'); return; }
+                  if (!(parseFloat(formData.priceUSD) > 0)) { setError('Veuillez fixer un prix pour votre template'); return; }
                   setError('');
                   setStep(2);
                 }}
@@ -300,8 +343,8 @@ export default function TemplatePublish() {
           <div>
             <h2 className="text-2xl font-serif font-bold text-gray-900 mb-2">Template soumis !</h2>
             <p className="text-gray-600">
-              Votre template est maintenant <strong>en attente de validation</strong>. Notre équipe va le vérifier,
-              fixer le prix et votre commission, puis vous notifier dès son approbation.
+              Votre template est maintenant <strong>en attente de validation</strong>. Notre équipe va le vérifier
+              (et confirmer le prix que vous avez fixé), puis vous notifier dès son approbation.
             </p>
           </div>
           <div className="flex gap-4 justify-center">

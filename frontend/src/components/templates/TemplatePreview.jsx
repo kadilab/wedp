@@ -245,10 +245,11 @@ export default function TemplatePreview({ template, className = '', weddingData 
                 if (el.type === 'qrcode') {
                   const qrColor = el.qrColor || '#111827'
                   const qrBg = el.qrTransparentBg ? 'transparent' : (el.qrBgColor || '#ffffff')
+                  const qrRotate = el.rotation ? `rotate(${el.rotation}deg)` : undefined
                   if ((el.codeType || 'qr') === 'barcode') {
                     const bars = [2,1,3,1,2,4,1,2,1,3,2,1,4,1,2,3,1,2,1,3,2,4,1,2,1,3,1,2]
                     return (
-                      <div key={el.id || idx} style={{ position: 'absolute', left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: zIdx, background: qrBg, borderRadius: 4, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 2, padding: 6, boxSizing: 'border-box' }}>
+                      <div key={el.id || idx} style={{ position: 'absolute', left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: zIdx, background: qrBg, borderRadius: 4, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 2, padding: 6, boxSizing: 'border-box', transform: qrRotate }}>
                         {bars.map((w, i) => (
                           <span key={i} style={{ width: w, height: '100%', backgroundColor: qrColor }} />
                         ))}
@@ -268,6 +269,7 @@ export default function TemplatePreview({ template, className = '', weddingData 
                         justifyContent: 'center',
                         background: qrBg,
                         borderRadius: 4,
+                        transform: qrRotate,
                       }}
                     >
                       <svg width="72%" height="72%" viewBox="0 0 24 24" fill="none" stroke={qrColor} strokeWidth="1.5">

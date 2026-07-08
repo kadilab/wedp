@@ -1929,6 +1929,7 @@ export default function TemplateDesigner({ clientMode = false }) {
           : 'none',
         backgroundSize: '10px 10px',
         backgroundPosition: '0 0,0 5px,5px -5px,-5px 0',
+        transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
       }
       if (isBarcode) {
         // Barcode placeholder — vertical bars of varying widths.
@@ -3272,6 +3273,28 @@ export default function TemplateDesigner({ clientMode = false }) {
                             </div>
                             <p className="mt-1 text-[11px] text-gray-400">Transparent : idéal sur un fond d'invitation coloré.</p>
                           </div>
+                          {/* Rotation */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Rotation ({selectedElement.rotation ?? 0}°)</label>
+                            <input
+                              type="range" min="-180" max="180"
+                              value={selectedElement.rotation ?? 0}
+                              onChange={(e) => updateElement(selectedId, { rotation: parseInt(e.target.value) })}
+                              className="w-full accent-primary-600"
+                            />
+                            <div className="mt-1 flex gap-1">
+                              {[0, 90, 180, 270].map(deg => (
+                                <button
+                                  key={deg}
+                                  type="button"
+                                  onClick={() => updateElement(selectedId, { rotation: deg > 180 ? deg - 360 : deg })}
+                                  className="flex-1 rounded-md border border-gray-200 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50"
+                                >
+                                  {deg}°
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       ) : selectedElement.type === 'photo' ? (
                         <p className="text-xs text-gray-400 italic">L'image est fournie par le client, pas de contenu texte ici</p>
@@ -3862,7 +3885,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                       </>
                     )}
 
-                    {selectedElement.type !== 'qrcode' && selectedElement.type !== 'photo' && selectedElement.type !== 'image' && (
+                    {!['qrcode', 'photo', 'image', 'shape', 'map'].includes(selectedElement.type) && (
                       <>
                         {/* Font Family */}
                         <div>

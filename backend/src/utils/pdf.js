@@ -874,7 +874,8 @@ function generateDesignBasedHTML(options) {
       // QR code element
       if (el.type === 'qrcode' && qrCodeSrc) {
         const alignItems = el.verticalAlign === 'top' ? 'flex-start' : el.verticalAlign === 'bottom' ? 'flex-end' : 'center';
-        return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};display:flex;align-items:${alignItems};justify-content:center;">
+        const rotate = el.rotation ? `transform:rotate(${el.rotation}deg);transform-origin:center center;` : '';
+        return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};display:flex;align-items:${alignItems};justify-content:center;${rotate}">
           <img src="${qrCodeSrc}" style="max-width:100%;max-height:100%;object-fit:contain;" />
         </div>`;
       }

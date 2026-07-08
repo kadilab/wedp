@@ -547,12 +547,14 @@ export default function InvitationView() {
                     style={{
                       left: elLeft, top: elTop,
                       width: el.width, height: el.height,
-                      zIndex: elZIndex
+                      zIndex: elZIndex,
+                      transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
+                      transformOrigin: 'center center'
                     }}
                   >
                     <img
                       src={invitationInfo.qrCodeData}
-                      alt="QR Code"
+                      alt="Code d'accès"
                       className="max-w-full max-h-full object-contain"
                     />
                   </AnimatedElement>
