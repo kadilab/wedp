@@ -711,6 +711,7 @@ export default function TemplateDesigner({ clientMode = false }) {
   const [previewKey, setPreviewKey] = useState(0)
   const [saving, setSaving] = useState(false)
   const [fontSearch, setFontSearch] = useState('') // filters the font picker
+  const [fontModal, setFontModal] = useState(null) // { file, family, weight, style }
 
   // ---- Fonts: Google list + admin-uploaded custom fonts ----
   const customFonts = useCustomFonts()
@@ -718,21 +719,29 @@ export default function TemplateDesigner({ clientMode = false }) {
   const [fontUploading, setFontUploading] = useState(false)
   const fontInputRef = useRef(null)
 
-  const handleFontUpload = async (e) => {
+  // Picking a file opens a small modal to set the family name + weight + style.
+  const handleFontUpload = (e) => {
     const file = e.target.files?.[0]
     if (e.target) e.target.value = ''
     if (!file) return
-    const family = window.prompt(
-      "Nom à donner à cette police (tel qu'il apparaîtra dans la liste) :",
-      file.name.replace(/\.(ttf|otf|woff2?|TTF|OTF|WOFF2?)$/,'').replace(/[-_]+/g,' ').trim()
-    )
-    if (!family || !family.trim()) return
+    const defaultName = file.name
+      .replace(/\.(ttf|otf|woff2?|TTF|OTF|WOFF2?)$/, '')
+      .replace(/[-_]+/g, ' ')
+      .replace(/\b(thin|extralight|light|regular|medium|semibold|bold|extrabold|black|italic)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    setFontModal({ file, family: defaultName || 'Ma police', weight: 400, style: 'normal' })
+  }
+
+  const submitFontUpload = async () => {
+    if (!fontModal?.file || !fontModal.family.trim()) return
     setFontUploading(true)
     try {
-      const res = await fontAPI.upload(file, family.trim())
+      const res = await fontAPI.upload(fontModal.file, fontModal.family.trim(), fontModal.weight, fontModal.style)
       await queryClient.invalidateQueries('custom-fonts')
       toast.success(`Police « ${res.data.font.family} » importée`)
       if (selectedId) updateElement(selectedId, { fontFamily: res.data.font.family })
+      setFontModal(null)
     } catch (err) {
       toast.error(err.response?.data?.error || "Échec de l'import de la police")
     } finally {
@@ -2065,6 +2074,66 @@ export default function TemplateDesigner({ clientMode = false }) {
     <div className="h-screen flex flex-col bg-gray-100">
       {/* Google Fonts + custom uploaded fonts (dropdown preview + canvas) */}
       <FontStyles />
+
+      {/* Font import modal — family name + weight + style */}
+      {fontModal && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-stone-950/60 p-4 backdrop-blur-sm" onClick={() => !fontUploading && setFontModal(null)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-serif text-lg font-bold text-gray-900">Importer une police</h3>
+            <p className="mt-0.5 text-xs text-gray-500 truncate">Fichier : {fontModal.file?.name}</p>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Nom de la famille</label>
+                <input
+                  type="text"
+                  value={fontModal.family}
+                  onChange={(e) => setFontModal(m => ({ ...m, family: e.target.value }))}
+                  placeholder="ex : Great Vibes"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                <p className="mt-1 text-[11px] text-gray-400">Gardez le même nom pour ajouter d'autres graisses à cette famille.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Graisse</label>
+                  <select
+                    value={fontModal.weight}
+                    onChange={(e) => setFontModal(m => ({ ...m, weight: parseInt(e.target.value, 10) }))}
+                    className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value={100}>100 — Thin</option>
+                    <option value={200}>200 — ExtraLight</option>
+                    <option value={300}>300 — Light</option>
+                    <option value={400}>400 — Regular</option>
+                    <option value={500}>500 — Medium</option>
+                    <option value={600}>600 — SemiBold</option>
+                    <option value={700}>700 — Bold</option>
+                    <option value={800}>800 — ExtraBold</option>
+                    <option value={900}>900 — Black</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Style</label>
+                  <select
+                    value={fontModal.style}
+                    onChange={(e) => setFontModal(m => ({ ...m, style: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="italic">Italique</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button onClick={() => setFontModal(null)} disabled={fontUploading} className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">Annuler</button>
+              <button onClick={submitFontUpload} disabled={fontUploading || !fontModal.family.trim()} className="flex-1 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 disabled:opacity-50">
+                {fontUploading ? 'Import…' : 'Importer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Top Bar */}
       <div className="bg-white/95 backdrop-blur border-b border-gray-200 px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2 shrink-0 shadow-sm">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -3834,26 +3903,27 @@ export default function TemplateDesigner({ clientMode = false }) {
                             const q = fontSearch.trim().toLowerCase()
                             const match = (n) => !q || n.toLowerCase().includes(q)
                             const gFonts = GOOGLE_FONT_NAMES.filter(match)
-                            const cFonts = customFonts.filter(f => match(f.family))
+                            // Unique families (a family may have several weights)
+                            const cFamilies = [...new Set(customFonts.filter(f => match(f.family)).map(f => f.family))]
                             const current = selectedElement.fontFamily || 'Montserrat'
-                            const noResult = gFonts.length === 0 && cFonts.length === 0
+                            const noResult = gFonts.length === 0 && cFamilies.length === 0
                             return (
                               <select
                                 value={current}
                                 onChange={(e) => updateElement(selectedId, { fontFamily: e.target.value })}
                                 className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                                 style={{ fontFamily: current }}
-                                size={q ? Math.min(8, (cFonts.length + gFonts.length) || 1) : undefined}
+                                size={q ? Math.min(8, (cFamilies.length + gFonts.length) || 1) : undefined}
                               >
                                 {/* keep the current value selectable even if filtered out */}
-                                {q && !gFonts.includes(current) && !cFonts.some(f => f.family === current) && (
+                                {q && !gFonts.includes(current) && !cFamilies.includes(current) && (
                                   <option value={current} style={{ fontFamily: current }}>{current} (actuelle)</option>
                                 )}
                                 {noResult && <option disabled>Aucune police trouvée</option>}
-                                {cFonts.length > 0 && (
+                                {cFamilies.length > 0 && (
                                   <optgroup label="Mes polices importées">
-                                    {cFonts.map(f => (
-                                      <option key={f.id} value={f.family} style={{ fontFamily: f.family }}>{f.family}</option>
+                                    {cFamilies.map(fam => (
+                                      <option key={fam} value={fam} style={{ fontFamily: fam }}>{fam}</option>
                                     ))}
                                   </optgroup>
                                 )}

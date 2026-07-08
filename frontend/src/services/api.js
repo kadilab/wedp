@@ -200,10 +200,12 @@ export const invitationOrderAPI = {
 // Custom fonts API
 export const fontAPI = {
   list: () => api.get('/fonts'),
-  upload: (file, family) => {
+  upload: (file, family, weight = 400, style = 'normal') => {
     const fd = new FormData()
     fd.append('font', file)
     fd.append('family', family)
+    fd.append('weight', String(weight))
+    fd.append('style', style)
     return api.post('/fonts', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
   },
   delete: (id) => api.delete(`/fonts/${id}`)

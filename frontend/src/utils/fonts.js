@@ -87,12 +87,15 @@ export function fontFileUrl(url) {
   return `${apiBase}${url}`
 }
 
-// CSS @font-face block for the given custom fonts (uploaded by the admin).
+// CSS @font-face block for the given custom fonts. Each record may carry a
+// weight (100–900) and style (normal/italic) so one family can expose several
+// variants (Regular / SemiBold / Bold / Italic…) that the browser picks by
+// font-weight/font-style.
 export function customFontFaceCss(customFonts = []) {
   return customFonts
     .map(
       (f) =>
-        `@font-face{font-family:'${f.family}';src:url('${fontFileUrl(f.url)}') format('${f.format || 'truetype'}');font-display:swap;}`
+        `@font-face{font-family:'${f.family}';src:url('${fontFileUrl(f.url)}') format('${f.format || 'truetype'}');font-weight:${f.weight || 400};font-style:${f.style || 'normal'};font-display:swap;}`
     )
     .join('\n')
 }
