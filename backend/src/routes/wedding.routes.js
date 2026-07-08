@@ -120,6 +120,7 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
     // every generated invitation matches the creator's design.
     let qrColorFinal = qrCodeColor || '#000000';
     let qrBgFinal = qrCodeBgColor || '#FFFFFF';
+    let codeTypeFinal = 'qr';
     if (templateId) {
       try {
         const tpl = await prisma.template.findUnique({ where: { id: templateId }, select: { config: true } });
@@ -127,6 +128,7 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
         if (qrEl) {
           if (qrEl.qrColor) qrColorFinal = qrEl.qrColor;
           qrBgFinal = qrEl.qrTransparentBg ? 'transparent' : (qrEl.qrBgColor || qrBgFinal);
+          if (qrEl.codeType === 'barcode') codeTypeFinal = 'barcode';
         }
       } catch (e) {
         logger.warn('QR style inheritance from template failed:', e.message);
@@ -179,7 +181,8 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
         backgroundType: backgroundType || 'color',
         backgroundGradient: backgroundGradient || null,
         backgroundOpacity: backgroundOpacity ?? 100,
-        // QR Code — style inherited from the template (see above)
+        // QR / barcode — style inherited from the template (see above)
+        codeType: codeTypeFinal,
         qrCodeStyle: qrCodeStyle || 'classic',
         qrCodeColor: qrColorFinal,
         qrCodeBgColor: qrBgFinal,

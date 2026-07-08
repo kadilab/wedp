@@ -1,7 +1,14 @@
 const QRCode = require('qrcode');
+const bwipjs = require('bwip-js');
 const path = require('path');
 const fs = require('fs').promises;
 const { v4: uuidv4 } = require('uuid');
+
+// bwip-js wants 6-hex colors WITHOUT the leading '#'.
+function bwipHex(value, fallback) {
+  const v = (typeof value === 'string' ? value.trim() : '').replace('#', '');
+  return /^[0-9a-fA-F]{6}$/.test(v) ? v.toUpperCase() : fallback;
+}
 
 // A 6-hex-digit color, falling back to a default when the stored value is
 // missing or malformed (so a bad setting can never crash QR generation).
@@ -26,6 +33,33 @@ function safeHexColor(value, fallback) {
 async function generateQRCode(uniqueCode, weddingSlug, style = {}) {
   const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const invitationUrl = `${baseUrl}/i/${weddingSlug}/${uniqueCode}`;
+
+  // Barcode variant (Code128) — encodes the short uniqueCode (the check-in app
+  // accepts either a full URL or a raw code). Style comes from the template.
+  if (style.codeType === 'barcode') {
+    const transparentBar = style.qrCodeBgColor === 'transparent';
+    const barcolor = bwipHex(style.qrCodeColor, '000000');
+    const opts = {
+      bcid: 'code128',
+      text: uniqueCode,
+      scale: 3,
+      height: 14,
+      includetext: true,
+      textxalign: 'center',
+      textsize: 9,
+      barcolor,
+      paddingwidth: 6,
+      paddingheight: 6,
+    };
+    if (!transparentBar) opts.backgroundcolor = bwipHex(style.qrCodeBgColor, 'FFFFFF');
+    const buf = await bwipjs.toBuffer(opts);
+    const dataUrl = `data:image/png;base64,${buf.toString('base64')}`;
+    const filename = `bar_${uniqueCode}.png`;
+    const filePath = path.join(__dirname, '../../uploads/qrcodes', filename);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, buf);
+    return { dataUrl, filePath: `/uploads/qrcodes/${filename}`, url: invitationUrl };
+  }
 
   const dark = safeHexColor(style.qrCodeColor, '#000000');
   // A transparent background is requested by storing the literal "transparent";

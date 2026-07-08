@@ -68,19 +68,25 @@ router.post('/', authenticate, allowFontUpload, uploadSingle('font'), handleUplo
       return res.status(400).json({ error: 'Le nom de la police est requis' });
     }
 
+    // A family can carry several weights (Regular 400, SemiBold 600, Bold 700…)
+    // and an italic style — each is its own uploaded file under the same family.
+    const weight = Math.min(900, Math.max(100, parseInt(req.body.weight, 10) || 400));
+    const style = req.body.style === 'italic' ? 'italic' : 'normal';
+
     const ext = path.extname(req.file.filename).toLowerCase();
     const format = FORMAT_BY_EXT[ext] || 'truetype';
     const url = `/uploads/fonts/${req.file.filename}`;
 
     const fonts = await readCustomFonts();
 
-    // Reject duplicate family names (case-insensitive).
-    if (fonts.some(f => f.family.toLowerCase() === family.toLowerCase())) {
+    // Reject duplicates on family + weight + style (case-insensitive family) so
+    // the same variant isn't imported twice, but new weights can be added.
+    if (fonts.some(f => f.family.toLowerCase() === family.toLowerCase() && (f.weight || 400) === weight && (f.style || 'normal') === style)) {
       fs.unlink(req.file.path, () => {});
-      return res.status(409).json({ error: 'Une police porte déjà ce nom' });
+      return res.status(409).json({ error: 'Cette police existe déjà (même famille et même graisse)' });
     }
 
-    const font = { id: uuidv4(), family, url, format, createdAt: new Date().toISOString() };
+    const font = { id: uuidv4(), family, weight, style, url, format, createdAt: new Date().toISOString() };
     fonts.push(font);
     await writeCustomFonts(fonts);
 

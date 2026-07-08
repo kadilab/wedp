@@ -234,7 +234,7 @@ export default function CheckIn() {
       scannerInstanceRef.current = scanner
       await scanner.start(
         camId || { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1 },
+        { fps: 10, qrbox: { width: 280, height: 220 } },
         handleQrCodeSuccess,
         () => {}
       )
