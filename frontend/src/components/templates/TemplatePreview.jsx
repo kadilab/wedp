@@ -241,8 +241,20 @@ export default function TemplatePreview({ template, className = '', weddingData 
                 const elTop = el.y
                 const zIdx = el.zIndex ?? (10 + idx)
 
-                // QR placeholder
+                // QR placeholder — reflects the template's code style (type/color/bg)
                 if (el.type === 'qrcode') {
+                  const qrColor = el.qrColor || '#111827'
+                  const qrBg = el.qrTransparentBg ? 'transparent' : (el.qrBgColor || '#ffffff')
+                  if ((el.codeType || 'qr') === 'barcode') {
+                    const bars = [2,1,3,1,2,4,1,2,1,3,2,1,4,1,2,3,1,2,1,3,2,4,1,2,1,3,1,2]
+                    return (
+                      <div key={el.id || idx} style={{ position: 'absolute', left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: zIdx, background: qrBg, borderRadius: 4, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 2, padding: 6, boxSizing: 'border-box' }}>
+                        {bars.map((w, i) => (
+                          <span key={i} style={{ width: w, height: '100%', backgroundColor: qrColor }} />
+                        ))}
+                      </div>
+                    )
+                  }
                   return (
                     <div
                       key={el.id || idx}
@@ -254,21 +266,21 @@ export default function TemplatePreview({ template, className = '', weddingData 
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        background: '#f3f4f6',
+                        background: qrBg,
                         borderRadius: 4,
                       }}
                     >
-                      <svg width="60%" height="60%" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5">
-                        <rect x="3" y="3" width="7" height="7" rx="1" fill="#9ca3af" stroke="none"/>
-                        <rect x="14" y="3" width="7" height="7" rx="1" fill="#9ca3af" stroke="none"/>
-                        <rect x="3" y="14" width="7" height="7" rx="1" fill="#9ca3af" stroke="none"/>
-                        <rect x="5" y="5" width="3" height="3" rx="0.5" fill="white" stroke="none"/>
-                        <rect x="16" y="5" width="3" height="3" rx="0.5" fill="white" stroke="none"/>
-                        <rect x="5" y="16" width="3" height="3" rx="0.5" fill="white" stroke="none"/>
-                        <rect x="14" y="14" width="2" height="2" fill="#9ca3af" stroke="none"/>
-                        <rect x="18" y="14" width="2" height="2" fill="#9ca3af" stroke="none"/>
-                        <rect x="14" y="18" width="2" height="2" fill="#9ca3af" stroke="none"/>
-                        <rect x="18" y="18" width="2" height="2" fill="#9ca3af" stroke="none"/>
+                      <svg width="72%" height="72%" viewBox="0 0 24 24" fill="none" stroke={qrColor} strokeWidth="1.5">
+                        <rect x="3" y="3" width="7" height="7" rx="1" fill={qrColor} stroke="none"/>
+                        <rect x="14" y="3" width="7" height="7" rx="1" fill={qrColor} stroke="none"/>
+                        <rect x="3" y="14" width="7" height="7" rx="1" fill={qrColor} stroke="none"/>
+                        <rect x="5" y="5" width="3" height="3" rx="0.5" fill={qrBg === 'transparent' ? '#ffffff' : qrBg} stroke="none"/>
+                        <rect x="16" y="5" width="3" height="3" rx="0.5" fill={qrBg === 'transparent' ? '#ffffff' : qrBg} stroke="none"/>
+                        <rect x="5" y="16" width="3" height="3" rx="0.5" fill={qrBg === 'transparent' ? '#ffffff' : qrBg} stroke="none"/>
+                        <rect x="14" y="14" width="2" height="2" fill={qrColor} stroke="none"/>
+                        <rect x="18" y="14" width="2" height="2" fill={qrColor} stroke="none"/>
+                        <rect x="14" y="18" width="2" height="2" fill={qrColor} stroke="none"/>
+                        <rect x="18" y="18" width="2" height="2" fill={qrColor} stroke="none"/>
                       </svg>
                     </div>
                   )

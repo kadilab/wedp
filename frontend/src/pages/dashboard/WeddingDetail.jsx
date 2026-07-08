@@ -11,7 +11,6 @@ import { useState } from 'react'
 import {
   ArrowLeftIcon,
   ChevronRightIcon,
-  HeartIcon,
   UserGroupIcon,
   QrCodeIcon,
   TicketIcon,
@@ -36,6 +35,50 @@ const ChurchIcon = ({ className }) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v4m0 0l3 2m-3-2l-3 2m3 0v4m-6 8h12l1-6H5l1 6zm-2 0v4h16v-4M8 14v6m8-6v6m-4-10v4" />
   </svg>
 )
+
+// Monogram initials for the cover when there is no cover photo.
+const eventInitialsFrom = (w) => {
+  if (!w.eventType || w.eventType === 'WEDDING') {
+    const a = (w.brideName || '').trim()[0] || ''
+    const b = (w.groomName || '').trim()[0] || ''
+    return ((a + b).toUpperCase()) || '♥'
+  }
+  const title = (w.eventTitle || EVENT_TYPE_LABELS[w.eventType] || 'E').trim()
+  const parts = title.split(/\s+/).filter(Boolean)
+  return (((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase()) || title[0]?.toUpperCase() || 'E'
+}
+
+// Elegant cover — real photo when present, otherwise an invitation-style
+// monogram on a neutral surface with a soft orange accent (winvitepro style).
+function EventCover({ wedding, name, className = 'h-40 sm:h-48' }) {
+  if (wedding.coverPhoto) {
+    return (
+      <div className={`relative overflow-hidden ${className}`}>
+        <img src={wedding.coverPhoto} alt={name} loading="lazy" className="h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
+      </div>
+    )
+  }
+  return (
+    <div className={`relative overflow-hidden bg-surface-2 ${className}`}>
+      <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-primary-500/15 blur-2xl" />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-60"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 1px 1px, rgb(var(--muted) / 0.25) 1px, transparent 0)',
+          backgroundSize: '22px 22px',
+          maskImage: 'radial-gradient(ellipse 70% 80% at 50% 50%, black 30%, transparent 75%)',
+          WebkitMaskImage: 'radial-gradient(ellipse 70% 80% at 50% 50%, black 30%, transparent 75%)',
+        }}
+      />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="grid h-20 w-20 place-items-center rounded-full border border-primary-500/30 bg-bg/70 font-serif text-2xl font-bold text-primary-600 backdrop-blur">
+          {eventInitialsFrom(wedding)}
+        </span>
+      </div>
+    </div>
+  )
+}
 
 export default function WeddingDetail() {
   const { id } = useParams()
@@ -68,18 +111,18 @@ export default function WeddingDetail() {
 
   if (isLoading) {
     return (
-      <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Chargement...</p>
+      <div className="py-12 text-center">
+        <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>
+        <p className="mt-4 text-muted">Chargement...</p>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-600">Erreur lors du chargement de l'événement</p>
-        <button onClick={() => navigate('/weddings')} className="btn-primary mt-4">
+      <div className="rounded-2xl border border-border bg-surface p-12 text-center">
+        <p className="text-red-600 dark:text-red-400">Erreur lors du chargement de l'événement</p>
+        <button onClick={() => navigate('/weddings')} className="mt-4 inline-flex items-center rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600">
           Retour à la liste
         </button>
       </div>
@@ -93,10 +136,6 @@ export default function WeddingDetail() {
     ? (isWeddingEvent ? `${wedding.brideName} & ${wedding.groomName}` : (wedding.eventTitle || 'Événement'))
     : ''
   const eventTypeLabel = EVENT_TYPE_LABELS[wedding?.eventType] || 'Mariage'
-  // Personalised hero gradient from the event colours (falls back to a warm default).
-  const heroGradient = wedding?.primaryColor
-    ? `linear-gradient(135deg, ${wedding.primaryColor}, ${wedding.secondaryColor || wedding.primaryColor})`
-    : 'linear-gradient(135deg, #df6746, #ec4899)'
   // Days-until countdown for the hero chip.
   const daysUntil = wedding?.weddingDate ? differenceInCalendarDays(new Date(wedding.weddingDate), new Date()) : null
   const countdownLabel = daysUntil == null ? null
@@ -145,80 +184,68 @@ export default function WeddingDetail() {
 
   return (
     <div className="space-y-6">
-      {/* Slim action bar — the name/date now live in the hero below */}
+      {/* Top bar */}
       <div className="flex items-center justify-between gap-3">
         <button
           onClick={() => navigate('/weddings')}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 rounded-lg px-2 py-1.5 hover:bg-gray-100"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-surface-2 hover:text-content"
         >
           <ArrowLeftIcon className="h-4 w-4" />
           <span className="hidden sm:inline">Mes événements</span>
         </button>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className={`badge ${
-            wedding.status === 'ACTIVE' ? 'badge-success' :
-            wedding.status === 'DRAFT' ? 'badge-warning' :
-            'badge-info'
-          }`}>
-            {wedding.status === 'ACTIVE' ? 'Actif' :
-             wedding.status === 'DRAFT' ? 'Brouillon' :
-             wedding.status}
-          </span>
-          <Link to={`/weddings/${id}/edit`} className="btn-primary btn-sm justify-center">
-            <PencilIcon className="h-4 w-4 mr-1.5" />
+        <div className="flex shrink-0 items-center gap-2">
+          <Link to={`/weddings/${id}/edit`} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-600">
+            <PencilIcon className="h-4 w-4" />
             Modifier
           </Link>
           <button
             onClick={() => setShowDeleteModal(true)}
-            className="inline-flex items-center justify-center px-3 py-1.5 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-500/50 px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
             title="Supprimer l'événement"
           >
             <TrashIcon className="h-4 w-4" />
-            <span className="hidden sm:inline ml-1.5">Supprimer</span>
+            <span className="hidden sm:inline">Supprimer</span>
           </button>
         </div>
       </div>
 
-      {/* Hero — compact, information-rich banner (personalised colours) */}
-      <div className="relative overflow-hidden rounded-2xl text-white shadow-lg" style={{ background: heroGradient }}>
-        {wedding.coverPhoto && (
-          <img src={wedding.coverPhoto} alt="" className="absolute inset-0 w-full h-full object-cover" />
-        )}
-        {/* Readability overlay (over photo or gradient) */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/25 to-transparent" />
-        {/* Subtle decorative hearts fill the empty space */}
-        <HeartIcon className="pointer-events-none absolute -right-8 -top-10 h-52 w-52 text-white/10" />
-        <HeartIcon className="pointer-events-none absolute right-28 -bottom-8 h-28 w-28 text-white/10" />
-
-        <div className="relative p-6 sm:p-8">
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className="inline-flex items-center rounded-full bg-white/20 backdrop-blur px-3 py-1 text-xs font-semibold">
+      {/* Header — monogram cover + info (winvitepro style) */}
+      <div className="relative overflow-hidden rounded-2xl border border-border">
+        <EventCover wedding={wedding} name={eventDisplayName} />
+        <div className="border-t border-border bg-surface p-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium text-muted">
               {eventTypeLabel}
             </span>
             {countdownLabel && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 backdrop-blur px-3 py-1 text-xs font-semibold">
-                <ClockIcon className="h-3.5 w-3.5" /> {countdownLabel}
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary-500/10 px-2.5 py-1 text-xs font-semibold text-primary-600 dark:text-primary-400">
+                <ClockIcon className="h-3 w-3" /> {countdownLabel}
               </span>
             )}
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+              wedding.status === 'ACTIVE' ? 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400' :
+              wedding.status === 'DRAFT' ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400' :
+              'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400'
+            }`}>
+              {wedding.status === 'ACTIVE' ? 'Actif' : wedding.status === 'DRAFT' ? 'Brouillon' : wedding.status}
+            </span>
           </div>
 
-          <h2 className="text-2xl sm:text-3xl font-serif font-bold drop-shadow-sm">
-            {eventDisplayName}
-          </h2>
+          <h1 className="mt-3 font-serif text-2xl font-bold text-content sm:text-3xl">{eventDisplayName}</h1>
 
-          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-white/90">
-            <span className="flex items-center gap-1.5">
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted">
+            <span className="inline-flex items-center gap-1.5">
               <CalendarIcon className="h-4 w-4 shrink-0" />
               {format(new Date(wedding.weddingDate), 'EEEE d MMMM yyyy', { locale: fr })}
             </span>
             {wedding.ceremonyTime && (
-              <span className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5">
                 <ClockIcon className="h-4 w-4 shrink-0" />
                 {wedding.ceremonyTime}
               </span>
             )}
             {wedding.venueName && (
-              <span className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5">
                 <MapPinIcon className="h-4 w-4 shrink-0" />
                 {wedding.venueName}{wedding.venueCity && `, ${wedding.venueCity}`}
               </span>
@@ -228,61 +255,39 @@ export default function WeddingDetail() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="stat-card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="stat-value">{stats.totalGuests || wedding._count?.guests || 0}</p>
-              <p className="stat-label">Invités</p>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[
+          { icon: UserGroupIcon, value: stats.totalGuests || wedding._count?.guests || 0, label: 'Invités', tint: 'text-blue-500' },
+          { icon: TicketIcon, value: stats.rsvp?.confirmed || 0, label: 'Confirmés', tint: 'text-emerald-500' },
+          { icon: ClockIcon, value: stats.rsvp?.pending || 0, label: 'En attente', tint: 'text-amber-500' },
+          { icon: QrCodeIcon, value: stats.checkIns?.unique || 0, label: 'Check-ins', tint: 'text-primary-500' },
+        ].map((s, i) => (
+          <div key={i} className="rounded-2xl border border-border bg-surface p-5">
+            <div className="flex items-start justify-between">
+              <p className="text-3xl font-bold text-content">{s.value}</p>
+              <s.icon className={`h-6 w-6 ${s.tint}`} />
             </div>
-            <UserGroupIcon className="h-8 w-8 text-blue-500" />
+            <p className="mt-1 text-sm text-muted">{s.label}</p>
           </div>
-        </div>
-        <div className="stat-card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="stat-value">{stats.rsvp?.confirmed || 0}</p>
-              <p className="stat-label">Confirmés</p>
-            </div>
-            <TicketIcon className="h-8 w-8 text-green-500" />
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="stat-value">{stats.rsvp?.pending || 0}</p>
-              <p className="stat-label">En attente</p>
-            </div>
-            <ClockIcon className="h-8 w-8 text-yellow-500" />
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="stat-value">{stats.checkIns?.unique || 0}</p>
-              <p className="stat-label">Check-ins</p>
-            </div>
-            <QrCodeIcon className="h-8 w-8 text-primary-500" />
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {quickActions.map((action) => (
           <Link
             key={action.name}
             to={action.href}
-            className="group card-hover p-5 flex items-center gap-4"
+            className="group flex items-center gap-4 rounded-2xl border border-border bg-surface p-5 transition-colors duration-200 hover:border-primary-500/40"
           >
-            <div className={`p-3 rounded-xl shrink-0 ${action.color}`}>
-              <action.icon className="h-6 w-6" />
-            </div>
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary-500/10 text-primary-600 dark:text-primary-400">
+              <action.icon className="h-5 w-5" />
+            </span>
             <div className="min-w-0 flex-1">
-              <h3 className="font-medium text-gray-900">{action.name}</h3>
-              <p className="text-sm text-gray-500 mt-0.5 truncate">{action.description}</p>
+              <h3 className="font-semibold text-content">{action.name}</h3>
+              <p className="mt-0.5 truncate text-sm text-muted">{action.description}</p>
             </div>
-            <ChevronRightIcon className="h-5 w-5 text-gray-300 group-hover:text-primary-500 group-hover:translate-x-0.5 transition shrink-0" />
+            <ChevronRightIcon className="h-5 w-5 shrink-0 text-muted transition-colors group-hover:text-primary-500" />
           </Link>
         ))}
       </div>
@@ -291,39 +296,39 @@ export default function WeddingDetail() {
       <PrintSection weddingId={id} />
 
       {/* Details */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Event Details */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-serif font-bold text-gray-900 mb-4">
+        <div className="rounded-2xl border border-border bg-surface p-6">
+          <h3 className="mb-4 font-serif text-lg font-bold text-content">
             Détails de l'événement
           </h3>
           <div className="space-y-4">
-            <div className="flex items-start">
-              <CalendarIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
+            <div className="flex gap-3">
+              <CalendarIcon className="mt-0.5 h-5 w-5 shrink-0 text-muted" />
               <div>
-                <p className="font-medium text-gray-900">Date</p>
-                <p className="text-gray-600">
+                <p className="text-sm font-semibold text-content">Date</p>
+                <p className="mt-0.5 text-sm text-muted">
                   {format(new Date(wedding.weddingDate), 'EEEE d MMMM yyyy', { locale: fr })}
                 </p>
               </div>
             </div>
             {wedding.ceremonyTime && (
-              <div className="flex items-start">
-                <ClockIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
+              <div className="flex gap-3">
+                <ClockIcon className="mt-0.5 h-5 w-5 shrink-0 text-muted" />
                 <div>
-                  <p className="font-medium text-gray-900">Horaires</p>
-                  <p className="text-gray-600">
+                  <p className="text-sm font-semibold text-content">Horaires</p>
+                  <p className="mt-0.5 text-sm text-muted">
                     Cérémonie: {wedding.ceremonyTime}
                     {wedding.receptionTime && ` | Réception: ${wedding.receptionTime}`}
                   </p>
                 </div>
               </div>
             )}
-            <div className="flex items-start">
-              <MapPinIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
+            <div className="flex gap-3">
+              <MapPinIcon className="mt-0.5 h-5 w-5 shrink-0 text-muted" />
               <div>
-                <p className="font-medium text-gray-900">Lieu</p>
-                <p className="text-gray-600">
+                <p className="text-sm font-semibold text-content">Lieu</p>
+                <p className="mt-0.5 text-sm text-muted">
                   {wedding.venueName}
                   {wedding.venueAddress && <><br />{wedding.venueAddress}</>}
                   {wedding.venueCity && <><br />{wedding.venueCity}</>}
@@ -333,7 +338,7 @@ export default function WeddingDetail() {
                     href={wedding.venueMapUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary-600 text-sm hover:underline mt-1 inline-block"
+                    className="mt-1 inline-block text-sm text-primary-600 hover:underline dark:text-primary-400"
                   >
                     Voir sur Google Maps →
                   </a>
@@ -344,11 +349,11 @@ export default function WeddingDetail() {
         </div>
 
         {/* Message */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-serif font-bold text-gray-900 mb-4">
+        <div className="rounded-2xl border border-border bg-surface p-6">
+          <h3 className="mb-4 font-serif text-lg font-bold text-content">
             Message personnalisé
           </h3>
-          <p className="text-gray-600 whitespace-pre-wrap">
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted">
             {wedding.customMessage || 'Aucun message personnalisé défini.'}
           </p>
         </div>
@@ -356,8 +361,8 @@ export default function WeddingDetail() {
 
       {/* Programme du mariage */}
       {(wedding.communeVenue || wedding.egliseVenue || wedding.receptionVenue) && (
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-serif font-bold text-gray-900 mb-6">
+        <div className="rounded-2xl border border-border bg-surface p-6">
+          <h3 className="mb-6 font-serif text-lg font-bold text-content">
             Programme du mariage
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -468,27 +473,27 @@ export default function WeddingDetail() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-2xl">
             <div className="text-center">
-              <ExclamationTriangleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Supprimer l'événement</h3>
-              <p className="text-gray-600 mb-6">
+              <ExclamationTriangleIcon className="mx-auto mb-4 h-16 w-16 text-red-500" />
+              <h3 className="mb-2 font-serif text-xl font-bold text-content">Supprimer l'événement</h3>
+              <p className="mb-6 text-sm text-muted">
                 Êtes-vous sûr de vouloir supprimer l'événement{' '}
-                <strong>{eventDisplayName}</strong> ?
+                <strong className="text-content">{eventDisplayName}</strong> ?
                 Cette action est irréversible et supprimera tous les invités, invitations et données associées.
               </p>
-              <div className="flex space-x-4">
+              <div className="flex gap-3">
                 <button
                   onClick={() => setShowDeleteModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-content transition-colors hover:bg-surface-2"
                 >
                   Annuler
                 </button>
                 <button
                   onClick={() => deleteMutation.mutate()}
                   disabled={deleteMutation.isLoading}
-                  className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                  className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
                 >
                   {deleteMutation.isLoading ? 'Suppression...' : 'Supprimer'}
                 </button>
@@ -546,22 +551,22 @@ function TableManager({ weddingId }) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="rounded-2xl border border-border bg-surface p-6">
+      <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <TableCellsIcon className="h-6 w-6 text-primary-600" />
+          <TableCellsIcon className="h-6 w-6 text-primary-500" />
           <div>
-            <h3 className="text-lg font-serif font-bold text-gray-900">
+            <h3 className="font-serif text-lg font-bold text-content">
               Tables de l'événement
             </h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted">
               {tables.length} table{tables.length !== 1 ? 's' : ''} enregistrée{tables.length !== 1 ? 's' : ''}
             </p>
           </div>
         </div>
         <button
           onClick={() => setIsEditing(!isEditing)}
-          className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+          className="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
         >
           {isEditing ? 'Terminé' : 'Gérer'}
         </button>
@@ -569,16 +574,16 @@ function TableManager({ weddingId }) {
 
       {/* Table list */}
       {isLoading ? (
-        <div className="text-center py-4">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600 mx-auto"></div>
+        <div className="py-4 text-center">
+          <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>
         </div>
       ) : tables.length === 0 && !isEditing ? (
-        <div className="text-center py-6 bg-gray-50 rounded-lg">
-          <TableCellsIcon className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-          <p className="text-gray-500 text-sm">Aucune table définie</p>
+        <div className="rounded-xl bg-bg py-6 text-center">
+          <TableCellsIcon className="mx-auto mb-2 h-10 w-10 text-muted/50" />
+          <p className="text-sm text-muted">Aucune table définie</p>
           <button
             onClick={() => setIsEditing(true)}
-            className="mt-3 text-sm text-primary-600 hover:text-primary-700 font-medium"
+            className="mt-3 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
           >
             + Ajouter des tables
           </button>
@@ -590,13 +595,13 @@ function TableManager({ weddingId }) {
             return (
             <div
               key={name}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-full text-sm font-medium border border-primary-200"
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary-500/10 px-3 py-1.5 text-sm font-medium text-primary-600 dark:text-primary-400"
             >
               <span>{name}{typeof table === 'object' && table?.seats != null ? ` (${table.seats})` : ''}</span>
               {isEditing && (
                 <button
                   onClick={() => removeTable(name)}
-                  className="p-0.5 hover:bg-primary-200 rounded-full transition-colors"
+                  className="rounded-full p-0.5 transition-colors hover:bg-primary-500/20"
                 >
                   <XMarkIcon className="h-3.5 w-3.5" />
                 </button>
@@ -616,12 +621,12 @@ function TableManager({ weddingId }) {
             onChange={(e) => setNewTable(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Nom de la table (ex: Table VIP, Table 1...)"
-            className="input flex-1"
+            className="flex-1 rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-content placeholder:text-muted transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
           <button
             onClick={addTable}
             disabled={!newTable.trim() || saveMutation.isLoading}
-            className="btn-primary px-4"
+            className="inline-flex items-center justify-center rounded-xl bg-primary-500 px-4 text-white transition-colors hover:bg-primary-600 disabled:opacity-50"
           >
             <PlusIcon className="h-5 w-5" />
           </button>

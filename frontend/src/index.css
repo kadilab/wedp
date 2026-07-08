@@ -4,6 +4,33 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ------------------------------------------------------------------ */
+/* Tokens sémantiques (site public) — une source de vérité light/dark. */
+/* Valeurs = canaux RGB séparés par des espaces pour que le modifieur   */
+/* <alpha-value> de Tailwind fonctionne (ex. bg-surface/60).            */
+/* La classe .dark est appliquée sur le wrapper de PublicLayout, donc   */
+/* le thème reste limité au site public (dashboard/admin non affectés). */
+/* ------------------------------------------------------------------ */
+@layer base {
+  :root {
+    --bg: 250 250 249;        /* stone-50  */
+    --surface: 255 255 255;   /* white     */
+    --surface-2: 245 245 244; /* stone-100 */
+    --border: 231 229 228;    /* stone-200 */
+    --content: 28 25 23;      /* stone-900 */
+    --muted: 87 83 78;        /* stone-600 */
+  }
+
+  .dark {
+    --bg: 12 10 9;            /* near-black warm */
+    --surface: 24 21 19;
+    --surface-2: 33 29 26;
+    --border: 48 43 39;
+    --content: 245 245 244;  /* stone-100 */
+    --muted: 168 162 158;    /* stone-400 */
+  }
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;

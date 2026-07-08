@@ -15,34 +15,43 @@ const PERKS = [
   { icon: DevicePhoneMobileIcon, text: 'Envoi WhatsApp en 1 clic' }
 ]
 
+// Respect the theme chosen on the public site (scoped to this layout).
+function isDarkPref() {
+  if (typeof window === 'undefined') return false
+  const stored = localStorage.getItem('public-theme')
+  if (stored === 'dark') return true
+  if (stored === 'light') return false
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches || false
+}
+
 export default function AuthLayout() {
   const { siteName, siteLogo, logoHeight } = useSiteSettingsStore()
+
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-rose-50 via-white to-gold-50">
+    <div className={`flex min-h-screen bg-bg text-content ${isDarkPref() ? 'dark' : ''}`}>
       {/* Left panel — Branding */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 text-white flex-col justify-between p-12">
-        {/* Decorative blobs */}
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700 p-12 text-white lg:flex lg:w-1/2">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-20 -left-20 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute bottom-0 -right-16 h-80 w-80 rounded-full bg-gold-400/20 blur-3xl" />
+          <div className="absolute -left-20 -top-20 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
+          <div className="absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
         </div>
 
         <div className="relative">
-          <Link to="/" className="flex items-center space-x-3">
+          <Link to="/" className="flex items-center gap-3">
             {siteLogo ? (
               <img src={siteLogo} alt={siteName} style={{ height: `${Math.round(logoHeight * 1.25)}px` }} className="object-contain" />
             ) : (
               <HeartIcon className="h-10 w-10" />
             )}
-            <span className="text-2xl font-serif font-bold">{siteName}</span>
+            <span className="font-serif text-2xl font-bold">{siteName}</span>
           </Link>
         </div>
 
-        <div className="relative space-y-8 max-w-md">
-          <h1 className="text-4xl font-serif font-bold leading-tight">
+        <div className="relative max-w-md space-y-8">
+          <h1 className="font-serif text-4xl font-bold leading-tight">
             Donnez vie à vos événements
           </h1>
-          <p className="text-lg text-primary-100">
+          <p className="text-lg text-white/80">
             Mariage, anniversaire, cérémonie… Créez des invitations digitales élégantes,
             envoyez-les et suivez les confirmations en temps réel.
           </p>
@@ -50,61 +59,60 @@ export default function AuthLayout() {
           <ul className="space-y-3">
             {PERKS.map((p, i) => (
               <li key={i} className="flex items-center gap-3">
-                <span className="flex-shrink-0 h-9 w-9 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
                   <p.icon className="h-5 w-5" />
                 </span>
-                <span className="text-primary-50">{p.text}</span>
+                <span className="text-white/90">{p.text}</span>
               </li>
             ))}
           </ul>
 
           <div className="grid grid-cols-2 gap-4 pt-2">
-            <div className="bg-white/10 backdrop-blur rounded-2xl p-5 border border-white/10">
+            <div className="rounded-2xl border border-white/10 bg-white/10 p-5 backdrop-blur">
               <p className="text-3xl font-bold">500+</p>
-              <p className="text-primary-200 text-sm">Événements célébrés</p>
+              <p className="text-sm text-white/70">Événements célébrés</p>
             </div>
-            <div className="bg-white/10 backdrop-blur rounded-2xl p-5 border border-white/10">
+            <div className="rounded-2xl border border-white/10 bg-white/10 p-5 backdrop-blur">
               <p className="text-3xl font-bold">50k+</p>
-              <p className="text-primary-200 text-sm">Invitations envoyées</p>
+              <p className="text-sm text-white/70">Invitations envoyées</p>
             </div>
           </div>
         </div>
 
-        <p className="relative text-primary-200 text-sm">
+        <p className="relative text-sm text-white/70">
           © {new Date().getFullYear()} {siteName}. Tous droits réservés.
         </p>
       </div>
 
       {/* Right panel — Form */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-8 relative">
-        {/* Subtle blobs on mobile/desktop right side */}
+      <div className="relative flex flex-1 items-center justify-center p-6 sm:p-8">
         <div className="pointer-events-none absolute inset-0 -z-0 lg:hidden">
-          <div className="absolute -top-16 -right-16 h-64 w-64 rounded-full bg-primary-200/30 blur-3xl" />
-          <div className="absolute bottom-0 -left-10 h-56 w-56 rounded-full bg-gold-200/40 blur-3xl" />
+          <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-primary-500/15 blur-3xl" />
+          <div className="absolute -left-10 bottom-0 h-56 w-56 rounded-full bg-primary-500/10 blur-3xl" />
         </div>
 
-        <div className="w-full max-w-md relative">
+        <div className="relative w-full max-w-md">
           {/* Mobile logo */}
-          <div className="lg:hidden mb-8 text-center">
-            <Link to="/" className="inline-flex items-center space-x-2">
+          <div className="mb-8 text-center lg:hidden">
+            <Link to="/" className="inline-flex items-center gap-2">
               {siteLogo ? (
                 <img src={siteLogo} alt={siteName} style={{ height: `${logoHeight}px` }} className="object-contain" />
               ) : (
-                <HeartIcon className="h-8 w-8 text-primary-600" />
+                <HeartIcon className="h-8 w-8 text-primary-500" />
               )}
-              <span className="text-xl font-serif font-bold text-gray-900">{siteName}</span>
+              <span className="font-serif text-xl font-bold text-content">{siteName}</span>
             </Link>
           </div>
 
-          <div className="bg-white/90 backdrop-blur rounded-3xl shadow-xl ring-1 ring-black/5 p-8">
+          <div className="rounded-3xl border border-border bg-surface p-8 shadow-xl">
             <Outlet />
           </div>
 
           {/* Footer links */}
-          <div className="mt-6 text-center text-sm text-gray-500">
-            <Link to="/" className="hover:text-primary-600 transition-colors">Accueil</Link>
+          <div className="mt-6 text-center text-sm text-muted">
+            <Link to="/" className="transition-colors hover:text-content">Accueil</Link>
             <span className="mx-2">•</span>
-            <a href="mailto:support@weddinginvite.pro" className="hover:text-primary-600 transition-colors">Support</a>
+            <a href="mailto:support@weddinginvite.pro" className="transition-colors hover:text-content">Support</a>
           </div>
         </div>
       </div>

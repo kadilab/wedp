@@ -450,20 +450,8 @@ export default function Templates() {
                   </div>
                 </div>
 
-                {/* Publish to Marketplace Button - Only for custom templates and creators */}
-                {previewTemplate.isCustom && user?.isCreator && (
-                  <button
-                    onClick={() => {
-                      setPreviewTemplate(null)
-                      navigate(`/templates/${previewTemplate.id}/publish`)
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-medium hover:from-green-600 hover:to-emerald-600 transition-all w-full mt-3"
-                  >
-                    <ArrowUpIcon className="h-5 w-5" />
-                    Publier sur la Marketplace
-                  </button>
-                )}
-
+                {/* La publication sur la marketplace se fait uniquement depuis
+                    « Espace créateur → Mes Templates », scopée au propriétaire. */}
                 <button
                   onClick={() => {
                     setPreviewTemplate(null)

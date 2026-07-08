@@ -33,27 +33,30 @@ export default function ResetPassword() {
     }
   }
 
+  const inputBase = 'w-full rounded-xl border bg-bg px-3 py-3 text-sm text-content placeholder:text-muted transition focus:outline-none focus:ring-2 focus:ring-primary-500'
+  const borderCls = (err) => (err ? 'border-red-500 focus:ring-red-500' : 'border-border focus:border-primary-500')
+
   return (
     <div>
       <div className="mb-8">
-        <h2 className="text-2xl font-serif font-bold text-gray-900">
+        <h2 className="font-serif text-2xl font-bold text-content">
           Réinitialiser le mot de passe
         </h2>
-        <p className="text-gray-600 mt-2">
+        <p className="mt-2 text-muted">
           Choisissez un nouveau mot de passe sécurisé
         </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div>
-          <label htmlFor="password" className="label">
+          <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-content">
             Nouveau mot de passe
           </label>
           <div className="relative">
             <input
               id="password"
               type={showPassword ? 'text' : 'password'}
-              className={`input pr-10 ${errors.password ? 'input-error' : ''}`}
+              className={`${inputBase} pr-10 ${borderCls(errors.password)}`}
               placeholder="••••••••"
               {...register('password', {
                 required: 'Le mot de passe est requis',
@@ -69,7 +72,7 @@ export default function ResetPassword() {
             />
             <button
               type="button"
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted hover:text-content"
               onClick={() => setShowPassword(!showPassword)}
             >
               {showPassword ? (
@@ -80,18 +83,18 @@ export default function ResetPassword() {
             </button>
           </div>
           {errors.password && (
-            <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password.message}</p>
           )}
         </div>
 
         <div>
-          <label htmlFor="confirmPassword" className="label">
+          <label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium text-content">
             Confirmer le mot de passe
           </label>
           <input
             id="confirmPassword"
             type="password"
-            className={`input ${errors.confirmPassword ? 'input-error' : ''}`}
+            className={`${inputBase} ${borderCls(errors.confirmPassword)}`}
             placeholder="••••••••"
             {...register('confirmPassword', {
               required: 'Veuillez confirmer le mot de passe',
@@ -100,21 +103,21 @@ export default function ResetPassword() {
             })}
           />
           {errors.confirmPassword && (
-            <p className="mt-1 text-sm text-red-600">{errors.confirmPassword.message}</p>
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.confirmPassword.message}</p>
           )}
         </div>
 
         <button
           type="submit"
           disabled={isLoading}
-          className="btn-primary w-full py-3"
+          className="inline-flex w-full items-center justify-center rounded-full bg-primary-500 py-3 font-semibold text-white shadow-lg shadow-primary-500/25 transition-all hover:-translate-y-0.5 hover:bg-primary-600 disabled:opacity-60 disabled:hover:translate-y-0"
         >
           {isLoading ? 'Modification en cours...' : 'Réinitialiser le mot de passe'}
         </button>
       </form>
 
-      <p className="mt-8 text-center text-gray-600">
-        <Link to="/login" className="text-primary-600 hover:text-primary-700 font-medium">
+      <p className="mt-8 text-center text-muted">
+        <Link to="/login" className="font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">
           ← Retour à la connexion
         </Link>
       </p>

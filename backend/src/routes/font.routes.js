@@ -50,9 +50,14 @@ router.get('/', async (req, res) => {
 /**
  * @route   POST /api/fonts
  * @desc    Upload a custom font file (.ttf/.otf/.woff/.woff2) + family name.
- * @access  Admin
+ * @access  Admin or Creator (both build templates that may need custom fonts)
  */
-router.post('/', authenticate, isAdmin, uploadSingle('font'), handleUploadError, async (req, res) => {
+const allowFontUpload = (req, res, next) => {
+  const u = req.user;
+  if (u && (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN' || u.isCreator)) return next();
+  return res.status(403).json({ error: 'Réservé aux administrateurs et créateurs.' });
+};
+router.post('/', authenticate, allowFontUpload, uploadSingle('font'), handleUploadError, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Aucun fichier de police reçu' });
 

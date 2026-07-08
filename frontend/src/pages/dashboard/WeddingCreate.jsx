@@ -14,7 +14,6 @@ import {
   BuildingLibraryIcon,
   MusicalNoteIcon,
   CalendarDaysIcon,
-  QrCodeIcon,
   SparklesIcon,
   SwatchIcon,
   ExclamationTriangleIcon,
@@ -45,14 +44,6 @@ const EVENT_TYPES_META = [
   { id: 'CONFERENCE', label: 'Conférence', icon: UserGroupIcon, desc: 'Séminaire, conférence...' },
   { id: 'OTHER', label: 'Autre événement', icon: CalendarDaysIcon, desc: 'Tout autre type d\'événement' }
 ]
-
-const QR_STYLES = [
-  { id: 'classic', name: 'Classique', desc: 'QR standard', pattern: 'square', color: '#000000' },
-  { id: 'rounded', name: 'Arrondi', desc: 'Coins arrondis', pattern: 'rounded', color: '#1a1a1a' },
-  { id: 'dots', name: 'Points', desc: 'Modules circulaires', pattern: 'dots', color: '#333333' },
-  { id: 'elegant', name: 'Élégant', desc: 'Style premium', pattern: 'elegant', color: '#8B7355' }
-]
-
 
 const TEMPLATE_CATEGORIES = {
   ELEGANT: 'Élégant',
@@ -93,12 +84,7 @@ export default function WeddingCreate() {
     defaultValues: {
       eventType: preselectedEventType || 'WEDDING',
       tables: [],
-      templateId: preselectedTemplateId || '',
-      qrCodeStyle: 'classic',
-      qrCodeColor: '#000000',
-      qrCodeBgColor: '#FFFFFF',
-      qrCodeSize: 300,
-      qrCodeTransparentBg: false
+      templateId: preselectedTemplateId || ''
     }
   })
 
@@ -188,8 +174,8 @@ export default function WeddingCreate() {
   const STEP_DESIGN = 1
   const STEP_INFO = 2
   const STEP_PROGRAMME = 3
-  const STEP_QR = isWedding ? 4 : 3
-  const STEP_PREVIEW = isWedding ? 5 : 4
+  // Le style du QR se règle dans l'éditeur de template — plus d'étape QR côté client.
+  const STEP_PREVIEW = isWedding ? 4 : 3
   const totalSteps = STEP_PREVIEW
 
   const STEPS = [
@@ -198,11 +184,9 @@ export default function WeddingCreate() {
     ...(isWedding ? [
       { num: STEP_INFO, label: 'Mariés' },
       { num: STEP_PROGRAMME, label: 'Programme' },
-      { num: STEP_QR, label: 'QR Code' },
       { num: STEP_PREVIEW, label: 'Aperçu' }
     ] : [
       { num: STEP_INFO, label: isCouple ? 'Mariés' : 'Infos' },
-      { num: STEP_QR, label: 'QR Code' },
       { num: STEP_PREVIEW, label: 'Aperçu' }
     ])
   ]
@@ -213,15 +197,13 @@ export default function WeddingCreate() {
     communeDate: STEP_PROGRAMME, communeTime: STEP_PROGRAMME, communeVenue: STEP_PROGRAMME, communeAddress: STEP_PROGRAMME,
     egliseDate: STEP_PROGRAMME, egliseTime: STEP_PROGRAMME, egliseVenue: STEP_PROGRAMME, egliseAddress: STEP_PROGRAMME,
     receptionDate: STEP_PROGRAMME, receptionStartTime: STEP_PROGRAMME, receptionVenue: STEP_PROGRAMME, receptionAddress: STEP_PROGRAMME,
-    templateId: STEP_DESIGN,
-    qrCodeStyle: STEP_QR, qrCodeColor: STEP_QR, qrCodeBgColor: STEP_QR, qrCodeSize: STEP_QR, qrCodeTransparentBg: STEP_QR
+    templateId: STEP_DESIGN
   } : {
     eventTitle: STEP_INFO, honoreeName: STEP_INFO, brideName: STEP_INFO, groomName: STEP_INFO,
     weddingDate: STEP_INFO, ceremonyTime: STEP_INFO,
     venueName: STEP_INFO, venueAddress: STEP_INFO, venueCity: STEP_INFO,
     customMessage: STEP_INFO, rsvpDeadline: STEP_INFO, additionalInfo: STEP_INFO,
-    templateId: STEP_DESIGN,
-    qrCodeStyle: STEP_QR, qrCodeColor: STEP_QR, qrCodeBgColor: STEP_QR, qrCodeSize: STEP_QR, qrCodeTransparentBg: STEP_QR
+    templateId: STEP_DESIGN
   }
 
   const [couplePhotoFile, setCouplePhotoFile] = useState(null)
@@ -326,11 +308,7 @@ export default function WeddingCreate() {
       ...(eventUsesTables(eventType) ? { tables: data.tables || [] } : {}),
       templateId: cleanValue(data.templateId),
       customMessage: cleanValue(data.customMessage),
-      // QR Code
-      qrCodeStyle: data.qrCodeStyle || 'classic',
-      qrCodeColor: data.qrCodeColor || '#000000',
-      qrCodeBgColor: data.qrCodeTransparentBg ? 'transparent' : (data.qrCodeBgColor || '#FFFFFF'),
-      qrCodeSize: parseInt(data.qrCodeSize) || 300,
+      // Le style du QR est porté par le template (éditeur) — non réglable ici.
       // Extra
       rsvpDeadline: data.rsvpDeadline ? new Date(data.rsvpDeadline).toISOString() : null,
       additionalInfo: cleanValue(data.additionalInfo)
@@ -1021,180 +999,6 @@ export default function WeddingCreate() {
                   </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* ===================== STEP QR CODE ===================== */}
-          {step === STEP_QR && (
-            <div className="space-y-6">
-              <h2 className="text-xl font-serif font-bold text-gray-900 mb-6 flex items-center">
-                <QrCodeIcon className="h-6 w-6 mr-2 text-primary-500" />
-                QR Code
-              </h2>
-
-              {/* QR Style Selection */}
-              <div>
-                <h3 className="font-medium text-gray-900 mb-3">Style du QR Code</h3>
-                <p className="text-sm text-gray-500 mb-4">Le QR code permet à vos invités d'accéder à l'invitation et de confirmer leur présence</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {QR_STYLES.map(style => {
-                    const isSelected = watch('qrCodeStyle') === style.id
-                    return (
-                      <label
-                        key={style.id}
-                        className={`cursor-pointer p-4 rounded-xl border-2 text-center transition-all hover:shadow-md ${
-                          isSelected ? 'border-primary-500 bg-primary-50 shadow-md ring-1 ring-primary-200' : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <input type="radio" value={style.id} className="hidden" {...register('qrCodeStyle')} />
-                        <div className="w-20 h-20 mx-auto mb-3 rounded-xl flex items-center justify-center relative overflow-hidden"
-                          style={{ backgroundColor: watch('qrCodeTransparentBg') ? 'transparent' : watch('qrCodeBgColor'), border: watch('qrCodeTransparentBg') ? '2px dashed #d1d5db' : 'none' }}>
-                          {/* Visual QR pattern based on style */}
-                          {style.pattern === 'square' && (
-                            <div className="grid grid-cols-5 gap-[2px] p-1">
-                              {[1,1,1,0,1, 1,0,1,1,0, 1,1,1,0,1, 0,1,0,1,0, 1,0,1,1,1].map((v, i) => (
-                                <div key={i} className={`w-2.5 h-2.5 ${v ? '' : 'opacity-0'}`} style={{ backgroundColor: v ? (watch('qrCodeColor') || style.color) : 'transparent' }} />
-                              ))}
-                            </div>
-                          )}
-                          {style.pattern === 'rounded' && (
-                            <div className="grid grid-cols-5 gap-[2px] p-1">
-                              {[1,1,1,0,1, 1,0,1,1,0, 1,1,1,0,1, 0,1,0,1,0, 1,0,1,1,1].map((v, i) => (
-                                <div key={i} className={`w-2.5 h-2.5 rounded-sm ${v ? '' : 'opacity-0'}`} style={{ backgroundColor: v ? (watch('qrCodeColor') || style.color) : 'transparent' }} />
-                              ))}
-                            </div>
-                          )}
-                          {style.pattern === 'dots' && (
-                            <div className="grid grid-cols-5 gap-[2px] p-1">
-                              {[1,1,1,0,1, 1,0,1,1,0, 1,1,1,0,1, 0,1,0,1,0, 1,0,1,1,1].map((v, i) => (
-                                <div key={i} className={`w-2.5 h-2.5 rounded-full ${v ? '' : 'opacity-0'}`} style={{ backgroundColor: v ? (watch('qrCodeColor') || style.color) : 'transparent' }} />
-                              ))}
-                            </div>
-                          )}
-                          {style.pattern === 'elegant' && (
-                            <div className="grid grid-cols-5 gap-[3px] p-1.5">
-                              {[1,1,1,0,1, 1,0,1,1,0, 1,1,1,0,1, 0,1,0,1,0, 1,0,1,1,1].map((v, i) => (
-                                <div key={i} className={`w-2 h-2 rounded-[1px] ${v ? 'shadow-sm' : 'opacity-0'}`} style={{ backgroundColor: v ? (watch('qrCodeColor') || style.color) : 'transparent' }} />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-sm font-semibold text-gray-900">{style.name}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{style.desc}</p>
-                        {isSelected && (
-                          <div className="mt-2 inline-flex items-center gap-1 text-xs text-primary-600 font-medium">
-                            <EyeIcon className="h-3.5 w-3.5" /> Sélectionné
-                          </div>
-                        )}
-                      </label>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* QR Colors & Options */}
-              <div className="border-t pt-6">
-                <h3 className="font-medium text-gray-900 mb-4">Personnalisation</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="label text-sm">Couleur des modules</label>
-                    <div className="flex items-center gap-2">
-                      <input type="color" className="w-10 h-10 rounded-lg cursor-pointer border-0" {...register('qrCodeColor')} />
-                      <input type="text" className="input flex-1 text-sm font-mono" {...register('qrCodeColor')} />
-                    </div>
-                    {/* Quick color presets */}
-                    <div className="flex gap-1.5 mt-2">
-                      {['#000000', '#1a1a1a', '#333333', '#8B7355', '#D4AF37', '#B76E79', '#2D5F3A', '#1E3A5F'].map(c => (
-                        <button key={c} type="button" onClick={() => setValue('qrCodeColor', c)}
-                          className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${watch('qrCodeColor') === c ? 'border-primary-500 scale-110' : 'border-gray-200'}`}
-                          style={{ backgroundColor: c }} />
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="label text-sm">Taille</label>
-                    <select className="input" {...register('qrCodeSize')}>
-                      <option value="200">200px — Compact</option>
-                      <option value="300">300px — Standard</option>
-                      <option value="400">400px — Grand</option>
-                      <option value="500">500px — Très grand</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Background Option */}
-              <div className="border-t pt-6">
-                <h3 className="font-medium text-gray-900 mb-4">Arrière-plan du QR Code</h3>
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <label className={`cursor-pointer p-4 rounded-xl border-2 text-center transition-all ${
-                    !watch('qrCodeTransparentBg') ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
-                  }`}>
-                    <input type="radio" className="hidden" checked={!watch('qrCodeTransparentBg')} onChange={() => setValue('qrCodeTransparentBg', false)} />
-                    <div className="w-14 h-14 mx-auto mb-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: watch('qrCodeBgColor') }}>
-                      <QrCodeIcon className="h-8 w-8" style={{ color: watch('qrCodeColor') }} />
-                    </div>
-                    <p className="text-sm font-medium">Avec fond</p>
-                    <p className="text-xs text-gray-500">Couleur personnalisable</p>
-                  </label>
-                  <label className={`cursor-pointer p-4 rounded-xl border-2 text-center transition-all ${
-                    watch('qrCodeTransparentBg') ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
-                  }`}>
-                    <input type="radio" className="hidden" checked={watch('qrCodeTransparentBg')} onChange={() => setValue('qrCodeTransparentBg', true)} />
-                    <div className="w-14 h-14 mx-auto mb-2 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300"
-                      style={{ backgroundImage: 'linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%)', backgroundSize: '8px 8px', backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px' }}>
-                      <QrCodeIcon className="h-8 w-8" style={{ color: watch('qrCodeColor') }} />
-                    </div>
-                    <p className="text-sm font-medium">Sans fond</p>
-                    <p className="text-xs text-gray-500">Arrière-plan transparent</p>
-                  </label>
-                </div>
-
-                {!watch('qrCodeTransparentBg') && (
-                  <div>
-                    <label className="label text-sm">Couleur de fond</label>
-                    <div className="flex items-center gap-2">
-                      <input type="color" className="w-10 h-10 rounded-lg cursor-pointer border-0" {...register('qrCodeBgColor')} />
-                      <input type="text" className="input flex-1 text-sm font-mono" {...register('qrCodeBgColor')} />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* QR Preview */}
-              <div className="border-t pt-6">
-                <h3 className="font-medium text-gray-900 mb-3">Aperçu</h3>
-                <div className="flex justify-center">
-                  <div className={`p-8 rounded-2xl border-2 border-gray-200 inline-block ${watch('qrCodeTransparentBg') ? '' : ''}`}
-                    style={{
-                      backgroundColor: watch('qrCodeTransparentBg') ? 'transparent' : watch('qrCodeBgColor'),
-                      backgroundImage: watch('qrCodeTransparentBg') ? 'linear-gradient(45deg, #f3f4f6 25%, transparent 25%), linear-gradient(-45deg, #f3f4f6 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f3f4f6 75%), linear-gradient(-45deg, transparent 75%, #f3f4f6 75%)' : 'none',
-                      backgroundSize: '12px 12px',
-                      backgroundPosition: '0 0, 0 6px, 6px -6px, -6px 0px'
-                    }}>
-                    <div className="flex flex-col items-center">
-                      {/* Mini QR pattern preview */}
-                      <div className="mb-3">
-                        {(() => {
-                          const style = QR_STYLES.find(s => s.id === watch('qrCodeStyle'))
-                          const radius = style?.pattern === 'dots' ? 'rounded-full' : style?.pattern === 'rounded' ? 'rounded-sm' : style?.pattern === 'elegant' ? 'rounded-[1px]' : ''
-                          const color = watch('qrCodeColor') || '#000000'
-                          const pattern = [1,1,1,1,1,0,0,1, 1,0,0,0,1,0,1,0, 1,0,1,0,1,0,0,1, 1,0,0,0,1,0,1,1, 1,1,1,1,1,0,1,0, 0,0,0,0,0,0,0,1, 1,0,1,1,0,1,1,0, 0,1,0,1,1,0,1,1]
-                          return (
-                            <div className="grid grid-cols-8 gap-[2px]">
-                              {pattern.map((v, i) => (
-                                <div key={i} className={`w-3 h-3 ${radius} ${v ? '' : 'opacity-0'}`} style={{ backgroundColor: v ? color : 'transparent' }} />
-                              ))}
-                            </div>
-                          )
-                        })()}
-                      </div>
-                      <p className="text-xs text-gray-500">Style: {QR_STYLES.find(s => s.id === watch('qrCodeStyle'))?.name}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{watch('qrCodeTransparentBg') ? 'Fond transparent' : `Fond: ${watch('qrCodeBgColor')}`}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
 

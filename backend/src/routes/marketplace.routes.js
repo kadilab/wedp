@@ -17,7 +17,7 @@ const prisma = new PrismaClient();
 router.get('/templates', optionalAuth, paginationValidation, async (req, res) => {
   try {
     const { skip, take, page, limit } = paginate(req.query.page, req.query.limit);
-    const { category, eventType, creatorId, sort, featured } = req.query;
+    const { category, eventType, creatorId, sort, featured, search } = req.query;
 
     // Build where clause - approval status is the single source of truth
     const where = {
@@ -30,6 +30,8 @@ router.get('/templates', optionalAuth, paginationValidation, async (req, res) =>
     if (category) where.category = category;
     if (eventType) where.eventType = eventType;
     if (creatorId) where.marketplace = { is: { status: 'APPROVED', creatorId } };
+    // Free-text search by template name.
+    if (search && String(search).trim()) where.name = { contains: String(search).trim() };
 
     // Build order by based on sort parameter
     let orderBy = { marketplace: { publishedAt: 'desc' } };
@@ -129,6 +131,7 @@ router.get('/templates/:templateId', async (req, res) => {
         description: true,
         thumbnail: true,
         previewImage: true,
+        config: true,
         category: true,
         eventType: true,
         marketplace: {
@@ -168,6 +171,7 @@ router.get('/templates/:templateId', async (req, res) => {
         description: template.description,
         thumbnail: template.thumbnail,
         previewImage: template.previewImage,
+        config: template.config,
         category: template.category,
         eventType: template.eventType,
         marketplace: {

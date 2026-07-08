@@ -291,6 +291,7 @@ model Wedding {
   backgroundOpacity Int?          @default(100) @map("background_opacity")
   
   // QR Code Customization
+  codeType          String?       @default("qr") @map("code_type") // qr | barcode (from the template's code element)
   qrCodeStyle       String?       @default("classic") @map("qr_code_style") // classic, rounded, dots, elegant
   qrCodeColor       String?       @default("#000000") @map("qr_code_color")
   qrCodeBgColor     String?       @default("#FFFFFF") @map("qr_code_bg_color")

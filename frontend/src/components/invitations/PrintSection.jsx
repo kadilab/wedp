@@ -95,82 +95,85 @@ export default function PrintSection({ weddingId }) {
     }
   }
 
+  const segBtn = (active) =>
+    `px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${active ? 'bg-surface shadow-sm text-primary-600 dark:text-primary-400' : 'text-muted hover:text-content'}`
+
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      <div className="flex items-center gap-2 mb-1">
-        <PrinterIcon className="h-6 w-6 text-primary-500" />
-        <h3 className="text-lg font-serif font-bold text-gray-900">Impression</h3>
+    <div className="rounded-2xl border border-border bg-surface p-6">
+      <div className="mb-1 flex items-center gap-2">
+        <PrinterIcon className="h-5 w-5 text-primary-500" />
+        <h3 className="font-serif text-lg font-bold text-content">Impression</h3>
       </div>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="mb-4 text-sm text-muted">
         Générez un fichier prêt à imprimer (BàT) pour les invitations de votre choix.
       </p>
 
       {isLoading ? (
-        <div className="py-8 flex justify-center"><div className="animate-spin h-8 w-8 rounded-full border-b-2 border-primary-600" /></div>
+        <div className="flex justify-center py-8"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" /></div>
       ) : guests.length === 0 ? (
-        <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-700 dark:text-amber-400">
           Aucune invitation générée pour l'instant.{' '}
-          <Link to={`/weddings/${weddingId}/invitations`} className="font-medium underline">Générez vos invitations</Link> d'abord.
+          <Link to={`/weddings/${weddingId}/invitations`} className="font-semibold underline">Générez vos invitations</Link> d'abord.
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
             {/* Card format */}
             <div>
-              <p className="text-xs font-medium text-gray-700 mb-1.5">Format de l'invitation</p>
-              <div className="inline-flex rounded-lg bg-gray-100 p-1">
+              <p className="mb-1.5 text-xs font-medium text-content">Format de l'invitation</p>
+              <div className="inline-flex rounded-lg bg-surface-2 p-1">
                 {['A6', 'A5'].map((s) => (
-                  <button key={s} onClick={() => setSize(s)} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${size === s ? 'bg-white shadow-sm text-primary-700' : 'text-gray-500'}`}>{s}</button>
+                  <button key={s} onClick={() => setSize(s)} className={segBtn(size === s)}>{s}</button>
                 ))}
               </div>
             </div>
             {/* Sheet size */}
             <div>
-              <p className="text-xs font-medium text-gray-700 mb-1.5">Papier</p>
-              <div className="inline-flex rounded-lg bg-gray-100 p-1">
+              <p className="mb-1.5 text-xs font-medium text-content">Papier</p>
+              <div className="inline-flex rounded-lg bg-surface-2 p-1">
                 {['A4', 'A3'].map((s) => (
-                  <button key={s} onClick={() => setSheetSize(s)} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${sheetSize === s ? 'bg-white shadow-sm text-primary-700' : 'text-gray-500'}`}>{s}</button>
+                  <button key={s} onClick={() => setSheetSize(s)} className={segBtn(sheetSize === s)}>{s}</button>
                 ))}
               </div>
             </div>
             {/* Orientation */}
             <div>
-              <p className="text-xs font-medium text-gray-700 mb-1.5">Orientation</p>
-              <div className="inline-flex rounded-lg bg-gray-100 p-1">
-                <button onClick={() => setOrientation('portrait')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${orientation === 'portrait' ? 'bg-white shadow-sm text-primary-700' : 'text-gray-500'}`}>Portrait</button>
-                <button onClick={() => setOrientation('landscape')} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${orientation === 'landscape' ? 'bg-white shadow-sm text-primary-700' : 'text-gray-500'}`}>Paysage</button>
+              <p className="mb-1.5 text-xs font-medium text-content">Orientation</p>
+              <div className="inline-flex rounded-lg bg-surface-2 p-1">
+                <button onClick={() => setOrientation('portrait')} className={segBtn(orientation === 'portrait')}>Portrait</button>
+                <button onClick={() => setOrientation('landscape')} className={segBtn(orientation === 'landscape')}>Paysage</button>
               </div>
             </div>
           </div>
-          <p className="text-[11px] text-gray-400 -mt-2 mb-4">
+          <p className="-mt-2 mb-4 text-[11px] text-muted">
             Les invitations {size} sont disposées sur une planche {sheetSize} {orientation === 'landscape' ? 'paysage' : 'portrait'}, avec traits de coupe — pour optimiser le papier.
           </p>
 
           {/* Selection + search */}
           <div className="mb-4">
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="text-xs font-medium text-gray-700">Invitations à imprimer ({sel.size}/{guests.length})</p>
-              <button onClick={toggleAll} className="text-xs font-medium text-primary-600 hover:text-primary-700">
+            <div className="mb-1.5 flex items-center justify-between">
+              <p className="text-xs font-medium text-content">Invitations à imprimer ({sel.size}/{guests.length})</p>
+              <button onClick={toggleAll} className="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">
                 {allVisibleSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
               </button>
             </div>
             <div className="relative mb-2">
-              <MagnifyingGlassIcon className="h-4 w-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Rechercher un invité…"
-                className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full rounded-lg border border-border bg-bg py-2 pl-8 pr-3 text-sm text-content placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
-            <div className="max-h-56 overflow-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
+            <div className="max-h-56 divide-y divide-border overflow-auto rounded-lg border border-border">
               {filtered.length === 0 ? (
-                <p className="text-xs text-gray-400 text-center py-4">Aucun invité trouvé</p>
+                <p className="py-4 text-center text-xs text-muted">Aucun invité trouvé</p>
               ) : filtered.map((g) => (
-                <label key={g.id} className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer">
-                  <input type="checkbox" checked={sel.has(g.id)} onChange={() => toggle(g.id)} className="w-4 h-4 rounded border-gray-300 text-primary-600" />
-                  <span className="text-sm text-gray-800 truncate">{g.firstName} {g.lastName}</span>
+                <label key={g.id} className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-surface-2">
+                  <input type="checkbox" checked={sel.has(g.id)} onChange={() => toggle(g.id)} className="h-4 w-4 rounded border-border text-primary-500 focus:ring-primary-500" />
+                  <span className="truncate text-sm text-content">{g.firstName} {g.lastName}</span>
                 </label>
               ))}
             </div>
@@ -178,17 +181,17 @@ export default function PrintSection({ weddingId }) {
 
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={generateBat} disabled={!!busy || sel.size === 0} className="btn-primary btn-sm disabled:opacity-50">
-              <PrinterIcon className="h-4 w-4 mr-1.5" />
+            <button onClick={generateBat} disabled={!!busy || sel.size === 0} className="inline-flex items-center gap-1.5 rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-600 disabled:opacity-50">
+              <PrinterIcon className="h-4 w-4" />
               {busy === 'bat' ? 'Génération…' : `Générer le BàT (${sel.size})`}
             </button>
-            <button onClick={downloadZip} disabled={!!busy || sel.size === 0} className="btn-secondary btn-sm disabled:opacity-50">
-              <ArrowDownTrayIcon className="h-4 w-4 mr-1.5" />
+            <button onClick={downloadZip} disabled={!!busy || sel.size === 0} className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold text-content transition-colors hover:bg-surface-2 disabled:opacity-50">
+              <ArrowDownTrayIcon className="h-4 w-4" />
               {busy === 'zip' ? 'Préparation…' : 'Fichiers individuels (ZIP)'}
             </button>
             {printServiceEnabled && (
-              <button onClick={() => setShowOrder(true)} className="btn-secondary btn-sm">
-                <TruckIcon className="h-4 w-4 mr-1.5" />
+              <button onClick={() => setShowOrder(true)} className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-4 py-2 text-sm font-semibold text-content transition-colors hover:bg-surface-2">
+                <TruckIcon className="h-4 w-4" />
                 Commander l'impression chez nous
               </button>
             )}

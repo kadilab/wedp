@@ -12,7 +12,7 @@ import { eventUsesCouple, eventUsesHonoree, eventUsesFreeTitle, eventUsesTables,
 import {
   ArrowLeftIcon, TrashIcon, BuildingLibraryIcon, MusicalNoteIcon,
   CalendarDaysIcon, HeartIcon,
-  QrCodeIcon, SparklesIcon,
+  SparklesIcon,
   SwatchIcon, ExclamationTriangleIcon,
   EyeIcon, UserIcon, PhotoIcon
 } from '@heroicons/react/24/outline'
@@ -22,14 +22,6 @@ const ChurchIcon = ({ className }) => (
     <path d="M18 12.22V9l-5-2.5V5h1V3h-1V1h-2v2h-1v2h1v1.5L6 9v3.22l-2 1V22h8v-3c0-1.1.9-2 2-2s2 .9 2 2v3h8v-8.78l-2-1zM12 13.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" />
   </svg>
 )
-
-const QR_STYLES = [
-  { id: 'classic', name: 'Classique', desc: 'QR standard', pattern: 'square', color: '#000000' },
-  { id: 'rounded', name: 'Arrondi', desc: 'Coins arrondis', pattern: 'rounded', color: '#1a1a1a' },
-  { id: 'dots', name: 'Points', desc: 'Modules circulaires', pattern: 'dots', color: '#333333' },
-  { id: 'elegant', name: 'Élégant', desc: 'Style premium', pattern: 'elegant', color: '#8B7355' }
-]
-
 
 const TEMPLATE_CATEGORIES = {
   ELEGANT: 'Élégant',
@@ -96,12 +88,6 @@ export default function WeddingEdit() {
       receptionStartTime: wedding.receptionStartTime || '',
       receptionVenue: wedding.receptionVenue || '',
       receptionAddress: wedding.receptionAddress || '',
-      // QR Code
-      qrCodeStyle: wedding.qrCodeStyle || 'classic',
-      qrCodeColor: wedding.qrCodeColor || '#000000',
-      qrCodeBgColor: wedding.qrCodeBgColor === 'transparent' ? '#FFFFFF' : (wedding.qrCodeBgColor || '#FFFFFF'),
-      qrCodeSize: wedding.qrCodeSize || 300,
-      qrCodeTransparentBg: wedding.qrCodeBgColor === 'transparent',
       // Extra
       rsvpDeadline: wedding.rsvpDeadline?.split('T')[0] || '',
       additionalInfo: wedding.additionalInfo || ''
@@ -221,11 +207,8 @@ export default function WeddingEdit() {
         receptionVenue: cleanValue(data.receptionVenue),
         receptionAddress: cleanValue(data.receptionAddress)
       } : {}),
-      // QR Code
-      qrCodeStyle: data.qrCodeStyle || 'classic',
-      qrCodeColor: data.qrCodeColor || '#000000',
-      qrCodeBgColor: data.qrCodeTransparentBg ? 'transparent' : (data.qrCodeBgColor || '#FFFFFF'),
-      qrCodeSize: parseInt(data.qrCodeSize) || 300,
+      // Le style du QR code se règle désormais dans l'éditeur de template
+      // (côté créateur/admin) — le client ne peut plus l'altérer ici.
       // Extra
       rsvpDeadline: data.rsvpDeadline ? new Date(data.rsvpDeadline).toISOString() : null,
       additionalInfo: cleanValue(data.additionalInfo)
@@ -244,8 +227,8 @@ export default function WeddingEdit() {
 
   if (isLoading) {
     return (
-      <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+      <div className="py-12 text-center">
+        <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>
       </div>
     )
   }
@@ -253,22 +236,22 @@ export default function WeddingEdit() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
-        <button onClick={() => navigate(`/weddings/${id}`)} className="flex items-center text-gray-600 hover:text-gray-900 mb-4">
+        <button onClick={() => navigate(`/weddings/${id}`)} className="flex items-center text-muted hover:text-content mb-4">
           <ArrowLeftIcon className="h-5 w-5 mr-1" /> Retour
         </button>
-        <h1 className="text-3xl font-serif font-bold text-gray-900">Modifier l'événement</h1>
-        <p className="text-gray-600 mt-2 flex items-center gap-2">
+        <h1 className="text-3xl font-serif font-bold text-content">Modifier l'événement</h1>
+        <p className="text-muted mt-2 flex items-center gap-2">
           {getEventDisplayTitle(wedding)}
-          <span className="badge-gold">{EVENT_TYPE_LABELS[wedding?.eventType] || 'Mariage'}</span>
+          <span className="inline-flex items-center rounded-full bg-primary-500/10 px-2.5 py-1 text-xs font-semibold text-primary-600 dark:text-primary-400">{EVENT_TYPE_LABELS[wedding?.eventType] || 'Mariage'}</span>
         </p>
       </div>
 
       {locked && (
-        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-          <ExclamationTriangleIcon className="h-6 w-6 text-amber-500 flex-shrink-0 mt-0.5" />
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <ExclamationTriangleIcon className="h-6 w-6 shrink-0 text-amber-500 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-amber-800">Informations verrouillées</p>
-            <p className="text-sm text-amber-700">
+            <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Informations verrouillées</p>
+            <p className="text-sm text-amber-700/90 dark:text-amber-400/80">
               Des invitations ont déjà été générées pour cet événement. Pour éviter toute fraude,
               les informations ne sont plus modifiables.
             </p>
@@ -279,8 +262,8 @@ export default function WeddingEdit() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* ==================== Section 1: Couple (Mariage / Mariage coutumier) ==================== */}
         {isCouple && (
-        <div className="bg-white rounded-xl shadow-lg p-8 space-y-6">
-          <h2 className="text-xl font-serif font-bold text-gray-900 flex items-center gap-2">
+        <div className="rounded-2xl border border-border bg-surface p-8 space-y-6">
+          <h2 className="text-xl font-serif font-bold text-content flex items-center gap-2">
             <HeartIcon className="h-6 w-6 text-primary-500" />
             Informations des mariés
           </h2>
@@ -309,8 +292,8 @@ export default function WeddingEdit() {
 
           {/* Adresse principale — seul lieu pour le mariage coutumier ;
               pour le mariage, le programme détaillé est plus bas. */}
-          <div className="border-t pt-6 space-y-4">
-            <h3 className="font-medium text-gray-900">Lieu principal{isWedding ? ' (facultatif si le programme est détaillé)' : ''}</h3>
+          <div className="border-t border-border pt-6 space-y-4">
+            <h3 className="font-medium text-content">Lieu principal{isWedding ? ' (facultatif si le programme est détaillé)' : ''}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="label text-sm">Nom du lieu</label>
@@ -326,24 +309,24 @@ export default function WeddingEdit() {
               <input type="text" className="input" {...register('venueAddress')} />
             </div>
             <div>
-              <label className="label text-sm">Lien Google Maps <span className="text-gray-400 font-normal">— pour la carte cliquable de l'invitation</span></label>
+              <label className="label text-sm">Lien Google Maps <span className="text-muted font-normal">— pour la carte cliquable de l'invitation</span></label>
               <input type="url" className="input" placeholder="https://maps.google.com/..." {...register('venueMapUrl')} />
-              <p className="text-xs text-gray-400 mt-1">Facultatif — sinon l'itinéraire est calculé depuis le nom + l'adresse.</p>
+              <p className="text-xs text-muted mt-1">Facultatif — sinon l'itinéraire est calculé depuis le nom + l'adresse.</p>
             </div>
           </div>
 
-          <div className="border-t pt-6">
+          <div className="border-t border-border pt-6">
             <label className="label">Message personnalisé</label>
             <textarea className="input" rows={3} placeholder="Un message spécial..." {...register('customMessage')} />
           </div>
 
           {/* Photo des mariés 
-          <div className="border-t pt-6">
-            <h3 className="font-medium text-gray-900 flex items-center mb-1">
+          <div className="border-t border-border pt-6">
+            <h3 className="font-medium text-content flex items-center mb-1">
               <PhotoIcon className="h-5 w-5 mr-2 text-primary-500" />
               Photo des mariés
             </h3>
-            <p className="text-sm text-gray-500 mb-3">
+            <p className="text-sm text-muted mb-3">
               Si votre template prévoit un emplacement photo, cette image y sera intégrée automatiquement.
             </p>
             <ImageUpload
@@ -358,21 +341,21 @@ export default function WeddingEdit() {
 */}
           {/* Per-placeholder images for multi-photo templates */}
           {photoPlaceholders.length > 1 && (
-            <div className="border-t pt-6">
-              <h3 className="font-medium text-gray-900 flex items-center mb-1">
+            <div className="border-t border-border pt-6">
+              <h3 className="font-medium text-content flex items-center mb-1">
                 <PhotoIcon className="h-5 w-5 mr-2 text-primary-500" />
                 Photos de l'invitation
-                <span className="ml-2 text-xs font-normal text-gray-400">
+                <span className="ml-2 text-xs font-normal text-muted">
                   ({photoPlaceholders.length} emplacements)
                 </span>
               </h3>
-              <p className="text-sm text-gray-500 mb-4">
+              <p className="text-sm text-muted mb-4">
                 Ce template a plusieurs emplacements photo — chacun reçoit sa propre image.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {photoPlaceholders.map((ph, i) => (
                   <div key={ph.id}>
-                    <p className="text-xs font-medium text-gray-600 mb-1 truncate">{ph.label || `Photo ${i + 1}`}</p>
+                    <p className="text-xs font-medium text-muted mb-1 truncate">{ph.label || `Photo ${i + 1}`}</p>
                     <ImageUpload
                       value={weddingTemplateImages[ph.id]}
                       onUpload={makeTemplateImageUpload(ph.id)}
@@ -388,8 +371,8 @@ export default function WeddingEdit() {
           )}
 
           {/* Extra personalization */}
-          <div className="border-t pt-6 space-y-4">
-            <h3 className="font-medium text-gray-900 flex items-center">
+          <div className="border-t border-border pt-6 space-y-4">
+            <h3 className="font-medium text-content flex items-center">
               <SparklesIcon className="h-5 w-5 mr-2 text-amber-500" />
               Personnalisation avancée
             </h3>
@@ -409,8 +392,8 @@ export default function WeddingEdit() {
 
         {/* ==================== Section 1bis: Infos (honoree / titre libre) ==================== */}
         {!isCouple && (
-        <div className="bg-white rounded-xl shadow-lg p-8 space-y-6">
-          <h2 className="text-xl font-serif font-bold text-gray-900 flex items-center gap-2">
+        <div className="rounded-2xl border border-border bg-surface p-8 space-y-6">
+          <h2 className="text-xl font-serif font-bold text-content flex items-center gap-2">
             <CalendarDaysIcon className="h-6 w-6 text-primary-500" />
             Informations de l'événement
           </h2>
@@ -418,7 +401,7 @@ export default function WeddingEdit() {
             <div>
               <label className="label">{honoreeFieldLabel(wedding?.eventType)} *</label>
               <input type="text" className={`input ${errors.honoreeName ? 'input-error' : ''}`} placeholder={wedding?.eventType === 'BIRTHDAY' ? 'Fatou' : 'Jean'} {...register('honoreeName', { required: 'Requis' })} />
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-muted">
                 Le titre s'affiche automatiquement : « {EVENT_TYPE_LABELS[wedding?.eventType]} de {watch('honoreeName') || '…'} »
               </p>
               {errors.honoreeName && <p className="text-red-500 text-sm mt-1">{errors.honoreeName.message}</p>}
@@ -440,8 +423,8 @@ export default function WeddingEdit() {
               <input type="time" className="input" {...register('ceremonyTime')} />
             </div>
           </div>
-          <div className="border-t pt-6 space-y-4">
-            <h3 className="font-medium text-gray-900">Lieu</h3>
+          <div className="border-t border-border pt-6 space-y-4">
+            <h3 className="font-medium text-content">Lieu</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="label text-sm">Nom du lieu</label>
@@ -457,11 +440,11 @@ export default function WeddingEdit() {
               <input type="text" className="input" {...register('venueAddress')} />
             </div>
           </div>
-          <div className="border-t pt-6">
+          <div className="border-t border-border pt-6">
             <label className="label">Message personnalisé</label>
             <textarea className="input" rows={3} placeholder="Un message spécial..." {...register('customMessage')} />
           </div>
-          <div className="border-t pt-6 space-y-4">
+          <div className="border-t border-border pt-6 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="label">Date limite RSVP</label>
@@ -478,15 +461,15 @@ export default function WeddingEdit() {
 
         {/* ==================== Tables (événements à places assises) ==================== */}
         {eventUsesTables(wedding?.eventType) && (
-        <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className="rounded-2xl border border-border bg-surface p-8">
           <TablesEditor value={watch('tables') || []} onChange={(v) => setValue('tables', v)} />
         </div>
         )}
 
         {/* ==================== Section 2: Programme (Mariage uniquement) ==================== */}
         {isWedding && (
-        <div className="bg-white rounded-xl shadow-lg p-8 space-y-8">
-          <h2 className="text-xl font-serif font-bold text-gray-900 flex items-center gap-2">
+        <div className="rounded-2xl border border-border bg-surface p-8 space-y-8">
+          <h2 className="text-xl font-serif font-bold text-content flex items-center gap-2">
             <CalendarDaysIcon className="h-6 w-6 text-primary-500" />
             Programme du mariage
           </h2>
@@ -542,19 +525,19 @@ export default function WeddingEdit() {
         )}
 
         {/* ==================== Section 3: Design ==================== */}
-        <div className="bg-white rounded-xl shadow-lg p-8 space-y-6">
-          <h2 className="text-xl font-serif font-bold text-gray-900 flex items-center gap-2">
+        <div className="rounded-2xl border border-border bg-surface p-8 space-y-6">
+          <h2 className="text-xl font-serif font-bold text-content flex items-center gap-2">
             <SwatchIcon className="h-6 w-6 text-primary-500" />
             Choix du template
           </h2>
 
           {/* Template Selection + Live Preview */}
           <div>
-            <h3 className="font-medium text-gray-900 mb-3">Choisir un template</h3>
+            <h3 className="font-medium text-content mb-3">Choisir un template</h3>
             {templates.length === 0 && myTemplates.length === 0 ? (
-              <div className="text-center py-6 bg-gray-50 rounded-xl">
+              <div className="text-center py-6 bg-bg rounded-xl">
                 <HeartIcon className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                <p className="text-gray-500 text-sm">
+                <p className="text-muted text-sm">
                   Aucun template disponible pour le type « {EVENT_TYPE_LABELS[wedding?.eventType] || 'Mariage'} » pour le moment
                 </p>
               </div>
@@ -587,19 +570,19 @@ export default function WeddingEdit() {
                               </span>
                             </div>
                             <div className="p-2">
-                              <p className="font-medium text-sm text-gray-900 truncate">{tmpl.name}</p>
+                              <p className="font-medium text-sm text-content truncate">{tmpl.name}</p>
                               <p className="text-xs text-primary-500">Personnalisé</p>
                             </div>
                           </label>
                         ))}
                       </div>
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-4 mb-2">Templates globaux</p>
+                      <p className="text-xs font-semibold text-muted uppercase tracking-wider mt-4 mb-2">Templates globaux</p>
                     </div>
                   )}
                   <div className="grid grid-cols-2 gap-3">
                     {templates.map((tmpl) => (
                       <label key={tmpl.id} className={`cursor-pointer rounded-xl border-2 overflow-hidden transition-all ${
-                        selectedTemplateId === tmpl.id ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                        selectedTemplateId === tmpl.id ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-border hover:border-border hover:shadow-sm'
                       }`}>
                         <input type="radio" value={tmpl.id} className="hidden" {...register('templateId')} />
                         <div className="aspect-[3/4] bg-gradient-wedding flex items-center justify-center relative">
@@ -616,8 +599,8 @@ export default function WeddingEdit() {
                           )}
                         </div>
                         <div className="p-2">
-                          <p className="font-medium text-sm text-gray-900 truncate">{tmpl.name}</p>
-                          <p className="text-xs text-gray-500">{TEMPLATE_CATEGORIES[tmpl.category] || tmpl.category}</p>
+                          <p className="font-medium text-sm text-content truncate">{tmpl.name}</p>
+                          <p className="text-xs text-muted">{TEMPLATE_CATEGORIES[tmpl.category] || tmpl.category}</p>
                         </div>
                       </label>
                     ))}
@@ -627,7 +610,7 @@ export default function WeddingEdit() {
                 {/* Right: live preview panel */}
                 <div className="w-52 flex-shrink-0">
                   <div className="sticky top-4">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">
+                    <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2 flex items-center gap-1">
                       <EyeIcon className="h-3.5 w-3.5" /> Aperçu en direct
                     </p>
                     {selectedTemplateId ? (
@@ -635,7 +618,7 @@ export default function WeddingEdit() {
                         const selectedTmpl = [...myTemplates, ...templates].find(t => t.id === selectedTemplateId)
                         return selectedTmpl ? (
                           <div className="rounded-xl border-2 border-primary-200 overflow-hidden shadow-lg">
-                            <div className="aspect-[3/4] relative bg-gray-50">
+                            <div className="aspect-[3/4] relative bg-bg">
                               <TemplatePreview
                                 template={selectedTmpl}
                                 weddingData={previewWeddingData}
@@ -651,193 +634,21 @@ export default function WeddingEdit() {
                         ) : null
                       })()
                     ) : (
-                      <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center bg-gray-50 text-center p-4">
+                      <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center bg-bg text-center p-4">
                         <SwatchIcon className="h-8 w-8 text-gray-300 mb-2" />
-                        <p className="text-xs text-gray-400">Sélectionnez un template pour voir l'aperçu</p>
+                        <p className="text-xs text-muted">Sélectionnez un template pour voir l'aperçu</p>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* ==================== Section 4: QR Code ==================== */}
-        <div className="bg-white rounded-xl shadow-lg p-8 space-y-6">
-          <h2 className="text-xl font-serif font-bold text-gray-900 flex items-center gap-2">
-            <QrCodeIcon className="h-6 w-6 text-primary-500" />
-            QR Code
-          </h2>
-
-          {/* QR Style Selection */}
-          <div>
-            <h3 className="font-medium text-gray-900 mb-3">Style du QR Code</h3>
-            <p className="text-sm text-gray-500 mb-4">Le QR code permet à vos invités d'accéder à l'invitation et de confirmer leur présence</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {QR_STYLES.map(style => {
-                const isSelected = watch('qrCodeStyle') === style.id
-                return (
-                  <label
-                    key={style.id}
-                    className={`cursor-pointer p-4 rounded-xl border-2 text-center transition-all hover:shadow-md ${
-                      isSelected ? 'border-primary-500 bg-primary-50 shadow-md ring-1 ring-primary-200' : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <input type="radio" value={style.id} className="hidden" {...register('qrCodeStyle')} />
-                    <div className="w-20 h-20 mx-auto mb-3 rounded-xl flex items-center justify-center relative overflow-hidden"
-                      style={{ backgroundColor: watch('qrCodeTransparentBg') ? 'transparent' : watch('qrCodeBgColor'), border: watch('qrCodeTransparentBg') ? '2px dashed #d1d5db' : 'none' }}>
-                      {/* Visual QR pattern based on style */}
-                      {style.pattern === 'square' && (
-                        <div className="grid grid-cols-5 gap-[2px] p-1">
-                          {[1,1,1,0,1, 1,0,1,1,0, 1,1,1,0,1, 0,1,0,1,0, 1,0,1,1,1].map((v, i) => (
-                            <div key={i} className={`w-2.5 h-2.5 ${v ? '' : 'opacity-0'}`} style={{ backgroundColor: v ? (watch('qrCodeColor') || style.color) : 'transparent' }} />
-                          ))}
-                        </div>
-                      )}
-                      {style.pattern === 'rounded' && (
-                        <div className="grid grid-cols-5 gap-[2px] p-1">
-                          {[1,1,1,0,1, 1,0,1,1,0, 1,1,1,0,1, 0,1,0,1,0, 1,0,1,1,1].map((v, i) => (
-                            <div key={i} className={`w-2.5 h-2.5 rounded-sm ${v ? '' : 'opacity-0'}`} style={{ backgroundColor: v ? (watch('qrCodeColor') || style.color) : 'transparent' }} />
-                          ))}
-                        </div>
-                      )}
-                      {style.pattern === 'dots' && (
-                        <div className="grid grid-cols-5 gap-[2px] p-1">
-                          {[1,1,1,0,1, 1,0,1,1,0, 1,1,1,0,1, 0,1,0,1,0, 1,0,1,1,1].map((v, i) => (
-                            <div key={i} className={`w-2.5 h-2.5 rounded-full ${v ? '' : 'opacity-0'}`} style={{ backgroundColor: v ? (watch('qrCodeColor') || style.color) : 'transparent' }} />
-                          ))}
-                        </div>
-                      )}
-                      {style.pattern === 'elegant' && (
-                        <div className="grid grid-cols-5 gap-[3px] p-1.5">
-                          {[1,1,1,0,1, 1,0,1,1,0, 1,1,1,0,1, 0,1,0,1,0, 1,0,1,1,1].map((v, i) => (
-                            <div key={i} className={`w-2 h-2 rounded-[1px] ${v ? 'shadow-sm' : 'opacity-0'}`} style={{ backgroundColor: v ? (watch('qrCodeColor') || style.color) : 'transparent' }} />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-sm font-semibold text-gray-900">{style.name}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{style.desc}</p>
-                    {isSelected && (
-                      <div className="mt-2 inline-flex items-center gap-1 text-xs text-primary-600 font-medium">
-                        <EyeIcon className="h-3.5 w-3.5" /> Sélectionné
-                      </div>
-                    )}
-                  </label>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* QR Colors & Options */}
-          <div className="border-t pt-6">
-            <h3 className="font-medium text-gray-900 mb-4">Personnalisation</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="label text-sm">Couleur des modules</label>
-                <div className="flex items-center gap-2">
-                  <input type="color" className="w-10 h-10 rounded-lg cursor-pointer border-0" {...register('qrCodeColor')} />
-                  <input type="text" className="input flex-1 text-sm font-mono" {...register('qrCodeColor')} />
-                </div>
-                {/* Quick color presets */}
-                <div className="flex gap-1.5 mt-2">
-                  {['#000000', '#1a1a1a', '#333333', '#8B7355', '#D4AF37', '#B76E79', '#2D5F3A', '#1E3A5F'].map(c => (
-                    <button key={c} type="button" onClick={() => setValue('qrCodeColor', c)}
-                      className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${watch('qrCodeColor') === c ? 'border-primary-500 scale-110' : 'border-gray-200'}`}
-                      style={{ backgroundColor: c }} />
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="label text-sm">Taille</label>
-                <select className="input" {...register('qrCodeSize')}>
-                  <option value="200">200px — Compact</option>
-                  <option value="300">300px — Standard</option>
-                  <option value="400">400px — Grand</option>
-                  <option value="500">500px — Très grand</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Background Option */}
-          <div className="border-t pt-6">
-            <h3 className="font-medium text-gray-900 mb-4">Arrière-plan du QR Code</h3>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <label className={`cursor-pointer p-4 rounded-xl border-2 text-center transition-all ${
-                !watch('qrCodeTransparentBg') ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
-              }`}>
-                <input type="radio" className="hidden" checked={!watch('qrCodeTransparentBg')} onChange={() => setValue('qrCodeTransparentBg', false)} />
-                <div className="w-14 h-14 mx-auto mb-2 rounded-lg flex items-center justify-center" style={{ backgroundColor: watch('qrCodeBgColor') }}>
-                  <QrCodeIcon className="h-8 w-8" style={{ color: watch('qrCodeColor') }} />
-                </div>
-                <p className="text-sm font-medium">Avec fond</p>
-                <p className="text-xs text-gray-500">Couleur personnalisable</p>
-              </label>
-              <label className={`cursor-pointer p-4 rounded-xl border-2 text-center transition-all ${
-                watch('qrCodeTransparentBg') ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
-              }`}>
-                <input type="radio" className="hidden" checked={watch('qrCodeTransparentBg')} onChange={() => setValue('qrCodeTransparentBg', true)} />
-                <div className="w-14 h-14 mx-auto mb-2 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300"
-                  style={{ backgroundImage: 'linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%)', backgroundSize: '8px 8px', backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px' }}>
-                  <QrCodeIcon className="h-8 w-8" style={{ color: watch('qrCodeColor') }} />
-                </div>
-                <p className="text-sm font-medium">Sans fond</p>
-                <p className="text-xs text-gray-500">Arrière-plan transparent</p>
-              </label>
-            </div>
-
-            {!watch('qrCodeTransparentBg') && (
-              <div>
-                <label className="label text-sm">Couleur de fond</label>
-                <div className="flex items-center gap-2">
-                  <input type="color" className="w-10 h-10 rounded-lg cursor-pointer border-0" {...register('qrCodeBgColor')} />
-                  <input type="text" className="input flex-1 text-sm font-mono" {...register('qrCodeBgColor')} />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* QR Preview */}
-          <div className="border-t pt-6">
-            <h3 className="font-medium text-gray-900 mb-3">Aperçu</h3>
-            <div className="flex justify-center">
-              <div className={`p-8 rounded-2xl border-2 border-gray-200 inline-block`}
-                style={{
-                  backgroundColor: watch('qrCodeTransparentBg') ? 'transparent' : watch('qrCodeBgColor'),
-                  backgroundImage: watch('qrCodeTransparentBg') ? 'linear-gradient(45deg, #f3f4f6 25%, transparent 25%), linear-gradient(-45deg, #f3f4f6 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f3f4f6 75%), linear-gradient(-45deg, transparent 75%, #f3f4f6 75%)' : 'none',
-                  backgroundSize: '12px 12px',
-                  backgroundPosition: '0 0, 0 6px, 6px -6px, -6px 0px'
-                }}>
-                <div className="flex flex-col items-center">
-                  {/* Mini QR pattern preview */}
-                  <div className="mb-3">
-                    {(() => {
-                      const style = QR_STYLES.find(s => s.id === watch('qrCodeStyle'))
-                      const radius = style?.pattern === 'dots' ? 'rounded-full' : style?.pattern === 'rounded' ? 'rounded-sm' : style?.pattern === 'elegant' ? 'rounded-[1px]' : ''
-                      const color = watch('qrCodeColor') || '#000000'
-                      const pattern = [1,1,1,1,1,0,0,1, 1,0,0,0,1,0,1,0, 1,0,1,0,1,0,0,1, 1,0,0,0,1,0,1,1, 1,1,1,1,1,0,1,0, 0,0,0,0,0,0,0,1, 1,0,1,1,0,1,1,0, 0,1,0,1,1,0,1,1]
-                      return (
-                        <div className="grid grid-cols-8 gap-[2px]">
-                          {pattern.map((v, i) => (
-                            <div key={i} className={`w-3 h-3 ${radius} ${v ? '' : 'opacity-0'}`} style={{ backgroundColor: v ? color : 'transparent' }} />
-                          ))}
-                        </div>
-                      )
-                    })()}
-                  </div>
-                  <p className="text-xs text-gray-500">Style: {QR_STYLES.find(s => s.id === watch('qrCodeStyle'))?.name}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{watch('qrCodeTransparentBg') ? 'Fond transparent' : `Fond: ${watch('qrCodeBgColor')}`}</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
         {/* ==================== Section 6: Statut ==================== */}
-        <div className="bg-white rounded-xl shadow-lg p-8 space-y-6">
-          <h2 className="text-xl font-serif font-bold text-gray-900">Statut</h2>
+        <div className="rounded-2xl border border-border bg-surface p-8 space-y-6">
+          <h2 className="text-xl font-serif font-bold text-content">Statut</h2>
           <select className="input" {...register('status')}>
             <option value="DRAFT">Brouillon</option>
             <option value="ACTIVE">Actif</option>
@@ -847,7 +658,7 @@ export default function WeddingEdit() {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-between bg-white rounded-xl shadow-lg p-6">
+        <div className="flex items-center justify-between rounded-2xl border border-border bg-surface p-6">
           <button type="button" onClick={handleDelete} className="btn-danger flex items-center" disabled={deleteMutation.isLoading}>
             <TrashIcon className="h-5 w-5 mr-2" />
             {deleteMutation.isLoading ? 'Suppression...' : 'Supprimer'}

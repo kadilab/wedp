@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -7,19 +8,28 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Accent de marque — base #FF5C00 (orange winvitepro)
         primary: {
-          50: '#fdf6f3',
-          100: '#fbeae4',
-          200: '#f8d5ca',
-          300: '#f2b5a3',
-          400: '#ea8b71',
-          500: '#df6746',
-          600: '#cc5038',
-          700: '#ab402e',
-          800: '#8d382b',
-          900: '#743329',
-          950: '#3e1812',
+          50: '#fff3ec',
+          100: '#ffe1d0',
+          200: '#ffc2a1',
+          300: '#ff9e6b',
+          400: '#ff7a38',
+          500: '#ff5c00',
+          600: '#e64f00',
+          700: '#bf4200',
+          800: '#963400',
+          900: '#7a2c00',
+          950: '#421600',
         },
+        // Tokens sémantiques pilotés par des variables CSS (voir index.css) —
+        // le light/dark est géré au même endroit plutôt qu'avec `dark:` partout.
+        bg: 'rgb(var(--bg) / <alpha-value>)',
+        surface: 'rgb(var(--surface) / <alpha-value>)',
+        'surface-2': 'rgb(var(--surface-2) / <alpha-value>)',
+        border: 'rgb(var(--border) / <alpha-value>)',
+        content: 'rgb(var(--content) / <alpha-value>)',
+        muted: 'rgb(var(--muted) / <alpha-value>)',
         secondary: {
           50: '#f8f6f4',
           100: '#edeae4',

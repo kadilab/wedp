@@ -37,13 +37,16 @@ export default function Register() {
     }
   }
 
+  const inputBase = 'w-full rounded-xl border bg-bg py-3 text-sm text-content placeholder:text-muted transition focus:outline-none focus:ring-2 focus:ring-primary-500'
+  const borderCls = (err) => (err ? 'border-red-500 focus:ring-red-500' : 'border-border focus:border-primary-500')
+
   return (
     <div>
       <div className="mb-8">
-        <h2 className="text-3xl font-serif font-bold text-gray-900">
+        <h2 className="font-serif text-3xl font-bold text-content">
           Créer un compte
         </h2>
-        <p className="text-gray-500 mt-2">
+        <p className="mt-2 text-muted">
           Commencez à créer vos invitations en quelques minutes
         </p>
       </div>
@@ -51,45 +54,45 @@ export default function Register() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="firstName" className="label">Prénom</label>
+            <label htmlFor="firstName" className="mb-1.5 block text-sm font-medium text-content">Prénom</label>
             <div className="relative">
-              <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <UserIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
               <input
                 id="firstName"
                 type="text"
-                className={`input pl-10 ${errors.firstName ? 'input-error' : ''}`}
+                className={`${inputBase} pl-10 pr-3 ${borderCls(errors.firstName)}`}
                 placeholder="Jean"
                 {...register('firstName', { required: 'Le prénom est requis' })}
               />
             </div>
             {errors.firstName && (
-              <p className="mt-1 text-sm text-red-600">{errors.firstName.message}</p>
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.firstName.message}</p>
             )}
           </div>
 
           <div>
-            <label htmlFor="lastName" className="label">Nom</label>
+            <label htmlFor="lastName" className="mb-1.5 block text-sm font-medium text-content">Nom</label>
             <input
               id="lastName"
               type="text"
-              className={`input ${errors.lastName ? 'input-error' : ''}`}
+              className={`${inputBase} px-3 ${borderCls(errors.lastName)}`}
               placeholder="Dupont"
               {...register('lastName', { required: 'Le nom est requis' })}
             />
             {errors.lastName && (
-              <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.lastName.message}</p>
             )}
           </div>
         </div>
 
         <div>
-          <label htmlFor="email" className="label">Email</label>
+          <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-content">Email</label>
           <div className="relative">
-            <EnvelopeIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <EnvelopeIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
             <input
               id="email"
               type="email"
-              className={`input pl-10 ${errors.email ? 'input-error' : ''}`}
+              className={`${inputBase} pl-10 pr-3 ${borderCls(errors.email)}`}
               placeholder="votre@email.com"
               {...register('email', {
                 required: 'L\'email est requis',
@@ -101,18 +104,18 @@ export default function Register() {
             />
           </div>
           {errors.email && (
-            <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email.message}</p>
           )}
         </div>
 
         <div>
-          <label htmlFor="phone" className="label">Téléphone (optionnel)</label>
+          <label htmlFor="phone" className="mb-1.5 block text-sm font-medium text-content">Téléphone (optionnel)</label>
           <div className="relative">
-            <PhoneIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <PhoneIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
             <input
               id="phone"
               type="tel"
-              className="input pl-10"
+              className={`${inputBase} pl-10 pr-3 border-border focus:border-primary-500`}
               placeholder="+229 01 23 45 67"
               {...register('phone')}
             />
@@ -120,13 +123,13 @@ export default function Register() {
         </div>
 
         <div>
-          <label htmlFor="password" className="label">Mot de passe</label>
+          <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-content">Mot de passe</label>
           <div className="relative">
-            <LockClosedIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <LockClosedIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
             <input
               id="password"
               type={showPassword ? 'text' : 'password'}
-              className={`input pl-10 pr-10 ${errors.password ? 'input-error' : ''}`}
+              className={`${inputBase} pl-10 pr-10 ${borderCls(errors.password)}`}
               placeholder="••••••••"
               {...register('password', {
                 required: 'Le mot de passe est requis',
@@ -142,7 +145,7 @@ export default function Register() {
             />
             <button
               type="button"
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted hover:text-content"
               onClick={() => setShowPassword(!showPassword)}
             >
               {showPassword ? (
@@ -153,20 +156,20 @@ export default function Register() {
             </button>
           </div>
           {errors.password && (
-            <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password.message}</p>
           )}
         </div>
 
         <div>
-          <label htmlFor="confirmPassword" className="label">
+          <label htmlFor="confirmPassword" className="mb-1.5 block text-sm font-medium text-content">
             Confirmer le mot de passe
           </label>
           <div className="relative">
-            <LockClosedIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <LockClosedIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
             <input
               id="confirmPassword"
               type="password"
-              className={`input pl-10 ${errors.confirmPassword ? 'input-error' : ''}`}
+              className={`${inputBase} pl-10 pr-3 ${borderCls(errors.confirmPassword)}`}
               placeholder="••••••••"
               {...register('confirmPassword', {
                 required: 'Veuillez confirmer le mot de passe',
@@ -176,7 +179,7 @@ export default function Register() {
             />
           </div>
           {errors.confirmPassword && (
-            <p className="mt-1 text-sm text-red-600">{errors.confirmPassword.message}</p>
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.confirmPassword.message}</p>
           )}
         </div>
 
@@ -184,34 +187,34 @@ export default function Register() {
           <input
             id="terms"
             type="checkbox"
-            className="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            className="mt-1 rounded border-border text-primary-500 focus:ring-primary-500"
             {...register('terms', {
               required: 'Vous devez accepter les conditions d\'utilisation'
             })}
           />
-          <label htmlFor="terms" className="ml-2 text-sm text-gray-600">
+          <label htmlFor="terms" className="ml-2 text-sm text-muted">
             J'accepte les{' '}
-            <a href="#" className="text-primary-600 hover:text-primary-700">
+            <a href="#" className="text-primary-600 hover:text-primary-700 dark:text-primary-400">
               conditions d'utilisation
             </a>{' '}
             et la{' '}
-            <a href="#" className="text-primary-600 hover:text-primary-700">
+            <a href="#" className="text-primary-600 hover:text-primary-700 dark:text-primary-400">
               politique de confidentialité
             </a>
           </label>
         </div>
         {errors.terms && (
-          <p className="text-sm text-red-600">{errors.terms.message}</p>
+          <p className="text-sm text-red-600 dark:text-red-400">{errors.terms.message}</p>
         )}
 
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-full bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold shadow-lg shadow-primary-600/25 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:hover:translate-y-0"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary-500 py-3.5 font-semibold text-white shadow-lg shadow-primary-500/25 transition-all hover:-translate-y-0.5 hover:bg-primary-600 disabled:opacity-60 disabled:hover:translate-y-0"
         >
           {isLoading ? (
             <span className="flex items-center justify-center">
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <svg className="-ml-1 mr-3 h-5 w-5 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
@@ -225,9 +228,9 @@ export default function Register() {
 
       <GoogleAuthButton label="ou s'inscrire avec" />
 
-      <p className="mt-8 text-center text-gray-600">
+      <p className="mt-8 text-center text-muted">
         Déjà un compte ?{' '}
-        <Link to="/login" className="text-primary-600 hover:text-primary-700 font-semibold">
+        <Link to="/login" className="font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400">
           Se connecter
         </Link>
       </p>

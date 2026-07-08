@@ -14,6 +14,7 @@ import AutoFitText from '../../components/templates/AutoFitText'
 import FontStyles, { useCustomFonts } from '../../components/templates/FontStyles'
 import { GOOGLE_FONT_NAMES } from '../../utils/fonts'
 import { fontAPI } from '../../services/api'
+import { useAuthStore } from '../../stores/authStore'
 import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable, formatEventDate, DATE_VARIABLE_KEYS, TIME_FORMAT_OPTIONS, DEFAULT_TIME_FORMAT, containsTimeVariable, formatEventTime, TIME_VARIABLE_KEYS, getElementDateKey } from '../../utils/dateFormats'
 import MiniCalendar, { CALENDAR_MARKER_OPTIONS } from '../../components/templates/MiniCalendar'
 import ShapeElement from '../../components/templates/ShapeElement'
@@ -51,7 +52,10 @@ import {
   RectangleGroupIcon,
   MinusIcon,
   Bars2Icon,
-  MapPinIcon
+  MapPinIcon,
+  PlayIcon,
+  StopIcon,
+  ComputerDesktopIcon
 } from '@heroicons/react/24/outline'
 
 // ===================== CONSTANTS =====================
@@ -650,13 +654,31 @@ export default function TemplateDesigner({ clientMode = false }) {
   const params = useParams()
   const templateId = params.id || params.templateId
   const [searchParams] = useSearchParams()
-  const weddingId = searchParams.get('wedding')
+  // Guard against the literal string "null"/"undefined" arriving in the query
+  // (some entry points passed ?wedding=null): treat those as "no wedding".
+  const rawWeddingId = searchParams.get('wedding')
+  const weddingId = rawWeddingId && rawWeddingId !== 'null' && rawWeddingId !== 'undefined' ? rawWeddingId : null
   // Coming from "Créer un template pour ce type" on a specific event-type
   // section pre-selects that type instead of always defaulting to Mariage.
   const initialEventType = EVENT_TYPES.includes(searchParams.get('eventType')) ? searchParams.get('eventType') : 'WEDDING'
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const isEditing = !!templateId
+  // Font import is available to staff and creators (both author templates).
+  const authUser = useAuthStore((s) => s.user)
+  const canUploadFont = !clientMode || authUser?.isCreator || authUser?.role === 'ADMIN' || authUser?.role === 'SUPER_ADMIN'
+
+  // Leave the editor towards the right place:
+  // - admin → back office template list
+  // - editing a real event's invitation design → that event's invitations
+  // - otherwise (creator building a template) → the actual previous page
+  //   (template list) via history, with a safe fallback.
+  const handleExit = () => {
+    if (!clientMode) return navigate('/admin/templates')
+    if (weddingId) return navigate(`/weddings/${weddingId}/invitations`)
+    if (window.history.length > 1) return navigate(-1)
+    navigate('/creator-templates')
+  }
 
   // Template metadata
   const [templateName, setTemplateName] = useState('')
@@ -688,6 +710,7 @@ export default function TemplateDesigner({ clientMode = false }) {
   const [previewAnim, setPreviewAnim] = useState(false)
   const [previewKey, setPreviewKey] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [fontSearch, setFontSearch] = useState('') // filters the font picker
 
   // ---- Fonts: Google list + admin-uploaded custom fonts ----
   const customFonts = useCustomFonts()
@@ -1714,6 +1737,11 @@ export default function TemplateDesigner({ clientMode = false }) {
         mapLabel: el.mapLabel || '',
         mapPlaceholder: el.mapPlaceholder || '',
         mapAddress: el.mapAddress || '',
+        // QR / barcode element styling (applied to generated invitations)
+        codeType: el.codeType || 'qr',
+        qrColor: el.qrColor || '#000000',
+        qrBgColor: el.qrBgColor || '#FFFFFF',
+        qrTransparentBg: el.qrTransparentBg ?? false,
         // Per-element animation (played only on the public invitation view)
         animation: el.animation || null
       }))
@@ -1881,17 +1909,37 @@ export default function TemplateDesigner({ clientMode = false }) {
     });
 
     if (el.type === 'qrcode') {
-      return (
-        <div className="w-full h-full flex items-center justify-center bg-white/80 border-2 border-dashed border-gray-300 rounded-lg">
-          <div className="text-center">
-            <div className="w-3/4 h-3/4 mx-auto mb-1 bg-gray-200 rounded flex items-center justify-center">
-              <svg className="w-1/2 h-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.5 14.625v2.25m0 3v.75m3-3h.75m-6 0h.75m3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-3.75 3.75a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-              </svg>
+      const qrColor = el.qrColor || '#000000'
+      const transparent = !!el.qrTransparentBg
+      const qrBg = transparent ? 'transparent' : (el.qrBgColor || '#FFFFFF')
+      const isBarcode = (el.codeType || 'qr') === 'barcode'
+      const bgStyle = {
+        backgroundColor: qrBg,
+        backgroundImage: transparent
+          ? 'linear-gradient(45deg,#e5e7eb 25%,transparent 25%),linear-gradient(-45deg,#e5e7eb 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e5e7eb 75%),linear-gradient(-45deg,transparent 75%,#e5e7eb 75%)'
+          : 'none',
+        backgroundSize: '10px 10px',
+        backgroundPosition: '0 0,0 5px,5px -5px,-5px 0',
+      }
+      if (isBarcode) {
+        // Barcode placeholder — vertical bars of varying widths.
+        const bars = [2,1,3,1,2,4,1,2,1,3,2,1,4,1,2,3,1,2,1,3,2,4,1,2,1,3,1,2]
+        return (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-1 rounded-lg px-2" style={bgStyle}>
+            <div className="flex items-end h-3/4 w-full justify-center gap-[2px]">
+              {bars.map((w, i) => (
+                <span key={i} style={{ width: w, height: '100%', backgroundColor: qrColor, display: 'inline-block' }} />
+              ))}
             </div>
-            <span className="text-xs text-gray-500">QR Code</span>
           </div>
+        )
+      }
+      return (
+        <div className="w-full h-full flex items-center justify-center rounded-lg" style={bgStyle}>
+          <svg className="w-3/4 h-3/4" viewBox="0 0 24 24" fill="none" stroke={qrColor}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.5 14.625v2.25m0 3v.75m3-3h.75m-6 0h.75m3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm3.75 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-3.75 3.75a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+          </svg>
         </div>
       )
     }
@@ -2018,41 +2066,44 @@ export default function TemplateDesigner({ clientMode = false }) {
       {/* Google Fonts + custom uploaded fonts (dropdown preview + canvas) */}
       <FontStyles />
       {/* Top Bar */}
-      <div className="bg-white border-b px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2 shrink-0 shadow-sm">
-        <div className="flex items-center gap-2 min-w-0">
-          <button onClick={() => navigate(clientMode ? (weddingId ? `/weddings/${weddingId}/invitations` : '/templates') : '/admin/templates')} className="p-2 hover:bg-gray-100 rounded-lg shrink-0">
-            <ArrowLeftIcon className="h-5 w-5 text-gray-600" />
+      <div className="bg-white/95 backdrop-blur border-b border-gray-200 px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2 shrink-0 shadow-sm">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <button onClick={handleExit} className="p-2 rounded-xl text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors shrink-0" title="Retour">
+            <ArrowLeftIcon className="h-5 w-5" />
           </button>
           <div className="min-w-0">
-            <h1 className="text-sm sm:text-lg font-bold text-gray-900 truncate">
+            <h1 className="text-sm sm:text-lg font-bold text-gray-900 truncate leading-tight">
               {clientMode ? 'Personnaliser mon template' : isEditing ? 'Modifier le template' : 'Créer un template'}
             </h1>
-            <p className="hidden sm:block text-xs text-gray-500">
+            <p className="hidden sm:flex items-center gap-1.5 text-xs text-gray-500">
+              <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary-100 text-[10px] font-bold text-primary-700">
+                {!backgroundUrl ? '1' : !templateName ? '2' : '3'}
+              </span>
               {!backgroundUrl
-                ? '1. Définissez le format, puis chargez une image de fond'
+                ? 'Définissez le format, puis chargez une image de fond'
                 : !templateName
-                  ? '2. Positionnez les éléments puis renseignez le nom'
-                  : '3. Positionnez les éléments et sauvegardez'}
+                  ? 'Positionnez les éléments puis renseignez le nom'
+                  : 'Positionnez les éléments et sauvegardez'}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Zoom */}
-          <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
-            <button onClick={() => setZoom(z => Math.max(0.3, +(z - 0.1).toFixed(2)))} className="w-7 h-7 rounded-md hover:bg-white text-gray-600 flex items-center justify-center text-base font-bold leading-none" title="Dézoomer">−</button>
-            <button onClick={() => setZoom(0.65)} className="text-xs font-medium w-11 text-center text-gray-700 tabular-nums hover:text-primary-600" title="Réinitialiser le zoom">{Math.round(zoom * 100)}%</button>
-            <button onClick={() => setZoom(z => Math.min(2, +(z + 0.1).toFixed(2)))} className="w-7 h-7 rounded-md hover:bg-white text-gray-600 flex items-center justify-center text-base font-bold leading-none" title="Zoomer">+</button>
+          <div className="flex items-center gap-0.5 bg-gray-100 rounded-xl p-1">
+            <button onClick={() => setZoom(z => Math.max(0.3, +(z - 0.1).toFixed(2)))} className="w-7 h-7 rounded-lg hover:bg-white text-gray-600 flex items-center justify-center transition-colors" title="Dézoomer"><MinusIcon className="h-4 w-4" /></button>
+            <button onClick={() => setZoom(0.65)} className="text-xs font-semibold w-11 text-center text-gray-700 tabular-nums hover:text-primary-600 transition-colors" title="Réinitialiser le zoom">{Math.round(zoom * 100)}%</button>
+            <button onClick={() => setZoom(z => Math.min(2, +(z + 0.1).toFixed(2)))} className="w-7 h-7 rounded-lg hover:bg-white text-gray-600 flex items-center justify-center transition-colors" title="Zoomer"><PlusIcon className="h-4 w-4" /></button>
           </div>
 
           <div className="hidden sm:block w-px h-6 bg-gray-200" />
 
           {/* Undo / Redo */}
-          <div className="hidden sm:flex items-center gap-1">
+          <div className="hidden sm:flex items-center gap-0.5">
             <button
               onClick={undo}
               disabled={!history.canUndo}
-              className="p-2 rounded-lg text-gray-500 hover:text-primary-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"
+              className="p-2 rounded-xl text-gray-500 hover:text-primary-600 hover:bg-primary-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
               title="Annuler (Ctrl+Z)"
             >
               <ArrowUturnLeftIcon className="h-5 w-5" />
@@ -2060,7 +2111,7 @@ export default function TemplateDesigner({ clientMode = false }) {
             <button
               onClick={redo}
               disabled={!history.canRedo}
-              className="p-2 rounded-lg text-gray-500 hover:text-primary-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent"
+              className="p-2 rounded-xl text-gray-500 hover:text-primary-600 hover:bg-primary-50 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
               title="Rétablir (Ctrl+Y)"
             >
               <ArrowUturnRightIcon className="h-5 w-5" />
@@ -2072,7 +2123,7 @@ export default function TemplateDesigner({ clientMode = false }) {
           {/* Grid */}
           <button
             onClick={() => setShowGrid(!showGrid)}
-            className={`hidden sm:block p-2 rounded-lg ${showGrid ? 'bg-primary-100 text-primary-600' : 'text-gray-400 hover:text-gray-600'}`}
+            className={`hidden sm:block p-2 rounded-xl transition-colors ${showGrid ? 'bg-primary-50 text-primary-600 ring-1 ring-primary-200' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
             title="Grille d'alignement"
           >
             <Squares2X2Icon className="h-5 w-5" />
@@ -2081,16 +2132,16 @@ export default function TemplateDesigner({ clientMode = false }) {
           {/* Animation preview */}
           <button
             onClick={() => { setPreviewAnim(p => !p); setPreviewKey(k => k + 1) }}
-            className={`hidden sm:flex px-2.5 py-2 rounded-lg text-sm font-medium items-center gap-1 ${previewAnim ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-primary-600 hover:bg-primary-50'}`}
+            className={`hidden sm:flex px-3 py-2 rounded-xl text-sm font-medium items-center gap-1.5 transition-colors ${previewAnim ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:text-primary-600 hover:bg-primary-50'}`}
             title="Prévisualiser les animations (comme sur l'invitation publiée)"
           >
-            <span>{previewAnim ? '⏹' : '▶'}</span>
+            {previewAnim ? <StopIcon className="h-4 w-4" /> : <PlayIcon className="h-4 w-4" />}
             <span className="hidden sm:inline">{previewAnim ? 'Arrêter' : 'Aperçu anim.'}</span>
           </button>
           {previewAnim && (
             <button
               onClick={() => setPreviewKey(k => k + 1)}
-              className="p-2 text-gray-400 hover:text-primary-600 rounded-lg"
+              className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-xl transition-colors"
               title="Rejouer les animations"
             >
               <ArrowPathIcon className="h-5 w-5" />
@@ -2098,7 +2149,7 @@ export default function TemplateDesigner({ clientMode = false }) {
           )}
 
           {/* Reset */}
-          <button onClick={resetLayout} className="hidden sm:block p-2 text-gray-400 hover:text-orange-500 rounded-lg" title="Réinitialiser les éléments">
+          <button onClick={resetLayout} className="hidden sm:block p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="Réinitialiser les éléments">
             <ArrowPathIcon className="h-5 w-5" />
           </button>
 
@@ -2108,7 +2159,7 @@ export default function TemplateDesigner({ clientMode = false }) {
           <button
             onClick={() => handleSave()}
             disabled={saving}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg disabled:opacity-50 font-medium text-sm ${clientMode ? 'bg-primary-600 text-white hover:bg-primary-700 shadow-sm' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl disabled:opacity-50 font-semibold text-sm transition-colors ${clientMode ? 'bg-primary-600 text-white hover:bg-primary-700 shadow-sm shadow-primary-600/25' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'}`}
           >
             {saving ? (
               <div className={`w-4 h-4 border-2 ${clientMode ? 'border-white' : 'border-gray-500'} border-t-transparent rounded-full animate-spin`} />
@@ -2119,15 +2170,15 @@ export default function TemplateDesigner({ clientMode = false }) {
             <span className="sm:hidden">{clientMode ? 'Save' : 'Brouillon'}</span>
           </button>
 
-          {/* Publish (admin only) */}
+          {/* Publish (admin only) — primary action, brand orange */}
           {!clientMode && (
             <button
               onClick={() => handleSave({ publish: true })}
               disabled={saving}
-              className="flex items-center gap-2 px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium text-sm shadow-sm"
+              className="flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 disabled:opacity-50 font-semibold text-sm shadow-sm shadow-primary-600/25 transition-colors"
               title="Enregistrer et rendre visible aux clients"
             >
-              <CheckIcon className="h-4 w-4" />
+              <SparklesIcon className="h-4 w-4" />
               Publier
             </button>
           )}
@@ -2135,8 +2186,9 @@ export default function TemplateDesigner({ clientMode = false }) {
       </div>
 
       {/* Mobile hint — the editor is designed for desktop */}
-      <div className="lg:hidden shrink-0 bg-amber-50 border-b border-amber-100 px-3 py-1.5 text-[11px] text-amber-700 text-center">
-        💻 Éditeur optimisé pour ordinateur — certains outils sont masqués sur mobile.
+      <div className="lg:hidden shrink-0 bg-amber-50 border-b border-amber-100 px-3 py-1.5 text-[11px] text-amber-700 text-center flex items-center justify-center gap-1.5">
+        <ComputerDesktopIcon className="h-3.5 w-3.5 shrink-0" />
+        Éditeur optimisé pour ordinateur — certains outils sont masqués sur mobile.
       </div>
 
       {/* Main Area — stacks vertically on mobile (panel on top, canvas below) */}
@@ -2230,7 +2282,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                 </div>
               </div>
 
-              <hr />
+              <hr className="border-gray-100" />
 
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-2">Dimensions (px)</h3>
@@ -2246,7 +2298,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                         setCanvasWidth(Math.max(MIN_CANVAS_DIMENSION, Math.min(MAX_CANVAS_DIMENSION, parseInt(e.target.value) || MIN_CANVAS_DIMENSION)))
                         setSelectedFormat('custom')
                       }}
-                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500"
+                      className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
                   <div>
@@ -2260,7 +2312,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                         setCanvasHeight(Math.max(MIN_CANVAS_DIMENSION, Math.min(MAX_CANVAS_DIMENSION, parseInt(e.target.value) || MIN_CANVAS_DIMENSION)))
                         setSelectedFormat('custom')
                       }}
-                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500"
+                      className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
                 </div>
@@ -2269,7 +2321,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                 </p>
               </div>
 
-              <hr />
+              <hr className="border-gray-100" />
 
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-2">Marges (px)</h3>
@@ -2281,25 +2333,25 @@ export default function TemplateDesigner({ clientMode = false }) {
                     <label className="block text-[10px] text-gray-500 mb-1">Haut</label>
                     <input type="number" min={0} max={Math.floor(canvasHeight / 3)} value={margins.top}
                       onChange={(e) => setMargins(m => ({ ...m, top: Math.max(0, parseInt(e.target.value) || 0) }))}
-                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500" />
+                      className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-500 mb-1">Bas</label>
                     <input type="number" min={0} max={Math.floor(canvasHeight / 3)} value={margins.bottom}
                       onChange={(e) => setMargins(m => ({ ...m, bottom: Math.max(0, parseInt(e.target.value) || 0) }))}
-                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500" />
+                      className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-500 mb-1">Gauche</label>
                     <input type="number" min={0} max={Math.floor(canvasWidth / 3)} value={margins.left}
                       onChange={(e) => setMargins(m => ({ ...m, left: Math.max(0, parseInt(e.target.value) || 0) }))}
-                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500" />
+                      className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-500 mb-1">Droite</label>
                     <input type="number" min={0} max={Math.floor(canvasWidth / 3)} value={margins.right}
                       onChange={(e) => setMargins(m => ({ ...m, right: Math.max(0, parseInt(e.target.value) || 0) }))}
-                      className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500" />
+                      className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500" />
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mt-3">
@@ -2324,7 +2376,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                 </div>
               </div>
 
-              <hr />
+              <hr className="border-gray-100" />
 
               <div className="bg-blue-50 rounded-lg p-3">
                 <p className="text-xs font-medium text-blue-700 mb-1">📐 Résumé</p>
@@ -2698,10 +2750,10 @@ export default function TemplateDesigner({ clientMode = false }) {
                     }}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all text-sm ${
                       isSelected
-                        ? 'bg-blue-100 border-2 border-blue-400 text-blue-900'
+                        ? 'bg-primary-100 border-2 border-primary-400 text-primary-800'
                         : selectedId === el.id
                         ? 'bg-primary-50 border border-primary-200 text-primary-700'
-                        : 'hover:bg-gray-50 text-gray-700'
+                        : 'border border-transparent hover:bg-gray-50 text-gray-700'
                     }`}
                   >
                     <input
@@ -2715,8 +2767,9 @@ export default function TemplateDesigner({ clientMode = false }) {
                             : [...prev, el.id]
                         );
                       }}
-                      className="rounded cursor-pointer"
+                      className="rounded cursor-pointer accent-primary-600"
                     />
+                    <span className={`shrink-0 ${selectedId === el.id || isSelected ? 'text-primary-500' : 'text-gray-400'}`}>{layerIcon(el)}</span>
                     <span className="flex-1 truncate text-xs">{el.label}</span>
                     <div className="flex items-center gap-1">
                       <button
@@ -2727,7 +2780,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); toggleLock(el.id) }}
-                        className={`p-1 rounded ${el.locked ? 'text-orange-500' : 'text-gray-400 hover:text-gray-600'}`}
+                        className={`p-1 rounded ${el.locked ? 'text-primary-600' : 'text-gray-400 hover:text-gray-600'}`}
                       >
                         {el.locked ? <LockClosedIcon className="h-3.5 w-3.5" /> : <LockOpenIcon className="h-3.5 w-3.5" />}
                       </button>
@@ -2814,7 +2867,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                   value={templateName}
                   onChange={(e) => setTemplateName(e.target.value)}
                   placeholder="Ex: Élégance dorée"
-                  className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
@@ -2825,11 +2878,11 @@ export default function TemplateDesigner({ clientMode = false }) {
                   onChange={(e) => setTemplateDescription(e.target.value)}
                   placeholder="Description du template..."
                   rows={3}
-                  className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
 
-              <hr />
+              <hr className="border-gray-100" />
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-2">Aperçu du template</label>
@@ -2880,7 +2933,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                 <select
                   value={templateEventType}
                   onChange={(e) => handleEventTypeChange(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 >
                   {EVENT_TYPES.map(type => (
                     <option key={type} value={type}>{EVENT_TYPE_LABELS[type]}</option>
@@ -2894,7 +2947,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                 <select
                   value={templateCategory}
                   onChange={(e) => setTemplateCategory(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 >
                   {CATEGORIES.map(cat => (
                     <option key={cat.value} value={cat.value}>{cat.label}</option>
@@ -2932,7 +2985,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                 </label>
               </div>
 
-              <hr />
+              <hr className="border-gray-100" />
 
               <div>
                 <h4 className="text-xs font-semibold text-gray-600 uppercase mb-2">Variables disponibles</h4>
@@ -2953,9 +3006,14 @@ export default function TemplateDesigner({ clientMode = false }) {
             <div className="flex-1 overflow-y-auto">
               {selectedElement ? (
                 <>
-                  <div className="px-4 py-3 border-b bg-gray-50">
-                    <h3 className="text-sm font-bold text-gray-900">{selectedElement.label}</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">Type: {selectedElement.type}</p>
+                  <div className="px-4 py-3 border-b border-gray-200 bg-white sticky top-0 z-10">
+                    <div className="flex items-center gap-2">
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-50 text-primary-600">{layerIcon(selectedElement)}</span>
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-bold text-gray-900">{selectedElement.label}</h3>
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500">{selectedElement.type}</span>
+                      </div>
+                    </div>
                   </div>
                   <div className="p-4 space-y-5">
                     {/* ===== Shape element properties ===== */}
@@ -2966,8 +3024,8 @@ export default function TemplateDesigner({ clientMode = false }) {
                             <div>
                               <label className="block text-xs font-medium text-gray-700 mb-1">Couleur de remplissage</label>
                               <div className="flex items-center gap-2">
-                                <input type="color" value={selectedElement.fillColor || '#df6746'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
-                                <input type="text" value={selectedElement.fillColor || '#df6746'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border rounded font-mono" />
+                                <input type="color" value={selectedElement.fillColor || '#df6746'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="h-9 w-10 shrink-0 rounded-lg cursor-pointer border border-gray-200" />
+                                <input type="text" value={selectedElement.fillColor || '#df6746'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-primary-500" />
                               </div>
                               {palette.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mt-2">
@@ -2988,8 +3046,8 @@ export default function TemplateDesigner({ clientMode = false }) {
                             <div>
                               <label className="block text-xs font-medium text-gray-700 mb-1">Couleur du trait</label>
                               <div className="flex items-center gap-2">
-                                <input type="color" value={selectedElement.fillColor || '#333333'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
-                                <input type="text" value={selectedElement.fillColor || '#333333'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border rounded font-mono" />
+                                <input type="color" value={selectedElement.fillColor || '#333333'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="h-9 w-10 shrink-0 rounded-lg cursor-pointer border border-gray-200" />
+                                <input type="text" value={selectedElement.fillColor || '#333333'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-primary-500" />
                               </div>
                             </div>
                             <div>
@@ -3014,8 +3072,8 @@ export default function TemplateDesigner({ clientMode = false }) {
                               <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Couleur de la bordure</label>
                                 <div className="flex items-center gap-2">
-                                  <input type="color" value={selectedElement.borderColor || '#333333'} onChange={(e) => updateElement(selectedId, { borderColor: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
-                                  <input type="text" value={selectedElement.borderColor || '#333333'} onChange={(e) => updateElement(selectedId, { borderColor: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border rounded font-mono" />
+                                  <input type="color" value={selectedElement.borderColor || '#333333'} onChange={(e) => updateElement(selectedId, { borderColor: e.target.value })} className="h-9 w-10 shrink-0 rounded-lg cursor-pointer border border-gray-200" />
+                                  <input type="text" value={selectedElement.borderColor || '#333333'} onChange={(e) => updateElement(selectedId, { borderColor: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-primary-500" />
                                 </div>
                               </div>
                             )}
@@ -3036,13 +3094,13 @@ export default function TemplateDesigner({ clientMode = false }) {
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Texte du bouton</label>
-                          <input type="text" value={selectedElement.mapLabel || ''} onChange={(e) => updateElement(selectedId, { mapLabel: e.target.value })} placeholder="Voir l'itinéraire" className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500" />
+                          <input type="text" value={selectedElement.mapLabel || ''} onChange={(e) => updateElement(selectedId, { mapLabel: e.target.value })} placeholder="Voir l'itinéraire" className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500" />
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Couleur d'accent (pin + bouton)</label>
                           <div className="flex items-center gap-2">
-                            <input type="color" value={selectedElement.color || '#df6746'} onChange={(e) => updateElement(selectedId, { color: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
-                            <input type="text" value={selectedElement.color || '#df6746'} onChange={(e) => updateElement(selectedId, { color: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border rounded font-mono" />
+                            <input type="color" value={selectedElement.color || '#df6746'} onChange={(e) => updateElement(selectedId, { color: e.target.value })} className="h-9 w-10 shrink-0 rounded-lg cursor-pointer border border-gray-200" />
+                            <input type="text" value={selectedElement.color || '#df6746'} onChange={(e) => updateElement(selectedId, { color: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-primary-500" />
                           </div>
                           {palette.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-2">
@@ -3055,8 +3113,8 @@ export default function TemplateDesigner({ clientMode = false }) {
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Couleur du fond</label>
                           <div className="flex items-center gap-2">
-                            <input type="color" value={selectedElement.fillColor || '#ffffff'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
-                            <input type="text" value={selectedElement.fillColor || '#ffffff'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border rounded font-mono" />
+                            <input type="color" value={selectedElement.fillColor || '#ffffff'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="h-9 w-10 shrink-0 rounded-lg cursor-pointer border border-gray-200" />
+                            <input type="text" value={selectedElement.fillColor || '#ffffff'} onChange={(e) => updateElement(selectedId, { fillColor: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-primary-500" />
                           </div>
                         </div>
                         <div>
@@ -3071,7 +3129,81 @@ export default function TemplateDesigner({ clientMode = false }) {
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Contenu</label>
                       {selectedElement.type === 'qrcode' ? (
-                        <p className="text-xs text-gray-400 italic">Le QR code est généré automatiquement</p>
+                        <div className="space-y-3">
+                          <p className="text-xs text-gray-400 italic">
+                            Le contenu est généré automatiquement. Définissez ci-dessous le <strong>type</strong> et le <strong>style</strong> — appliqués aux invitations de ce template.
+                          </p>
+                          {/* Code type: QR or Barcode */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Type de code</label>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {[{ id: 'qr', label: 'QR code' }, { id: 'barcode', label: 'Code-barres' }].map(opt => {
+                                const active = (selectedElement.codeType || 'qr') === opt.id
+                                return (
+                                  <button
+                                    key={opt.id}
+                                    type="button"
+                                    onClick={() => updateElement(selectedId, { codeType: opt.id })}
+                                    className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${active ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                            {(selectedElement.codeType || 'qr') === 'barcode' && (
+                              <p className="mt-1 text-[11px] text-amber-600">Astuce : privilégiez un format large (paysage) pour un code-barres lisible.</p>
+                            )}
+                          </div>
+                          {/* Color */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Couleur {(selectedElement.codeType || 'qr') === 'barcode' ? 'des barres' : 'du QR'}</label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={selectedElement.qrColor || '#000000'}
+                                onChange={(e) => updateElement(selectedId, { qrColor: e.target.value })}
+                                className="h-9 w-10 shrink-0 cursor-pointer rounded border-0"
+                              />
+                              <input
+                                type="text"
+                                value={selectedElement.qrColor || '#000000'}
+                                onChange={(e) => updateElement(selectedId, { qrColor: e.target.value })}
+                                className="w-full rounded-lg border px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-primary-500"
+                              />
+                            </div>
+                          </div>
+                          {/* QR background */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Arrière-plan du QR</label>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => updateElement(selectedId, { qrTransparentBg: false })}
+                                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${!selectedElement.qrTransparentBg ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                              >
+                                Couleur
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateElement(selectedId, { qrTransparentBg: true })}
+                                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${selectedElement.qrTransparentBg ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                              >
+                                Transparent
+                              </button>
+                              {!selectedElement.qrTransparentBg && (
+                                <input
+                                  type="color"
+                                  value={selectedElement.qrBgColor || '#FFFFFF'}
+                                  onChange={(e) => updateElement(selectedId, { qrBgColor: e.target.value })}
+                                  className="h-9 w-10 shrink-0 cursor-pointer rounded border-0"
+                                  title="Couleur de fond du QR"
+                                />
+                              )}
+                            </div>
+                            <p className="mt-1 text-[11px] text-gray-400">Transparent : idéal sur un fond d'invitation coloré.</p>
+                          </div>
+                        </div>
                       ) : selectedElement.type === 'photo' ? (
                         <p className="text-xs text-gray-400 italic">L'image est fournie par le client, pas de contenu texte ici</p>
                       ) : selectedElement.type === 'image' ? (
@@ -3080,7 +3212,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                         <textarea
                           value={selectedElement.content}
                           onChange={(e) => updateElement(selectedId, { content: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500"
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                           rows={2}
                         />
                       )}
@@ -3093,7 +3225,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                         <select
                           value={selectedElement.dateFormat || DEFAULT_DATE_FORMAT}
                           onChange={(e) => updateElement(selectedId, { dateFormat: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500"
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                         >
                           {DATE_FORMAT_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>{opt.label} — {opt.example}</option>
@@ -3110,7 +3242,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                         <select
                           value={selectedElement.calendarMarker || 'circle'}
                           onChange={(e) => updateElement(selectedId, { calendarMarker: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500"
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                         >
                           {CALENDAR_MARKER_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -3182,7 +3314,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                         <select
                           value={selectedElement.timeFormat || DEFAULT_TIME_FORMAT}
                           onChange={(e) => updateElement(selectedId, { timeFormat: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500"
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                         >
                           {TIME_FORMAT_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>{opt.label} — {opt.example}</option>
@@ -3304,7 +3436,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                               type="number"
                               value={selectedElement[f.key]}
                               onChange={(e) => updateElement(selectedId, { [f.key]: parseInt(e.target.value) || 0 })}
-                              className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500"
+                              className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
                             />
                           </div>
                         ))}
@@ -3330,7 +3462,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                               <select
                                 value={anim.in}
                                 onChange={(e) => setAnim({ in: e.target.value })}
-                                className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500"
+                                className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
                               >
                                 {ENTRANCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                               </select>
@@ -3340,7 +3472,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                               <select
                                 value={anim.loop}
                                 onChange={(e) => setAnim({ loop: e.target.value })}
-                                className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500"
+                                className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
                               >
                                 {LOOP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                               </select>
@@ -3351,7 +3483,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                                 type="number" min="0" step="0.1"
                                 value={anim.duration}
                                 onChange={(e) => setAnim({ duration: parseFloat(e.target.value) || 0 })}
-                                className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500"
+                                className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
                               />
                             </div>
                             <div>
@@ -3360,7 +3492,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                                 type="number" min="0" step="0.1"
                                 value={anim.delay}
                                 onChange={(e) => setAnim({ delay: parseFloat(e.target.value) || 0 })}
-                                className="w-full px-2 py-1.5 text-xs border rounded focus:ring-1 focus:ring-primary-500"
+                                className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
                               />
                             </div>
                           </div>
@@ -3607,8 +3739,8 @@ export default function TemplateDesigner({ clientMode = false }) {
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Couleur de la bordure</label>
                           <div className="flex items-center gap-2">
-                            <input type="color" value={selectedElement.borderColor || '#FFFFFF'} onChange={(e) => updateElement(selectedId, { borderColor: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
-                            <input type="text" value={selectedElement.borderColor || '#FFFFFF'} onChange={(e) => updateElement(selectedId, { borderColor: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border rounded font-mono" />
+                            <input type="color" value={selectedElement.borderColor || '#FFFFFF'} onChange={(e) => updateElement(selectedId, { borderColor: e.target.value })} className="h-9 w-10 shrink-0 rounded-lg cursor-pointer border border-gray-200" />
+                            <input type="text" value={selectedElement.borderColor || '#FFFFFF'} onChange={(e) => updateElement(selectedId, { borderColor: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-primary-500" />
                           </div>
                           <div className="flex gap-1.5 mt-2">
                             {['#FFFFFF', '#000000', '#D4AF37', '#8B7355', '#B76E79', '#2D5F3A', '#1E3A5F'].map(c => (
@@ -3667,7 +3799,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                         <div>
                           <div className="flex items-center justify-between mb-1">
                             <label className="block text-xs font-medium text-gray-700">Police</label>
-                            {!clientMode && (
+                            {canUploadFont && (
                               <>
                                 <button
                                   type="button"
@@ -3687,25 +3819,54 @@ export default function TemplateDesigner({ clientMode = false }) {
                               </>
                             )}
                           </div>
-                          <select
-                            value={selectedElement.fontFamily || 'Montserrat'}
-                            onChange={(e) => updateElement(selectedId, { fontFamily: e.target.value })}
-                            className="w-full px-2 py-1.5 text-sm border rounded-lg"
-                            style={{ fontFamily: selectedElement.fontFamily || 'Montserrat' }}
-                          >
-                            {customFonts.length > 0 && (
-                              <optgroup label="Mes polices importées">
-                                {customFonts.map(f => (
-                                  <option key={f.id} value={f.family} style={{ fontFamily: f.family }}>{f.family}</option>
-                                ))}
-                              </optgroup>
-                            )}
-                            <optgroup label="Polices Google">
-                              {GOOGLE_FONT_NAMES.map(font => (
-                                <option key={font} value={font} style={{ fontFamily: font }}>{font}</option>
-                              ))}
-                            </optgroup>
-                          </select>
+                          {/* Font search — filters both custom & Google lists */}
+                          <div className="relative mb-1.5">
+                            <MagnifyingGlassIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                            <input
+                              type="text"
+                              value={fontSearch}
+                              onChange={(e) => setFontSearch(e.target.value)}
+                              placeholder="Rechercher une police…"
+                              className="w-full rounded-lg border border-gray-200 py-1.5 pl-8 pr-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                          </div>
+                          {(() => {
+                            const q = fontSearch.trim().toLowerCase()
+                            const match = (n) => !q || n.toLowerCase().includes(q)
+                            const gFonts = GOOGLE_FONT_NAMES.filter(match)
+                            const cFonts = customFonts.filter(f => match(f.family))
+                            const current = selectedElement.fontFamily || 'Montserrat'
+                            const noResult = gFonts.length === 0 && cFonts.length === 0
+                            return (
+                              <select
+                                value={current}
+                                onChange={(e) => updateElement(selectedId, { fontFamily: e.target.value })}
+                                className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                style={{ fontFamily: current }}
+                                size={q ? Math.min(8, (cFonts.length + gFonts.length) || 1) : undefined}
+                              >
+                                {/* keep the current value selectable even if filtered out */}
+                                {q && !gFonts.includes(current) && !cFonts.some(f => f.family === current) && (
+                                  <option value={current} style={{ fontFamily: current }}>{current} (actuelle)</option>
+                                )}
+                                {noResult && <option disabled>Aucune police trouvée</option>}
+                                {cFonts.length > 0 && (
+                                  <optgroup label="Mes polices importées">
+                                    {cFonts.map(f => (
+                                      <option key={f.id} value={f.family} style={{ fontFamily: f.family }}>{f.family}</option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                                {gFonts.length > 0 && (
+                                  <optgroup label="Polices Google">
+                                    {gFonts.map(font => (
+                                      <option key={font} value={font} style={{ fontFamily: font }}>{font}</option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                              </select>
+                            )
+                          })()}
                           {/* Font preview */}
                           <div
                             className="mt-1.5 px-2 py-1.5 bg-gray-50 rounded border text-sm text-center truncate"
@@ -3844,8 +4005,8 @@ export default function TemplateDesigner({ clientMode = false }) {
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Couleur</label>
                           <div className="flex items-center gap-2">
-                            <input type="color" value={selectedElement.color} onChange={(e) => updateElement(selectedId, { color: e.target.value })} className="w-10 h-10 rounded cursor-pointer border-0" />
-                            <input type="text" value={selectedElement.color} onChange={(e) => updateElement(selectedId, { color: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border rounded font-mono" />
+                            <input type="color" value={selectedElement.color} onChange={(e) => updateElement(selectedId, { color: e.target.value })} className="h-9 w-10 shrink-0 rounded-lg cursor-pointer border border-gray-200" />
+                            <input type="text" value={selectedElement.color} onChange={(e) => updateElement(selectedId, { color: e.target.value })} className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-primary-500" />
                           </div>
                           <div className="flex gap-1.5 mt-2">
                             {['#000000', '#333333', '#666666', '#FFFFFF', '#8B7355', '#D4AF37', '#B76E79', '#2D5F3A', '#1E3A5F'].map(c => (
@@ -3968,17 +4129,20 @@ export default function TemplateDesigner({ clientMode = false }) {
                       <input
                         type="text" value={selectedElement.label}
                         onChange={(e) => updateElement(selectedId, { label: e.target.value })}
-                        className="w-full px-2 py-1.5 text-sm border rounded-lg"
+                        className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                       />
                     </div>
                   </div>
                 </>
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
-                  <CursorArrowRaysIcon className="h-12 w-12 text-gray-300 mb-3" />
-                  <h3 className="text-sm font-medium text-gray-700">Aucun élément sélectionné</h3>
-                  <p className="text-xs text-gray-500 mt-2">Cliquez sur un élément dans le canevas pour modifier ses propriétés.</p>
-                  <button onClick={() => setActivePanel('elements')} className="mt-4 text-xs text-primary-600 hover:text-primary-700 font-medium">
+                  <span className="mb-3 grid h-16 w-16 place-items-center rounded-2xl bg-primary-50 text-primary-500">
+                    <CursorArrowRaysIcon className="h-8 w-8" />
+                  </span>
+                  <h3 className="text-sm font-semibold text-gray-800">Aucun élément sélectionné</h3>
+                  <p className="text-xs text-gray-500 mt-1.5 max-w-[15rem]">Cliquez sur un élément dans le canevas pour modifier ses propriétés.</p>
+                  <button onClick={() => setActivePanel('elements')} className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-primary-200 bg-primary-50 px-3.5 py-2 text-xs font-semibold text-primary-700 hover:bg-primary-100 transition-colors">
+                    <CursorArrowRaysIcon className="h-4 w-4" />
                     Voir la liste des éléments
                   </button>
                 </div>
@@ -4018,13 +4182,16 @@ export default function TemplateDesigner({ clientMode = false }) {
               {/* No background placeholder */}
               {!backgroundUrl && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50" data-canvas="true">
-                  <PhotoIcon className="h-20 w-20 text-gray-300 mb-4" />
-                  <p className="text-gray-400 text-lg font-medium">Aucune image de fond</p>
-                  <p className="text-gray-300 text-sm mt-1">Utilisez le panneau "Fond" pour charger une image</p>
+                  <span className="mb-4 grid h-24 w-24 place-items-center rounded-3xl bg-white text-primary-400 shadow-sm ring-1 ring-gray-100">
+                    <PhotoIcon className="h-12 w-12" />
+                  </span>
+                  <p className="text-gray-500 text-lg font-semibold">Aucune image de fond</p>
+                  <p className="text-gray-400 text-sm mt-1">Utilisez le panneau « Fond » pour charger une image</p>
                   <button
                     onClick={() => { setActivePanel('background'); fileInputRef.current?.click() }}
-                    className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700"
+                    className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-semibold shadow-sm shadow-primary-600/25 hover:bg-primary-700 transition-colors"
                   >
+                    <PhotoIcon className="h-4 w-4" />
                     Charger une image
                   </button>
                 </div>

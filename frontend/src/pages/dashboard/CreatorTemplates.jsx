@@ -40,9 +40,13 @@ export default function CreatorTemplates() {
     { value: 'TRADITIONAL', label: 'Traditionnel' }
   ]
 
+  // On ne propose à la duplication que les modèles de BASE (fournis par la
+  // plateforme). Les templates d'autres créateurs (marketplace approuvés) ne
+  // doivent pas être clonables depuis l'espace créateur.
+  const baseTemplates = allTemplates.filter(t => !t.isCustom)
   const filteredTemplates = selectedCategory === 'all'
-    ? allTemplates
-    : allTemplates.filter(t => t.category === selectedCategory)
+    ? baseTemplates
+    : baseTemplates.filter(t => t.category === selectedCategory)
 
   const handleFork = async (templateId) => {
     try {
@@ -51,7 +55,7 @@ export default function CreatorTemplates() {
       queryClient.invalidateQueries('my-templates')
       toast.success('Template dupliqué avec succès')
       // Rediriger vers l'éditeur
-      navigate(`/templates/${forkedId}/design?wedding=null`)
+      navigate(`/templates/${forkedId}/design`)
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erreur lors de la duplication')
     }
@@ -64,7 +68,7 @@ export default function CreatorTemplates() {
       queryClient.invalidateQueries('my-templates')
       toast.success('Template vierge créé')
       // Rediriger vers l'éditeur
-      navigate(`/templates/${newId}/design?wedding=null`)
+      navigate(`/templates/${newId}/design`)
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erreur lors de la création')
     }
@@ -170,7 +174,7 @@ export default function CreatorTemplates() {
                     <div className="mt-auto pt-4 space-y-2">
                       <div className="flex gap-2">
                         <button
-                          onClick={() => navigate(`/templates/${template.id}/design?wedding=null`)}
+                          onClick={() => navigate(`/templates/${template.id}/design`)}
                           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-semibold transition-colors"
                         >
                           <PencilIcon className="w-3.5 h-3.5" />
@@ -224,8 +228,8 @@ export default function CreatorTemplates() {
       {/* Galerie de Templates à Dupliquer */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-serif font-bold text-gray-900">Galerie de Templates</h2>
-          <p className="text-sm text-gray-600">Dupliquez un template pour démarrer</p>
+          <h2 className="text-2xl font-serif font-bold text-gray-900">Modèles de base</h2>
+          <p className="text-sm text-gray-600">Partez d'un modèle de la plateforme pour créer le vôtre</p>
         </div>
 
         {/* Filtres */}

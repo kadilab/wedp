@@ -27,9 +27,9 @@ export default function GoogleAuthButton({ label = 'ou' }) {
   return (
     <div className="mt-6">
       <div className="flex items-center gap-3 mb-4">
-        <div className="flex-1 border-t border-gray-200" />
-        <span className="text-xs text-gray-400 uppercase tracking-wider">{label}</span>
-        <div className="flex-1 border-t border-gray-200" />
+        <div className="flex-1 border-t border-border" />
+        <span className="text-xs text-muted uppercase tracking-wider">{label}</span>
+        <div className="flex-1 border-t border-border" />
       </div>
       <div className="flex justify-center">
         <GoogleLogin

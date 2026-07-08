@@ -1,8 +1,28 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import api from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
-import { StarIcon, LinkIcon } from '@heroicons/react/24/outline';
+import TemplatePreview from '../../components/templates/TemplatePreview';
+import {
+  ArrowLongLeftIcon, ArrowRightIcon, LinkIcon, SparklesIcon,
+  ShoppingBagIcon, CalendarDaysIcon, TagIcon,
+} from '@heroicons/react/24/outline';
+import { CheckBadgeIcon } from '@heroicons/react/24/solid';
+
+const EVENT_TYPE_LABELS = {
+  WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier',
+  CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Autre',
+};
+const CATEGORY_LABELS = {
+  MODERN: 'Moderne', ELEGANT: 'Élégant', ROMANTIC: 'Romantique',
+  MINIMALIST: 'Minimaliste', TRADITIONAL: 'Traditionnel',
+};
+
+const apiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || '';
+const resolveImg = (url) => {
+  if (!url) return '';
+  return url.startsWith('data:') || url.startsWith('http') ? url : `${apiBase}${url}`;
+};
 
 export default function MarketplaceTemplateDetail() {
   const { templateId } = useParams();
@@ -11,213 +31,153 @@ export default function MarketplaceTemplateDetail() {
 
   const { data, isLoading, error } = useQuery(
     ['marketplace-template', templateId],
-    async () => {
-      const response = await api.get(`/marketplace/templates/${templateId}`);
-      return response.data;
-    }
+    async () => (await api.get(`/marketplace/templates/${templateId}`)).data,
+    { staleTime: 60_000 }
   );
 
   const template = data?.template;
 
   if (isLoading) {
     return (
-      <div className="text-center py-12">
-        <p>Loading template...</p>
+      <div className="grid min-h-[60vh] place-items-center bg-bg">
+        <span className="h-10 w-10 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
       </div>
     );
   }
 
   if (error || !template) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-500">Template not found</p>
-        <button
-          onClick={() => navigate('/marketplace')}
-          className="btn-primary mt-4"
-        >
-          Back to Marketplace
-        </button>
+      <div className="grid min-h-[60vh] place-items-center bg-bg px-6 text-center">
+        <div>
+          <p className="font-serif text-2xl font-bold text-content">Modèle introuvable</p>
+          <p className="mt-2 text-muted">Ce modèle n'existe pas ou n'est plus disponible.</p>
+          <Link to="/marketplace" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600">
+            <ArrowLongLeftIcon className="h-4 w-4" /> Retour à la galerie
+          </Link>
+        </div>
       </div>
     );
   }
 
-  const { name, description, thumbnail, previewImage, category, eventType, marketplace } = template;
-  const { creator, priceUSD, commissionPercentage, usageCount, publishedAt } = marketplace;
+  const { name, description, previewImage, thumbnail, category, eventType, marketplace } = template;
+  const { creator, priceUSD, usageCount, publishedAt } = marketplace;
+
+  const hasDesign = Array.isArray(template.config?.designElements) && template.config.designElements.length > 0;
+  const fallbackImg = resolveImg(previewImage || thumbnail);
+  const published = publishedAt ? new Date(publishedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
+
+  const useTemplate = () => {
+    if (user) navigate(`/weddings/new?templateId=${templateId}&eventType=${eventType || 'WEDDING'}`);
+    else navigate(`/login?redirect=/marketplace/templates/${templateId}`);
+  };
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => navigate('/marketplace')}
-          className="text-primary-600 hover:text-primary-700 text-sm font-medium"
-        >
-          ← Back to Marketplace
-        </button>
-      </div>
+    <div className="min-h-screen bg-bg">
+      <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8">
+        {/* Back */}
+        <Link to="/marketplace" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-content">
+          <ArrowLongLeftIcon className="h-4 w-4" /> Retour à la galerie
+        </Link>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left: Preview */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Main Image */}
-          <div className="bg-gray-200 rounded-lg overflow-hidden aspect-video">
-            {thumbnail && (
-              <img
-                src={thumbnail}
-                alt={name}
-                className="w-full h-full object-cover"
-              />
-            )}
-          </div>
-
-          {/* Preview Images */}
-          {previewImage && (
-            <div className="bg-gray-200 rounded-lg overflow-hidden aspect-video">
-              <img
-                src={previewImage}
-                alt={`${name} preview`}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
-
-          {/* Description */}
-          <div>
-            <h2 className="text-xl font-serif font-bold text-gray-900 mb-3">
-              About This Template
-            </h2>
-            <p className="text-gray-600 whitespace-pre-wrap">
-              {description || 'No description provided'}
-            </p>
-          </div>
-
-          {/* Details Grid */}
-          <div className="grid grid-cols-2 gap-4 p-6 bg-gray-50 rounded-lg">
-            <div>
-              <p className="text-sm text-gray-600">Event Type</p>
-              <p className="font-medium text-gray-900">{eventType || 'All'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Category</p>
-              <p className="font-medium text-gray-900">{category}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Times Used</p>
-              <p className="font-medium text-gray-900">{usageCount}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Published</p>
-              <p className="font-medium text-gray-900">
-                {new Date(publishedAt).toLocaleDateString()}
-              </p>
+        <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-[1.05fr_.95fr]">
+          {/* ---------- Left: real-size preview ---------- */}
+          <div className="lg:sticky lg:top-24 lg:self-start">
+            <div className="relative overflow-hidden rounded-3xl border border-border bg-surface-2 p-5 sm:p-8">
+              <span className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-surface px-3 py-1 text-xs font-medium text-muted shadow-sm">
+                <SparklesIcon className="h-3.5 w-3.5 text-primary-500" /> Aperçu avec des données de test
+              </span>
+              <div className="mx-auto max-w-sm overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-black/5">
+                {hasDesign ? (
+                  <TemplatePreview template={template} adaptive fit="width" />
+                ) : fallbackImg ? (
+                  <img src={fallbackImg} alt={name} className="block w-full" />
+                ) : (
+                  <div className="grid aspect-[3/4] place-items-center text-stone-300">
+                    <SparklesIcon className="h-12 w-12" />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Right: Creator & CTA */}
-        <div className="space-y-6">
-          {/* Creator Card */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-serif font-bold mb-4">Created by</h3>
+          {/* ---------- Right: info & CTA ---------- */}
+          <div className="space-y-6">
+            {/* Title block */}
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center rounded-full bg-primary-500/10 px-3 py-1 text-xs font-semibold text-primary-600 dark:text-primary-400">
+                  {EVENT_TYPE_LABELS[eventType] || eventType || 'Événement'}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-3 py-1 text-xs font-medium text-muted">
+                  <TagIcon className="h-3.5 w-3.5" /> {CATEGORY_LABELS[category] || category}
+                </span>
+              </div>
+              <h1 className="mt-3 font-serif text-3xl font-bold tracking-tight text-content sm:text-4xl">{name}</h1>
+            </div>
 
+            {/* Creator */}
             {creator && (
-              <div className="space-y-4">
-                {/* Creator Profile */}
-                <div
-                  onClick={() => navigate(`/marketplace/creators/${creator.id}`)}
-                  className="flex gap-4 cursor-pointer hover:opacity-75 transition-opacity"
-                >
-                  {creator.profileImage && (
-                    <img
-                      src={creator.profileImage}
-                      alt={creator.displayName}
-                      className="w-16 h-16 rounded-full object-cover"
-                    />
-                  )}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium text-gray-900">
-                        {creator.displayName}
-                      </h4>
-                      {creator.verified && (
-                        <StarIcon className="w-4 h-4 text-yellow-400 fill-current" />
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600 line-clamp-2">
-                      {creator.bio}
-                    </p>
-                    {creator.website && (
-                      <a
-                        href={creator.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-primary-600 hover:text-primary-700 inline-flex items-center gap-1 mt-2"
-                      >
-                        <LinkIcon className="w-4 h-4" />
-                        Visit Website
-                      </a>
-                    )}
+              <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4">
+                {creator.profileImage ? (
+                  <img src={resolveImg(creator.profileImage)} alt={creator.displayName} className="h-12 w-12 rounded-full object-cover ring-2 ring-surface" />
+                ) : (
+                  <div className="grid h-12 w-12 place-items-center rounded-full bg-primary-500/15 text-lg font-bold text-primary-600 dark:text-primary-400">
+                    {creator.displayName?.charAt(0)?.toUpperCase() || '?'}
                   </div>
-                </div>
-
-                {/* Creator Stats */}
-                <div className="space-y-2 pt-4 border-t">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Total Earnings</span>
-                    <span className="font-medium">${creator.totalEarnings.toFixed(2)}</span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate font-semibold text-content">{creator.displayName}</p>
+                    {creator.verified && <CheckBadgeIcon className="h-4 w-4 shrink-0 text-primary-500" />}
                   </div>
+                  {creator.bio && <p className="line-clamp-1 text-sm text-muted">{creator.bio}</p>}
                 </div>
+                {creator.website && (
+                  <a href={creator.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400">
+                    <LinkIcon className="h-4 w-4" /> Site
+                  </a>
+                )}
               </div>
             )}
-          </div>
 
-          {/* Pricing & CTA */}
-          <div className="bg-white rounded-lg shadow p-6 space-y-4">
-            {/* Commission Info */}
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <p className="text-sm text-blue-900 mb-1">Creator Commission</p>
-              <p className="text-2xl font-bold text-blue-600">
-                {commissionPercentage}%
-              </p>
-              <p className="text-xs text-blue-800 mt-2">
-                Creator earns {commissionPercentage}% commission when you use this template
-              </p>
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-border bg-surface p-4">
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted"><ShoppingBagIcon className="h-4 w-4" /> Utilisations</span>
+                <p className="mt-1 font-serif text-xl font-bold text-content">{usageCount || 0}</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-surface p-4">
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted"><CalendarDaysIcon className="h-4 w-4" /> Publié le</span>
+                <p className="mt-1 text-sm font-semibold text-content">{published}</p>
+              </div>
             </div>
 
-            {/* Price */}
-            {priceUSD > 0 && (
-              <div className="text-center py-4 border-y">
-                <p className="text-gray-600 text-sm">Commission Basis</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {priceUSD.toLocaleString('fr-FR')} FC
-                </p>
+            {/* Description */}
+            {description && (
+              <div>
+                <h2 className="font-serif text-lg font-bold text-content">À propos de ce modèle</h2>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted">{description}</p>
               </div>
             )}
 
-            {/* CTA Button */}
-            {user ? (
+            {/* Pricing + CTA */}
+            <div className="rounded-2xl border border-border bg-surface p-5">
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm text-muted">Prix d'utilisation</span>
+                <span className="font-serif text-2xl font-bold text-content">
+                  {priceUSD > 0 ? `${priceUSD.toLocaleString('fr-FR')} FC` : 'Gratuit'}
+                </span>
+              </div>
               <button
-                onClick={() => navigate(`/weddings/new?templateId=${templateId}&eventType=${eventType || 'WEDDING'}`)}
-                className="w-full btn-primary py-3 font-medium"
+                onClick={useTemplate}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary-500 px-6 py-3.5 text-[15px] font-semibold text-white shadow-lg shadow-primary-500/25 transition-all hover:-translate-y-0.5 hover:bg-primary-600"
               >
-                Use This Template
+                {user ? 'Utiliser ce modèle' : 'Se connecter pour utiliser'} <ArrowRightIcon className="h-4 w-4" />
               </button>
-            ) : (
-              <button
-                onClick={() => navigate(`/login?redirect=/marketplace/templates/${templateId}`)}
-                className="w-full btn-primary py-3 font-medium"
-              >
-                Login to Use Template
-              </button>
-            )}
-
-            {/* Info Text */}
-            <p className="text-xs text-gray-500 text-center">
-              {user
-                ? 'Click to create a new wedding with this template'
-                : 'You must be logged in to use templates'}
-            </p>
+              <p className="mt-3 text-center text-xs text-muted">
+                {user ? 'Crée un nouvel événement à partir de ce modèle, entièrement personnalisable.' : 'Connectez-vous pour créer votre invitation à partir de ce modèle.'}
+              </p>
+            </div>
           </div>
         </div>
       </div>
