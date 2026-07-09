@@ -41,13 +41,19 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-white to-gold-50 p-4 safe-top safe-bottom">
-      <div className="w-full max-w-sm">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-stone-50 p-4 safe-top safe-bottom">
+      {/* Décor orange discret */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-primary-500/15 blur-3xl" />
+        <div className="absolute -left-10 bottom-0 h-56 w-56 rounded-full bg-primary-500/10 blur-3xl" />
+      </div>
+
+      <div className="relative w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-primary-100 mb-4">
-            <HeartIcon className="h-8 w-8 text-primary-600" />
+          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 mb-4 shadow-lg shadow-primary-500/25">
+            <HeartIcon className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-2xl font-serif font-bold text-gray-900">WeddingInvite Check-in</h1>
+          <h1 className="text-2xl font-serif font-bold text-gray-900">Check‑in</h1>
           <p className="text-gray-500 mt-1">Connectez-vous pour gérer les arrivées</p>
         </div>
 
