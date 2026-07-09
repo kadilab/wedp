@@ -292,7 +292,7 @@ export default function TemplatePreview({ template, className = '', weddingData 
                 // Decorative shape (rectangle / circle / line)
                 if (el.type === 'shape') {
                   return (
-                    <div key={el.id || idx} style={{ position: 'absolute', left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: zIdx }}>
+                    <div key={el.id || idx} style={{ position: 'absolute', left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: zIdx, transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined, transformOrigin: 'center center' }}>
                       <ShapeElement el={el} />
                     </div>
                   )

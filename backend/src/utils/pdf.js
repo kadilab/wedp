@@ -846,7 +846,8 @@ function generateDesignBasedHTML(options) {
 
       // Decorative shape (rectangle / circle / line)
       if (el.type === 'shape') {
-        const posStyle = `position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};`;
+        const rotateStyle = el.rotation ? `transform:rotate(${el.rotation}deg);transform-origin:center center;` : '';
+        const posStyle = `position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};${rotateStyle}`;
         const op = (el.opacity ?? 100) / 100;
         if (el.shapeKind === 'line') {
           const t = el.lineThickness ?? 2;
@@ -990,7 +991,8 @@ function generateDesignBasedHTML(options) {
         const textOnly = content.replace(/^[\p{Emoji}\u200d\uFE0F]+\s*/u, '').trim();
         const alignItems = el.verticalAlign === 'top' ? 'flex-start' : el.verticalAlign === 'bottom' ? 'flex-end' : 'center';
         const shadowStyle = el.textShadow && el.textShadow !== 'none' ? `text-shadow:${el.textShadow} ${el.shadowColor || '#000000'};` : '';
-        return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};display:flex;align-items:${alignItems};justify-content:${el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start'};gap:6px;font-family:'${el.fontFamily}',serif;font-size:${el.fontSize}px;font-weight:${el.fontWeight || 'normal'};font-style:${el.fontStyle || 'normal'};color:${el.color || '#000'};text-align:${el.textAlign || 'center'};letter-spacing:${el.letterSpacing || 0}px;text-transform:${el.textTransform || 'none'};overflow:hidden;word-break:break-word;${shadowStyle}">
+        const rotateStyle = el.rotation ? `transform:rotate(${el.rotation}deg);transform-origin:center center;` : '';
+        return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};display:flex;align-items:${alignItems};justify-content:${el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start'};gap:6px;font-family:'${el.fontFamily}',serif;font-size:${el.fontSize}px;font-weight:${el.fontWeight || 'normal'};font-style:${el.fontStyle || 'normal'};color:${el.color || '#000'};text-align:${el.textAlign || 'center'};letter-spacing:${el.letterSpacing || 0}px;text-transform:${el.textTransform || 'none'};overflow:hidden;word-break:break-word;${shadowStyle}${rotateStyle}">
           <img src="${iconSrc}" style="width:${Math.round(el.fontSize * 1.3)}px;height:${Math.round(el.fontSize * 1.3)}px;object-fit:contain;flex-shrink:0;" />
           <span style="${textGradientCss(el)}">${textOnly}</span>
         </div>`;
@@ -999,7 +1001,8 @@ function generateDesignBasedHTML(options) {
       // Text element
       const alignItems = el.verticalAlign === 'top' ? 'flex-start' : el.verticalAlign === 'bottom' ? 'flex-end' : 'center';
       const shadowStyle = el.textShadow && el.textShadow !== 'none' ? `text-shadow:${el.textShadow} ${el.shadowColor || '#000000'};` : '';
-      return `<div ${el.autoFit ? 'data-autofit="1"' : ''} style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};display:flex;align-items:${alignItems};justify-content:${el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start'};font-family:'${el.fontFamily}',serif;font-size:${el.fontSize}px;font-weight:${el.fontWeight || 'normal'};font-style:${el.fontStyle || 'normal'};color:${el.color || '#000'};text-align:${el.textAlign || 'center'};letter-spacing:${el.letterSpacing || 0}px;text-transform:${el.textTransform || 'none'};overflow:hidden;word-break:break-word;${shadowStyle}">
+      const rotateStyle = el.rotation ? `transform:rotate(${el.rotation}deg);transform-origin:center center;` : '';
+      return `<div ${el.autoFit ? 'data-autofit="1"' : ''} style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};display:flex;align-items:${alignItems};justify-content:${el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start'};font-family:'${el.fontFamily}',serif;font-size:${el.fontSize}px;font-weight:${el.fontWeight || 'normal'};font-style:${el.fontStyle || 'normal'};color:${el.color || '#000'};text-align:${el.textAlign || 'center'};letter-spacing:${el.letterSpacing || 0}px;text-transform:${el.textTransform || 'none'};overflow:hidden;word-break:break-word;${shadowStyle}${rotateStyle}">
         <span style="width:100%;${textGradientCss(el)}">${content}</span>
       </div>`;
     })

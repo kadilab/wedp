@@ -517,7 +517,7 @@ export default function InvitationView() {
                     key={el.id || idx}
                     el={el}
                     className="absolute"
-                    style={{ left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: elZIndex }}
+                    style={{ left: elLeft, top: elTop, width: el.width, height: el.height, zIndex: elZIndex, transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined, transformOrigin: 'center center' }}
                   >
                     <ShapeElement el={el} />
                   </AnimatedElement>

@@ -2007,7 +2007,8 @@ export default function TemplateDesigner({ clientMode = false }) {
           : 'none',
         backgroundSize: '10px 10px',
         backgroundPosition: '0 0,0 5px,5px -5px,-5px 0',
-        transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
+        // Rotation is applied on the element wrapper (so the selection frame
+        // rotates with it) — not here, to avoid double rotation.
       }
       if (isBarcode) {
         // Barcode placeholder — vertical bars of varying widths.
@@ -2096,13 +2097,13 @@ export default function TemplateDesigner({ clientMode = false }) {
       )
     }
 
-    const rot = el.rotation || 0
-    const rotTransform = rot ? `rotate(${rot}deg)` : undefined
+    // Rotation is applied on the element wrapper (so the selection frame rotates
+    // with the content) — see the canvas element <div>. Not applied here.
 
     // Curved (arc) text
     if (hasArc(el)) {
       return (
-        <div className="w-full h-full" style={{ transform: rotTransform, transformOrigin: 'center center' }}>
+        <div className="w-full h-full">
           <CurvedText el={el} text={text} />
         </div>
       )
@@ -2122,8 +2123,6 @@ export default function TemplateDesigner({ clientMode = false }) {
       justifyContent: el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start',
       textShadow: el.textShadow && el.textShadow !== 'none' ? `${el.textShadow} ${el.shadowColor || '#000000'}` : 'none',
       lineHeight: el.lineHeight || 1.2,
-      transform: rotTransform,
-      transformOrigin: 'center center',
       ...(textGradientStyle(el) || {})
     }
     const textClass = 'block w-full h-full overflow-hidden whitespace-pre-wrap break-words leading-tight'
@@ -4462,7 +4461,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                     <motion.div
                       key={`${el.id}-${previewKey}`}
                       className="absolute"
-                      style={{ left: el.x, top: el.y, width: el.width, height: el.height, pointerEvents: 'none' }}
+                      style={{ left: el.x, top: el.y, width: el.width, height: el.height, pointerEvents: 'none', rotate: (el.type !== 'photo' && el.type !== 'image') ? (el.rotation || 0) : 0 }}
                       initial={isAnimated(el.animation) ? entrance?.initial : undefined}
                       animate={isAnimated(el.animation) ? entrance?.animate : undefined}
                       transition={isAnimated(el.animation) ? entrance?.transition : undefined}
@@ -4484,7 +4483,14 @@ export default function TemplateDesigner({ clientMode = false }) {
                   className={`absolute transition-shadow ${el.locked ? 'cursor-not-allowed' : 'cursor-move'} ${
                     isSelected ? 'ring-2 ring-primary-500 ring-offset-1' : isMultiSelected ? 'ring-2 ring-blue-400 ring-offset-1' : 'hover:ring-1 hover:ring-primary-300'
                   }`}
-                  style={{ left: el.x, top: el.y, width: el.width, height: el.height, touchAction: 'none' }}
+                  style={{
+                    left: el.x, top: el.y, width: el.width, height: el.height, touchAction: 'none',
+                    // Rotate the whole element box (content + selection frame) so
+                    // rotating an element keeps its frame aligned. Photos/images
+                    // rotate their image inside the frame instead (getImageStyle).
+                    transform: (el.type !== 'photo' && el.type !== 'image' && el.rotation) ? `rotate(${el.rotation}deg)` : undefined,
+                    transformOrigin: 'center center',
+                  }}
                 >
                   {renderElementContent(el)}
 
