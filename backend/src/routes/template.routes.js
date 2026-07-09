@@ -371,6 +371,17 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
       mapLabel: el.mapLabel || '',
       mapPlaceholder: el.mapPlaceholder || '',
       mapAddress: el.mapAddress || '',
+      // QR / barcode element styling (applied to generated invitations)
+      codeType: el.codeType || 'qr',
+      qrColor: el.qrColor || '#000000',
+      qrBgColor: el.qrBgColor || '#FFFFFF',
+      qrTransparentBg: el.qrTransparentBg ?? false,
+      // Gradient fill (text & shapes) — mirrored on generated invitations/PDF
+      gradient: el.gradient ?? false,
+      gradientFrom: el.gradientFrom || '',
+      gradientTo: el.gradientTo || '',
+      gradientAngle: el.gradientAngle ?? 90,
+      gradientType: el.gradientType || 'linear',
       // Per-element animation (played only on the public invitation view)
       animation: el.animation || null
     }));
@@ -618,6 +629,17 @@ router.put('/:id/design', authenticate, async (req, res) => {
       mapLabel: el.mapLabel || '',
       mapPlaceholder: el.mapPlaceholder || '',
       mapAddress: el.mapAddress || '',
+      // QR / barcode element styling (applied to generated invitations)
+      codeType: el.codeType || 'qr',
+      qrColor: el.qrColor || '#000000',
+      qrBgColor: el.qrBgColor || '#FFFFFF',
+      qrTransparentBg: el.qrTransparentBg ?? false,
+      // Gradient fill (text & shapes) — mirrored on generated invitations/PDF
+      gradient: el.gradient ?? false,
+      gradientFrom: el.gradientFrom || '',
+      gradientTo: el.gradientTo || '',
+      gradientAngle: el.gradientAngle ?? 90,
+      gradientType: el.gradientType || 'linear',
       // Per-element animation (played only on the public invitation view)
       animation: el.animation || null
     }));

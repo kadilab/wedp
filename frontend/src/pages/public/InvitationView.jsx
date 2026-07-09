@@ -9,6 +9,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
+import { textGradientStyle } from '../../utils/gradient'
 import MiniCalendar from '../../components/templates/MiniCalendar'
 import ShapeElement from '../../components/templates/ShapeElement'
 import MapElement from '../../components/templates/MapElement'
@@ -669,10 +670,11 @@ export default function InvitationView() {
                             justifyContent: el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start',
                             textAlign: el.textAlign || 'center',
                             overflow: 'hidden', whiteSpace: 'normal', wordBreak: 'break-word',
-                            lineHeight: el.lineHeight || 1.2
+                            lineHeight: el.lineHeight || 1.2,
+                            ...(textGradientStyle(el) || {})
                           }}
                         />
-                      : <span className="w-full">{content}</span>}
+                      : <span className="w-full" style={textGradientStyle(el) || undefined}>{content}</span>}
                 </AnimatedElement>
               )
             })}

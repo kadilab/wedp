@@ -9,6 +9,7 @@ import MiniCalendar from './MiniCalendar'
 import ShapeElement from './ShapeElement'
 import MapElement from './MapElement'
 import { getEventDisplayTitle } from '../../utils/eventTypes'
+import { textGradientStyle } from '../../utils/gradient'
 
 // Rich, realistic test data used when no real event is provided (template
 // gallery / marketplace previews) so every variable renders with a believable
@@ -413,10 +414,11 @@ export default function TemplatePreview({ template, className = '', weddingData 
                               justifyContent: el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start',
                               textAlign: el.textAlign || 'center',
                               overflow: 'hidden', whiteSpace: 'normal', wordBreak: 'break-word',
-                              lineHeight: el.lineHeight || 1.2
+                              lineHeight: el.lineHeight || 1.2,
+                              ...(textGradientStyle(el) || {})
                             }}
                           />
-                        : <span style={{ width: '100%' }}>{content}</span>}
+                        : <span style={{ width: '100%', ...(textGradientStyle(el) || {}) }}>{content}</span>}
                   </div>
                 )
               })}

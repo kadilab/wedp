@@ -19,6 +19,7 @@ import { DATE_FORMAT_OPTIONS, DEFAULT_DATE_FORMAT, containsDateVariable, formatE
 import MiniCalendar, { CALENDAR_MARKER_OPTIONS } from '../../components/templates/MiniCalendar'
 import ShapeElement from '../../components/templates/ShapeElement'
 import MapElement from '../../components/templates/MapElement'
+import { textGradientStyle } from '../../utils/gradient'
 import { searchIcons, iconPreviewUrl, fetchIconDataUrl, ICON_SUGGESTIONS, EMOJI_GROUPS } from '../../utils/elementLibrary'
 import {
   ArrowLeftIcon,
@@ -647,6 +648,77 @@ const CATEGORIES = [
   { value: 'MINIMALIST', label: 'Minimaliste' },
   { value: 'TRADITIONAL', label: 'Traditionnel' }
 ]
+
+// Reusable gradient controls for text & shape elements. `baseColor` seeds the
+// "from" colour so enabling a gradient starts from the element's current colour.
+function GradientControls({ el, baseColor, onChange }) {
+  const on = !!el.gradient
+  const from = el.gradientFrom || baseColor || '#df6746'
+  const to = el.gradientTo || '#8B7355'
+  const angle = el.gradientAngle ?? 90
+  const type = el.gradientType || 'linear'
+  return (
+    <div className="rounded-xl border border-gray-200 p-3">
+      <label className="flex items-center justify-between cursor-pointer">
+        <span className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
+          <span className="inline-block h-3.5 w-6 rounded" style={{ background: `linear-gradient(90deg, ${from}, ${to})` }} />
+          Dégradé
+        </span>
+        <input
+          type="checkbox"
+          checked={on}
+          onChange={(e) => onChange({ gradient: e.target.checked, ...(e.target.checked && !el.gradientFrom ? { gradientFrom: baseColor || from } : {}) })}
+          className="h-4 w-4 accent-primary-600"
+        />
+      </label>
+      {on && (
+        <div className="mt-3 space-y-2.5">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <span className="block text-[10px] text-gray-400 mb-1">Début</span>
+              <div className="flex items-center gap-1.5">
+                <input type="color" value={from} onChange={(e) => onChange({ gradientFrom: e.target.value })} className="h-8 w-9 shrink-0 rounded-lg cursor-pointer border border-gray-200" />
+                <input type="text" value={from} onChange={(e) => onChange({ gradientFrom: e.target.value })} className="w-full min-w-0 px-1.5 py-1 text-[11px] border border-gray-200 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              </div>
+            </div>
+            <div>
+              <span className="block text-[10px] text-gray-400 mb-1">Fin</span>
+              <div className="flex items-center gap-1.5">
+                <input type="color" value={to} onChange={(e) => onChange({ gradientTo: e.target.value })} className="h-8 w-9 shrink-0 rounded-lg cursor-pointer border border-gray-200" />
+                <input type="text" value={to} onChange={(e) => onChange({ gradientTo: e.target.value })} className="w-full min-w-0 px-1.5 py-1 text-[11px] border border-gray-200 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {['linear', 'radial'].map((t) => (
+              <button
+                key={t}
+                onClick={() => onChange({ gradientType: t })}
+                className={`flex-1 px-2 py-1.5 text-xs rounded-lg border transition-colors ${type === t ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+              >
+                {t === 'linear' ? 'Linéaire' : 'Radial'}
+              </button>
+            ))}
+          </div>
+          {type === 'linear' && (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] text-gray-400">Angle</span>
+                <span className="text-[10px] text-gray-500 font-mono">{angle}°</span>
+              </div>
+              <input type="range" min="0" max="360" value={angle} onChange={(e) => onChange({ gradientAngle: Number(e.target.value) })} className="w-full accent-primary-600" />
+              <div className="flex gap-1 mt-1">
+                {[0, 45, 90, 135, 180].map((a) => (
+                  <button key={a} onClick={() => onChange({ gradientAngle: a })} className={`flex-1 px-1 py-0.5 text-[10px] rounded border ${angle === a ? 'border-primary-500 text-primary-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>{a}°</button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ===================== COMPONENT =====================
 
@@ -1752,7 +1824,13 @@ export default function TemplateDesigner({ clientMode = false }) {
         qrBgColor: el.qrBgColor || '#FFFFFF',
         qrTransparentBg: el.qrTransparentBg ?? false,
         // Per-element animation (played only on the public invitation view)
-        animation: el.animation || null
+        animation: el.animation || null,
+        // Gradient fill (text & shapes) — mirrored on generated invitations/PDF
+        gradient: el.gradient ?? false,
+        gradientFrom: el.gradientFrom || '',
+        gradientTo: el.gradientTo || '',
+        gradientAngle: el.gradientAngle ?? 90,
+        gradientType: el.gradientType || 'linear'
       }))
 
       // Debug: verify clean elements
@@ -2008,7 +2086,8 @@ export default function TemplateDesigner({ clientMode = false }) {
             alignItems: el.verticalAlign === 'top' ? 'flex-start' : el.verticalAlign === 'bottom' ? 'flex-end' : 'center',
             gap: '6px',
             justifyContent: el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start',
-            lineHeight: el.lineHeight || 1.2
+            lineHeight: el.lineHeight || 1.2,
+            ...(textGradientStyle(el) || {})
           }}
         >
           <img src={iconSrc} alt="" className="inline-block flex-shrink-0" style={{ height: `${el.fontSize + 4}px`, width: `${el.fontSize + 4}px`, objectFit: 'contain' }} />
@@ -2044,7 +2123,8 @@ export default function TemplateDesigner({ clientMode = false }) {
       textShadow: el.textShadow && el.textShadow !== 'none' ? `${el.textShadow} ${el.shadowColor || '#000000'}` : 'none',
       lineHeight: el.lineHeight || 1.2,
       transform: rotTransform,
-      transformOrigin: 'center center'
+      transformOrigin: 'center center',
+      ...(textGradientStyle(el) || {})
     }
     const textClass = 'block w-full h-full overflow-hidden whitespace-pre-wrap break-words leading-tight'
 
@@ -3126,6 +3206,12 @@ export default function TemplateDesigner({ clientMode = false }) {
                             </div>
                           </>
                         )}
+                        {/* Gradient (shape) */}
+                        <GradientControls
+                          el={selectedElement}
+                          baseColor={selectedElement.fillColor || (selectedElement.shapeKind === 'line' ? '#333333' : '#df6746')}
+                          onChange={(patch) => updateElement(selectedId, patch)}
+                        />
                         {selectedElement.shapeKind === 'rect' && (
                           <div>
                             <label className="flex items-center justify-between text-xs font-medium text-gray-700 mb-1"><span>Arrondi des coins</span><span className="text-gray-400">{selectedElement.borderRadius ?? 0}px</span></label>
@@ -4130,6 +4216,13 @@ export default function TemplateDesigner({ clientMode = false }) {
                             </div>
                           )}
                         </div>
+
+                        {/* Gradient (text) */}
+                        <GradientControls
+                          el={selectedElement}
+                          baseColor={selectedElement.color}
+                          onChange={(patch) => updateElement(selectedId, patch)}
+                        />
 
                         {/* Letter Spacing */}
                         <div>

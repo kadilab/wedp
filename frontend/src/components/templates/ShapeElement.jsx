@@ -1,5 +1,6 @@
 // Decorative shape element (rectangle / circle / line) rendered on the canvas,
 // the public invitation and the gallery preview. Fills its element box.
+import { elGradientCss } from '../../utils/gradient'
 
 function rgba(hex, op = 100) {
   const h = (hex || '#000000').replace('#', '')
@@ -10,6 +11,11 @@ function rgba(hex, op = 100) {
   return `rgba(${r},${g},${b},${op / 100})`
 }
 
+// Fill: a gradient when enabled, otherwise the solid colour (with opacity).
+function shapeFill(el, fallback) {
+  return elGradientCss(el, fallback) || rgba(el.fillColor || fallback, el.fillOpacity ?? 100)
+}
+
 export default function ShapeElement({ el }) {
   const opacity = (el.opacity ?? 100) / 100
 
@@ -17,7 +23,7 @@ export default function ShapeElement({ el }) {
     const t = el.lineThickness ?? 2
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', opacity }}>
-        <div style={{ width: '100%', height: t, background: el.fillColor || '#333333', borderRadius: t }} />
+        <div style={{ width: '100%', height: t, background: shapeFill(el, '#333333'), borderRadius: t }} />
       </div>
     )
   }
@@ -28,7 +34,7 @@ export default function ShapeElement({ el }) {
         width: '100%',
         height: '100%',
         boxSizing: 'border-box',
-        background: rgba(el.fillColor || '#df6746', el.fillOpacity ?? 100),
+        background: shapeFill(el, '#df6746'),
         borderRadius: el.shapeKind === 'circle' ? '9999px' : (el.borderRadius || 0),
         border: el.borderWidth ? `${el.borderWidth}px solid ${el.borderColor || '#333333'}` : 'none',
         opacity
@@ -42,9 +48,9 @@ export function shapeElementHTML(el) {
   const opacity = (el.opacity ?? 100) / 100
   if (el.shapeKind === 'line') {
     const t = el.lineThickness ?? 2
-    return `<div style="width:100%;height:100%;display:flex;align-items:center;opacity:${opacity}"><div style="width:100%;height:${t}px;background:${el.fillColor || '#333333'};border-radius:${t}px"></div></div>`
+    return `<div style="width:100%;height:100%;display:flex;align-items:center;opacity:${opacity}"><div style="width:100%;height:${t}px;background:${shapeFill(el, '#333333')};border-radius:${t}px"></div></div>`
   }
   const radius = el.shapeKind === 'circle' ? '9999px' : `${el.borderRadius || 0}px`
   const border = el.borderWidth ? `border:${el.borderWidth}px solid ${el.borderColor || '#333333'};` : ''
-  return `<div style="width:100%;height:100%;box-sizing:border-box;background:${rgba(el.fillColor || '#df6746', el.fillOpacity ?? 100)};border-radius:${radius};${border}opacity:${opacity}"></div>`
+  return `<div style="width:100%;height:100%;box-sizing:border-box;background:${shapeFill(el, '#df6746')};border-radius:${radius};${border}opacity:${opacity}"></div>`
 }

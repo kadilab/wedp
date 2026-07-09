@@ -48,6 +48,26 @@ function hexToRgba(hex, alphaPercent = 100) {
   return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(100, alphaPercent)) / 100})`;
 }
 
+// Gradient fill for design elements — mirrors frontend/src/utils/gradient.js so
+// generated PDFs/PNGs match the editor and the public invitation.
+function elGradientCss(el, fallback = '#df6746') {
+  if (!el || !el.gradient) return null;
+  const from = el.gradientFrom || el.color || el.fillColor || fallback;
+  const to = el.gradientTo || '#8B7355';
+  const angle = el.gradientAngle ?? 90;
+  if ((el.gradientType || 'linear') === 'radial') {
+    return `radial-gradient(circle at 30% 30%, ${from}, ${to})`;
+  }
+  return `linear-gradient(${angle}deg, ${from}, ${to})`;
+}
+
+// CSS that paints text with the element's gradient (clipped to the glyphs).
+function textGradientCss(el) {
+  const g = elGradientCss(el, el && el.color);
+  if (!g) return '';
+  return `background-image:${g};-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;`;
+}
+
 // Shape options for "photo"/"image" design elements - mirrors
 // frontend/src/utils/imageShapes.js. 'rect' (default/null) keeps the
 // existing border-radius behavior; every other shape clips via clip-path.
@@ -830,11 +850,13 @@ function generateDesignBasedHTML(options) {
         const op = (el.opacity ?? 100) / 100;
         if (el.shapeKind === 'line') {
           const t = el.lineThickness ?? 2;
-          return `<div style="${posStyle}display:flex;align-items:center;opacity:${op};"><div style="width:100%;height:${t}px;background:${el.fillColor || '#333333'};border-radius:${t}px;"></div></div>`;
+          const lineFill = elGradientCss(el, '#333333') || (el.fillColor || '#333333');
+          return `<div style="${posStyle}display:flex;align-items:center;opacity:${op};"><div style="width:100%;height:${t}px;background:${lineFill};border-radius:${t}px;"></div></div>`;
         }
         const hex = (el.fillColor || '#df6746').replace('#', '');
         const nn = hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex;
-        const fill = `rgba(${parseInt(nn.slice(0, 2), 16) || 0},${parseInt(nn.slice(2, 4), 16) || 0},${parseInt(nn.slice(4, 6), 16) || 0},${(el.fillOpacity ?? 100) / 100})`;
+        const solidFill = `rgba(${parseInt(nn.slice(0, 2), 16) || 0},${parseInt(nn.slice(2, 4), 16) || 0},${parseInt(nn.slice(4, 6), 16) || 0},${(el.fillOpacity ?? 100) / 100})`;
+        const fill = elGradientCss(el, '#df6746') || solidFill;
         const radius = el.shapeKind === 'circle' ? '9999px' : `${el.borderRadius || 0}px`;
         const border = el.borderWidth ? `border:${el.borderWidth}px solid ${el.borderColor || '#333333'};` : '';
         return `<div style="${posStyle}box-sizing:border-box;background:${fill};border-radius:${radius};${border}opacity:${op};"></div>`;
@@ -970,7 +992,7 @@ function generateDesignBasedHTML(options) {
         const shadowStyle = el.textShadow && el.textShadow !== 'none' ? `text-shadow:${el.textShadow} ${el.shadowColor || '#000000'};` : '';
         return `<div style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};display:flex;align-items:${alignItems};justify-content:${el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start'};gap:6px;font-family:'${el.fontFamily}',serif;font-size:${el.fontSize}px;font-weight:${el.fontWeight || 'normal'};font-style:${el.fontStyle || 'normal'};color:${el.color || '#000'};text-align:${el.textAlign || 'center'};letter-spacing:${el.letterSpacing || 0}px;text-transform:${el.textTransform || 'none'};overflow:hidden;word-break:break-word;${shadowStyle}">
           <img src="${iconSrc}" style="width:${Math.round(el.fontSize * 1.3)}px;height:${Math.round(el.fontSize * 1.3)}px;object-fit:contain;flex-shrink:0;" />
-          <span>${textOnly}</span>
+          <span style="${textGradientCss(el)}">${textOnly}</span>
         </div>`;
       }
 
@@ -978,7 +1000,7 @@ function generateDesignBasedHTML(options) {
       const alignItems = el.verticalAlign === 'top' ? 'flex-start' : el.verticalAlign === 'bottom' ? 'flex-end' : 'center';
       const shadowStyle = el.textShadow && el.textShadow !== 'none' ? `text-shadow:${el.textShadow} ${el.shadowColor || '#000000'};` : '';
       return `<div ${el.autoFit ? 'data-autofit="1"' : ''} style="position:absolute;left:${elLeft}px;top:${elTop}px;width:${el.width}px;height:${el.height}px;z-index:${elZIndex};display:flex;align-items:${alignItems};justify-content:${el.textAlign === 'center' ? 'center' : el.textAlign === 'right' ? 'flex-end' : 'flex-start'};font-family:'${el.fontFamily}',serif;font-size:${el.fontSize}px;font-weight:${el.fontWeight || 'normal'};font-style:${el.fontStyle || 'normal'};color:${el.color || '#000'};text-align:${el.textAlign || 'center'};letter-spacing:${el.letterSpacing || 0}px;text-transform:${el.textTransform || 'none'};overflow:hidden;word-break:break-word;${shadowStyle}">
-        <span style="width:100%">${content}</span>
+        <span style="width:100%;${textGradientCss(el)}">${content}</span>
       </div>`;
     })
     .join('\n');
