@@ -2489,7 +2489,7 @@ export default function TemplateDesigner({ clientMode = false }) {
               {/* Current background preview */}
               {backgroundUrl && (
                 <div className="relative rounded-lg overflow-hidden border shadow-sm bg-gray-100">
-                  <div style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}`, maxHeight: '280px', margin: '0 auto' }} className="relative bg-white">
+                  <div style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}`, maxHeight: '280px', margin: '0 auto' }} className="wysiwyg-canvas relative bg-white">
                     <img src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || ''}${backgroundUrl}`} alt="Fond" className="w-full h-full object-contain" />
                   </div>
                   <div className="absolute top-2 right-2 flex gap-1">
@@ -4258,7 +4258,7 @@ export default function TemplateDesigner({ clientMode = false }) {
               ref={canvasRef}
               data-canvas="true"
               onMouseDown={handleCanvasMouseDown}
-              className="relative bg-white shadow-2xl ring-1 ring-black/5 overflow-hidden select-none"
+              className="wysiwyg-canvas relative bg-white shadow-2xl ring-1 ring-black/5 overflow-hidden select-none"
               style={{ width: canvasWidth, height: canvasHeight, transform: `scale(${zoom})`, transformOrigin: 'top left' }}
             >
               {/* Background Image — stretched to exact canvas dimensions */}

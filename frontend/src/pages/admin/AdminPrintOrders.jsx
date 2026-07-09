@@ -177,7 +177,7 @@ export default function AdminPrintOrders() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full table-responsive">
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
@@ -192,7 +192,7 @@ export default function AdminPrintOrders() {
               <tbody className="divide-y">
                 {orders.map((order) => (
                   <tr key={order.id} className={order.status === 'PENDING' ? 'bg-yellow-50' : ''}>
-                    <td className="px-4 py-4">
+                    <td data-label="Client" className="px-4 py-4">
                       <div>
                         <p className="font-medium text-gray-900">
                           {order.user?.firstName} {order.user?.lastName}
@@ -200,7 +200,7 @@ export default function AdminPrintOrders() {
                         <p className="text-sm text-gray-500">{order.user?.email}</p>
                       </div>
                     </td>
-                    <td className="px-4 py-4">
+                    <td data-label="Mariage" className="px-4 py-4">
                       <p className="font-medium text-gray-900">
                         {order.wedding?.brideName} & {order.wedding?.groomName}
                       </p>
@@ -208,22 +208,22 @@ export default function AdminPrintOrders() {
                         <p className="text-xs text-gray-500 mt-0.5">{order.wedding.template.name}</p>
                       )}
                     </td>
-                    <td className="px-4 py-4">
+                    <td data-label="Détails" className="px-4 py-4">
                       <div className="text-sm">
                         <p><span className="font-medium">{order.quantity}</span> exemplaires</p>
                         <p className="text-gray-500">{PAPER_TYPES[order.paperType]} • {FINISHES[order.finish]} • {PRINT_SIZES[order.size] || order.size}</p>
                       </div>
                     </td>
-                    <td className="px-4 py-4 font-semibold text-gray-900">
+                    <td data-label="Prix" className="px-4 py-4 font-semibold text-gray-900">
                       {formatPrice(order.price)}
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-500">
+                    <td data-label="Date" className="px-4 py-4 text-sm text-gray-500">
                       {format(new Date(order.createdAt), 'd MMM yyyy', { locale: fr })}
                     </td>
-                    <td className="px-4 py-4">
+                    <td data-label="Statut" className="px-4 py-4">
                       {getStatusBadge(order.status)}
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="cell-actions px-4 py-4">
                       <button
                         onClick={() => {
                           setSelectedOrder(order)

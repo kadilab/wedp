@@ -27,9 +27,12 @@ import {
   ChevronDownIcon,
   ShoppingBagIcon,
   BanknotesIcon,
-  SparklesIcon
+  SparklesIcon,
+  SunIcon,
+  MoonIcon
 
 } from '@heroicons/react/24/outline'
+import { useTheme } from '../utils/theme'
 
 const creatorNavSection = {
   label: 'Espace créateur',
@@ -100,6 +103,7 @@ export default function DashboardLayout({ isAdmin = false }) {
   const userMenuRef = useRef(null)
   const { user, logout } = useAuthStore()
   const { siteName, siteLogo, logoHeight } = useSiteSettingsStore()
+  const { isDark, toggle: toggleTheme } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -243,6 +247,16 @@ export default function DashboardLayout({ isAdmin = false }) {
           </div>
 
           <div className="flex items-center space-x-4">
+            {/* Theme toggle */}
+            <button
+              onClick={toggleTheme}
+              aria-label={isDark ? 'Passer en clair' : 'Passer en sombre'}
+              title={isDark ? 'Passer en clair' : 'Passer en sombre'}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-content transition-colors hover:bg-surface-2"
+            >
+              {isDark ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
+            </button>
+
             {/* Notifications */}
             <NotificationDropdown />
 

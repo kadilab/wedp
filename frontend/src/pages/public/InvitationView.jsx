@@ -462,7 +462,7 @@ export default function InvitationView() {
         <ScaledCanvas
           width={canvasWidth}
           height={canvasHeight}
-          className="relative shadow-2xl overflow-hidden bg-white"
+          className="wysiwyg-canvas relative shadow-2xl overflow-hidden bg-white"
         >
           {/* Background image */}
           {designBgImage && (
@@ -765,8 +765,8 @@ export default function InvitationView() {
       {/* Overlay for custom backgrounds */}
       {hasCustomBg && (
         <div
-          className="absolute inset-0 bg-white"
-          style={{ opacity: 1 - (wedding.backgroundOpacity || 100) / 100 }}
+          className="absolute inset-0"
+          style={{ backgroundColor: '#fff', opacity: 1 - (wedding.backgroundOpacity || 100) / 100 }}
         />
       )}
 

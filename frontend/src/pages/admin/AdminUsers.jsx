@@ -267,7 +267,7 @@ export default function AdminUsers() {
                       Invitations ({wedding.invitations.length})
                     </h3>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                      <table className="w-full text-sm table-responsive">
                         <thead className="bg-gray-50">
                           <tr>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Invité</th>
@@ -282,11 +282,11 @@ export default function AdminUsers() {
                         <tbody className="divide-y">
                           {wedding.invitations.map((inv) => (
                             <tr key={inv.id} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 font-medium text-gray-900">
+                              <td data-label="Invité" className="px-3 py-2 font-medium text-gray-900">
                                 {inv.guest?.firstName} {inv.guest?.lastName}
                               </td>
-                              <td className="px-3 py-2 text-gray-500">{inv.guest?.email || '-'}</td>
-                              <td className="px-3 py-2">
+                              <td data-label="Email" className="px-3 py-2 text-gray-500">{inv.guest?.email || '-'}</td>
+                              <td data-label="RSVP" className="px-3 py-2">
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                   inv.guest?.rsvpStatus === 'CONFIRMED' ? 'bg-green-100 text-green-700' :
                                   inv.guest?.rsvpStatus === 'DECLINED' ? 'bg-red-100 text-red-700' :
@@ -296,9 +296,9 @@ export default function AdminUsers() {
                                    inv.guest?.rsvpStatus === 'DECLINED' ? 'Décliné' : 'En attente'}
                                 </span>
                               </td>
-                              <td className="px-3 py-2 font-mono text-xs text-gray-400">{inv.uniqueCode}</td>
-                              <td className="px-3 py-2 text-gray-600">{inv.viewCount}</td>
-                              <td className="px-3 py-2">
+                              <td data-label="Code" className="px-3 py-2 font-mono text-xs text-gray-400">{inv.uniqueCode}</td>
+                              <td data-label="Vues" className="px-3 py-2 text-gray-600">{inv.viewCount}</td>
+                              <td data-label="QR / PDF" className="px-3 py-2">
                                 <div className="flex items-center gap-2">
                                   {inv.qrCodeUrl && (
                                     <a href={inv.qrCodeUrl} target="_blank" rel="noopener noreferrer"
@@ -320,7 +320,7 @@ export default function AdminUsers() {
                                   )}
                                 </div>
                               </td>
-                              <td className="px-3 py-2 text-gray-400 text-xs">
+                              <td data-label="Date" className="px-3 py-2 text-gray-400 text-xs">
                                 {format(new Date(inv.createdAt), 'd MMM yyyy', { locale: fr })}
                               </td>
                             </tr>
@@ -490,7 +490,7 @@ export default function AdminUsers() {
           </div>
         ) : (
           <div className="table-container">
-            <table className="table">
+            <table className="table table-responsive">
               <thead>
                 <tr>
                   <th>Utilisateur</th>
@@ -504,7 +504,7 @@ export default function AdminUsers() {
               <tbody className="divide-y">
                 {users.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setViewUserId(user.id)}>
-                    <td>
+                    <td data-label="Utilisateur">
                       <div className="flex items-center">
                         <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
                           <span className="text-primary-600 font-semibold">
@@ -517,13 +517,13 @@ export default function AdminUsers() {
                         </div>
                       </div>
                     </td>
-                    <td>{getRoleBadge(user.role, user.isCreator)}</td>
-                    <td><span className="badge">{user._count?.weddings || 0}</span></td>
-                    <td>{getStatusBadge(user.status)}</td>
-                    <td className="text-sm text-gray-500">
+                    <td data-label="Rôle">{getRoleBadge(user.role, user.isCreator)}</td>
+                    <td data-label="Mariages"><span className="badge">{user._count?.weddings || 0}</span></td>
+                    <td data-label="Statut">{getStatusBadge(user.status)}</td>
+                    <td data-label="Inscription" className="text-sm text-gray-500">
                       {format(new Date(user.createdAt), 'd MMM yyyy', { locale: fr })}
                     </td>
-                    <td>
+                    <td className="cell-actions">
                       <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => setViewUserId(user.id)}

@@ -574,7 +574,7 @@ export default function AdminDashboard() {
             </a>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-responsive">
               <thead>
                 <tr className="bg-gray-50/50 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
                   <th className="px-6 py-3">Couple</th>
@@ -587,26 +587,26 @@ export default function AdminDashboard() {
               <tbody className="divide-y divide-gray-50">
                 {dashData.recentWeddings.map((w) => (
                   <tr key={w.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-3.5">
+                    <td data-label="Couple" className="px-6 py-3.5">
                       <div className="flex items-center gap-2">
                         <HeartIcon className="h-4 w-4 text-rose-400" />
                         <span className="font-semibold text-gray-900">{w.brideName} & {w.groomName}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-3.5 text-gray-500">
+                    <td data-label="Date" className="px-6 py-3.5 text-gray-500">
                       {w.weddingDate ? format(new Date(w.weddingDate), 'd MMM yyyy', { locale: fr }) : '—'}
                     </td>
-                    <td className="px-6 py-3.5">
+                    <td data-label="Invités" className="px-6 py-3.5">
                       <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-600">
                         {w._count?.guests || 0}
                       </span>
                     </td>
-                    <td className="px-6 py-3.5">
+                    <td data-label="Invitations" className="px-6 py-3.5">
                       <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-600">
                         {w._count?.invitations || 0}
                       </span>
                     </td>
-                    <td className="px-6 py-3.5">
+                    <td data-label="Statut" className="px-6 py-3.5">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                         w.status === 'ACTIVE'
                           ? 'bg-green-50 text-green-600'

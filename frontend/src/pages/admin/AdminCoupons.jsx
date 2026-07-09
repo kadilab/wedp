@@ -4,6 +4,7 @@ import { adminAPI } from '../../services/api'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import toast from 'react-hot-toast'
+import { formatMoney } from '../../utils/currency'
 import {
   PlusIcon,
   PencilIcon,
@@ -166,7 +167,7 @@ export default function AdminCoupons() {
           </div>
         ) : (
           <div className="table-container">
-            <table className="table">
+            <table className="table table-responsive">
               <thead>
                 <tr>
                   <th>Code</th>
@@ -180,7 +181,7 @@ export default function AdminCoupons() {
               <tbody className="divide-y">
                 {coupons.map((coupon) => (
                   <tr key={coupon.id}>
-                    <td>
+                    <td data-label="Code">
                       <div className="flex items-center">
                         <span className="font-mono font-bold text-primary-600 bg-primary-50 px-3 py-1 rounded">
                           {coupon.code}
@@ -193,25 +194,25 @@ export default function AdminCoupons() {
                         </button>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Réduction">
                       <span className="font-semibold text-green-600">
                         -{coupon.discountValue}{DISCOUNT_TYPE_LABELS[coupon.discountType] || ''}
                       </span>
                       {coupon.minPurchase && (
-                        <p className="text-xs text-gray-400">dès {coupon.minPurchase}$</p>
+                        <p className="text-xs text-gray-400">dès {formatMoney(coupon.minPurchase)}</p>
                       )}
                     </td>
-                    <td>
+                    <td data-label="Utilisations">
                       <span className="text-gray-600">
                         {coupon._count?.usages || 0}{coupon.maxUses ? ` / ${coupon.maxUses}` : ''}
                       </span>
                     </td>
-                    <td className="text-sm text-gray-500">
+                    <td data-label="Expiration" className="text-sm text-gray-500">
                       {coupon.validUntil
                         ? format(new Date(coupon.validUntil), 'd MMM yyyy', { locale: fr })
                         : 'Jamais'}
                     </td>
-                    <td>
+                    <td data-label="Statut">
                       {!coupon.isActive ? (
                         <span className="badge">Désactivé</span>
                       ) : isExpired(coupon.validUntil) ? (
@@ -222,7 +223,7 @@ export default function AdminCoupons() {
                         <span className="badge-success">Actif</span>
                       )}
                     </td>
-                    <td>
+                    <td className="cell-actions">
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => handleEdit(coupon)}

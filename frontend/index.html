@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Set the theme class before first paint to avoid a light/dark flash. -->
+    <script>
+      (function () {
+        try {
+          var s = localStorage.getItem('public-theme');
+          var dark = s === 'dark' || (!s && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var el = document.documentElement;
+          if (dark) { el.classList.add('dark'); el.style.colorScheme = 'dark'; }
+          else { el.style.colorScheme = 'light'; }
+        } catch (e) {}
+      })();
+    </script>
     <meta name="description" content="Créez et gérez vos invitations digitales (mariage, anniversaire, cérémonie…) : QR code par invité, suivi RSVP en temps réel et paiement Mobile Money." />
     <meta name="theme-color" content="#df6746" />
     <meta name="robots" content="index, follow" />

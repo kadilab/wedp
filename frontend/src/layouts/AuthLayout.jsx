@@ -15,20 +15,13 @@ const PERKS = [
   { icon: DevicePhoneMobileIcon, text: 'Envoi WhatsApp en 1 clic' }
 ]
 
-// Respect the theme chosen on the public site (scoped to this layout).
-function isDarkPref() {
-  if (typeof window === 'undefined') return false
-  const stored = localStorage.getItem('public-theme')
-  if (stored === 'dark') return true
-  if (stored === 'light') return false
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches || false
-}
-
 export default function AuthLayout() {
   const { siteName, siteLogo, logoHeight } = useSiteSettingsStore()
 
+  // Theme is applied globally on <html> (utils/theme.js), so this layout just
+  // reads the tokens — no per-layout dark class needed.
   return (
-    <div className={`flex min-h-screen bg-bg text-content ${isDarkPref() ? 'dark' : ''}`}>
+    <div className="flex min-h-screen bg-bg text-content">
       {/* Left panel — Branding */}
       <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700 p-12 text-white lg:flex lg:w-1/2">
         <div className="pointer-events-none absolute inset-0">

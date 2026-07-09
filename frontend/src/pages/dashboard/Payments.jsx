@@ -185,7 +185,7 @@ export default function Payments() {
           </div>
         ) : (
           <div className="table-container">
-            <table className="table">
+            <table className="table table-responsive">
               <thead>
                 <tr>
                   <th>Date</th>
@@ -199,20 +199,20 @@ export default function Payments() {
               <tbody className="divide-y">
                 {orders.map((order) => (
                   <tr key={order.id}>
-                    <td>{format(new Date(order.createdAt), 'd MMM yyyy', { locale: fr })}</td>
-                    <td>
+                    <td data-label="Date">{format(new Date(order.createdAt), 'd MMM yyyy', { locale: fr })}</td>
+                    <td data-label="Événement">
                       {order.wedding ? (
                         <Link to={`/weddings/${order.wedding.id}/invitations`} className="text-primary-600 hover:underline">
                           {eventDisplayName(order.wedding)}
                         </Link>
                       ) : '-'}
                     </td>
-                    <td className="font-medium">{order.quantity}</td>
-                    <td className="font-medium">{formatMoney(order.totalAmount)}</td>
-                    <td className="font-mono text-sm text-gray-600">
+                    <td data-label="Quantité" className="font-medium">{order.quantity}</td>
+                    <td data-label="Montant" className="font-medium">{formatMoney(order.totalAmount)}</td>
+                    <td data-label="Référence" className="font-mono text-sm text-gray-600">
                       {order.transactionId || <span className="text-gray-400 italic">non soumise</span>}
                     </td>
-                    <td>{getStatusBadge(order.status)}</td>
+                    <td data-label="Statut">{getStatusBadge(order.status)}</td>
                   </tr>
                 ))}
               </tbody>

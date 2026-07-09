@@ -8,8 +8,8 @@
 /* Tokens sémantiques (site public) — une source de vérité light/dark. */
 /* Valeurs = canaux RGB séparés par des espaces pour que le modifieur   */
 /* <alpha-value> de Tailwind fonctionne (ex. bg-surface/60).            */
-/* La classe .dark est appliquée sur le wrapper de PublicLayout, donc   */
-/* le thème reste limité au site public (dashboard/admin non affectés). */
+/* La classe .dark est appliquée sur <html> (utils/theme.js), donc le    */
+/* thème s'applique à TOUTES les pages : public, auth, dashboard, admin. */
 /* ------------------------------------------------------------------ */
 @layer base {
   :root {
@@ -37,7 +37,9 @@
   }
 
   body {
-    @apply font-sans text-gray-900 antialiased;
+    @apply font-sans antialiased;
+    background-color: rgb(var(--bg));
+    color: rgb(var(--content));
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -71,7 +73,11 @@
   }
 
   .btn-ghost {
-    @apply btn bg-transparent text-gray-600 hover:bg-gray-100 focus:ring-gray-500 shadow-none;
+    @apply btn bg-transparent focus:ring-gray-500 shadow-none;
+    color: rgb(var(--muted));
+  }
+  .btn-ghost:hover {
+    background-color: rgb(var(--surface-2));
   }
 
   .btn-danger {
@@ -87,9 +93,15 @@
   }
 
   .input {
-    @apply w-full px-4 py-2 border border-gray-300 rounded-lg 
-           focus:ring-2 focus:ring-primary-500 focus:border-primary-500 
+    @apply w-full px-4 py-2 border rounded-lg
+           focus:ring-2 focus:ring-primary-500 focus:border-primary-500
            transition-colors duration-200 placeholder-gray-400;
+    border-color: rgb(var(--border));
+    background-color: rgb(var(--surface));
+    color: rgb(var(--content));
+  }
+  .input::placeholder {
+    color: rgb(var(--muted) / 0.7);
   }
 
   .input-error {
@@ -97,11 +109,13 @@
   }
 
   .label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply block text-sm font-medium mb-1;
+    color: rgb(var(--content));
   }
 
   .card {
-    @apply bg-white rounded-xl shadow-lg overflow-hidden;
+    @apply rounded-xl shadow-lg overflow-hidden;
+    background-color: rgb(var(--surface));
   }
 
   .card-hover {
@@ -137,46 +151,64 @@
   }
 
   .section-title {
-    @apply text-3xl font-serif font-bold text-gray-900;
+    @apply text-3xl font-serif font-bold;
+    color: rgb(var(--content));
   }
 
   .section-subtitle {
-    @apply text-lg text-gray-600 mt-2;
+    @apply text-lg mt-2;
+    color: rgb(var(--muted));
   }
 
   /* Table styles */
   .table-container {
-    @apply overflow-x-auto rounded-lg border border-gray-200;
+    @apply overflow-x-auto rounded-lg border;
+    border-color: rgb(var(--border));
   }
 
   .table {
-    @apply min-w-full divide-y divide-gray-200;
+    @apply min-w-full;
+  }
+  .table > :not([hidden]) ~ :not([hidden]),
+  .table tbody > :not([hidden]) ~ :not([hidden]) {
+    border-top: 1px solid rgb(var(--border));
   }
 
   .table th {
-    @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50;
+    @apply px-6 py-3 text-left text-xs font-medium uppercase tracking-wider;
+    color: rgb(var(--muted));
+    background-color: rgb(var(--surface-2));
   }
 
   .table td {
-    @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
+    @apply px-6 py-4 whitespace-nowrap text-sm;
+    color: rgb(var(--content));
   }
 
   .table tbody tr {
-    @apply hover:bg-gray-50 transition-colors;
+    @apply transition-colors;
+  }
+  .table tbody tr:hover {
+    background-color: rgb(var(--surface-2) / 0.6);
   }
 
   /* Sidebar styles */
   .sidebar-link {
-    @apply flex items-center px-4 py-3 text-gray-600 rounded-lg border-l-[3px] border-transparent
-           hover:bg-primary-50 hover:text-primary-700 hover:translate-x-0.5 transition-all duration-200;
+    @apply flex items-center px-4 py-3 rounded-lg border-l-[3px] border-transparent
+           hover:bg-primary-500/10 hover:text-primary-600 dark:hover:text-primary-400
+           hover:translate-x-0.5 transition-all duration-200;
+    color: rgb(var(--muted));
   }
 
-  .sidebar-link-active {
-    @apply bg-primary-100 text-primary-700 font-medium border-primary-600;
+  .sidebar-link-active,
+  .sidebar-link.sidebar-link-active {
+    @apply font-medium border-primary-600 bg-primary-500/[0.12]
+           text-primary-600 dark:text-primary-400;
   }
 
   .sidebar-section-label {
-    @apply px-4 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400;
+    @apply px-4 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider;
+    color: rgb(var(--muted) / 0.8);
   }
 
   /* Modal overlay */
@@ -185,25 +217,31 @@
   }
 
   .modal-content {
-    @apply bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto;
+    @apply rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto;
+    background-color: rgb(var(--surface));
   }
 
   /* Stats card */
   .stat-card {
-    @apply bg-white rounded-xl p-6 shadow-md border border-gray-100;
+    @apply rounded-xl p-6 shadow-md border;
+    background-color: rgb(var(--surface));
+    border-color: rgb(var(--border));
   }
 
   .stat-value {
-    @apply text-3xl font-bold text-gray-900;
+    @apply text-3xl font-bold;
+    color: rgb(var(--content));
   }
 
   .stat-label {
-    @apply text-sm text-gray-500 mt-1;
+    @apply text-sm mt-1;
+    color: rgb(var(--muted));
   }
 
-  /* Wedding invitation preview */
+  /* Wedding invitation preview — stays paper-white on purpose (WYSIWYG). */
   .invitation-preview {
     @apply bg-white rounded-xl shadow-lg p-8 text-center;
+    color: #1f2937;
   }
 
   /* Gradient backgrounds */
@@ -232,11 +270,13 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-track {
-    @apply bg-gray-100 rounded-full;
+    @apply rounded-full;
+    background-color: rgb(var(--surface-2));
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 rounded-full hover:bg-gray-400;
+    @apply rounded-full;
+    background-color: rgb(var(--border));
   }
 
   /* Hide scrollbar */
@@ -253,11 +293,159 @@
   .glass {
     @apply bg-white/80 backdrop-blur-lg;
   }
+  .dark .glass {
+    background-color: rgb(var(--surface) / 0.8);
+  }
 
   /* Text gradient */
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-gold-500;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* DARK-MODE REMAP DES UTILITAIRES NEUTRES BRUTS                        */
+/* Les pages dashboard/admin héritées utilisent des couleurs figées     */
+/* (bg-white, text-gray-*, border-gray-*). Plutôt que de réécrire ~1400 */
+/* occurrences, on remappe ces classes vers les tokens quand .dark est  */
+/* actif. Règles NON-layered → priorité sur les utilitaires Tailwind.   */
+/* On ne touche PAS aux couleurs vives (text-white, badges, gradients). */
+/* ------------------------------------------------------------------ */
+.dark .bg-white { background-color: rgb(var(--surface)); }
+.dark .bg-gray-50 { background-color: rgb(var(--bg)); }
+.dark .bg-gray-100 { background-color: rgb(var(--surface-2)); }
+.dark .bg-gray-200 { background-color: rgb(var(--surface-2)); }
+
+.dark .text-gray-900 { color: rgb(var(--content)); }
+.dark .text-gray-800 { color: rgb(var(--content)); }
+.dark .text-gray-700 { color: rgb(var(--content)); }
+.dark .text-gray-600 { color: rgb(var(--muted)); }
+.dark .text-gray-500 { color: rgb(var(--muted)); }
+.dark .text-gray-400 { color: rgb(var(--muted) / 0.85); }
+.dark .text-gray-300 { color: rgb(var(--muted) / 0.7); }
+
+.dark .border-gray-50,
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300 { border-color: rgb(var(--border)); }
+
+.dark .ring-gray-100,
+.dark .ring-gray-200,
+.dark .ring-gray-300 { --tw-ring-color: rgb(var(--border)); }
+
+.dark .divide-gray-50 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(var(--border)); }
+
+/* Hover states */
+.dark .hover\:bg-white:hover,
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover,
+.dark .hover\:bg-gray-200:hover,
+.dark .hover\:bg-gray-300:hover { background-color: rgb(var(--surface-2)); }
+
+.dark .hover\:text-gray-600:hover,
+.dark .hover\:text-gray-700:hover,
+.dark .hover\:text-gray-800:hover,
+.dark .hover\:text-gray-900:hover { color: rgb(var(--content)); }
+
+.dark .hover\:border-gray-300:hover { border-color: rgb(var(--border)); }
+
+/* High-opacity translucent whites are chrome (toolbars, chips) → make them
+   surface. Low-opacity whites (/5–/30) are decorative glows on coloured
+   gradients and are intentionally left white. */
+.dark .bg-white\/70 { background-color: rgb(var(--surface) / 0.7); }
+.dark .bg-white\/75 { background-color: rgb(var(--surface) / 0.75); }
+.dark .bg-white\/80 { background-color: rgb(var(--surface) / 0.8); }
+.dark .bg-white\/90 { background-color: rgb(var(--surface) / 0.9); }
+.dark .bg-white\/95 { background-color: rgb(var(--surface) / 0.95); }
+.dark .hover\:bg-white\/90:hover,
+.dark .hover\:bg-white:hover { background-color: rgb(var(--surface)); }
+
+/* Soften pure-colour tints that are too loud on a dark canvas. */
+.dark .bg-primary-50 { background-color: rgb(var(--surface-2)); }
+.dark .bg-primary-100 { background-color: rgb(255 92 0 / 0.15); }
+
+/* ------------------------------------------------------------------ */
+/* TABLEAUX RESPONSIVE                                                   */
+/* Sur mobile, chaque <tr> devient une carte et chaque <td> affiche son  */
+/* libellé de colonne via data-label — plus de scroll horizontal.        */
+/* Ajouter la classe `table-responsive` sur le <table> et un             */
+/* `data-label="Colonne"` sur chaque <td>. Cellule d'actions : classe    */
+/* `cell-actions` (pas de libellé, alignée à droite).                    */
+/* ------------------------------------------------------------------ */
+@media (max-width: 767px) {
+  table.table-responsive,
+  table.table-responsive > tbody {
+    display: block;
+    width: 100%;
+  }
+  table.table-responsive > thead {
+    display: none;
+  }
+  table.table-responsive > tbody > tr {
+    display: block;
+    border: 1px solid rgb(var(--border));
+    border-radius: 0.9rem;
+    background-color: rgb(var(--surface));
+    padding: 0.25rem 0.9rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  }
+  table.table-responsive > tbody > tr:hover {
+    background-color: rgb(var(--surface)) !important;
+  }
+  table.table-responsive > tbody > tr > td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    padding: 0.55rem 0 !important;
+    white-space: normal !important;
+    text-align: right;
+    border: 0 !important;
+    border-top: 1px solid rgb(var(--border) / 0.6) !important;
+  }
+  table.table-responsive > tbody > tr > td:first-child {
+    border-top: 0 !important;
+  }
+  table.table-responsive > tbody > tr > td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    margin-right: 1rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: rgb(var(--muted));
+    text-align: left;
+    white-space: nowrap;
+  }
+  /* Cells without a label (actions / full-width content) */
+  table.table-responsive > tbody > tr > td.cell-actions,
+  table.table-responsive > tbody > tr > td.cell-full {
+    justify-content: flex-end;
+  }
+  table.table-responsive > tbody > tr > td.cell-actions::before,
+  table.table-responsive > tbody > tr > td.cell-full::before {
+    content: none;
+  }
+  table.table-responsive > tbody > tr > td.cell-full {
+    justify-content: flex-start;
+  }
+}
+
+/* WYSIWYG invitation canvas: an invitation is a designed artifact (like a
+   printed card). Pin the light tokens locally so bg-white / text-gray inside the
+   canvas render exactly as designed, even when the app is in dark mode. */
+.wysiwyg-canvas {
+  --bg: 255 255 255;
+  --surface: 255 255 255;
+  --surface-2: 245 245 244;
+  --border: 231 229 228;
+  --content: 28 25 23;
+  --muted: 87 83 78;
 }
 
 /* Print styles */

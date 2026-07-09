@@ -475,7 +475,7 @@ export default function Invitations() {
           </div>
         ) : (
           <div className="table-container">
-            <table className="table">
+            <table className="table table-responsive">
               <thead>
                 <tr>
                   <th>Invité</th>
@@ -502,21 +502,21 @@ export default function Invitations() {
                     : null
                   return (
                     <tr key={invitation.id}>
-                      <td className="font-medium">
+                      <td data-label="Invité" className="font-medium">
                         {guest?.firstName || invitation.guest?.firstName} {guest?.lastName || invitation.guest?.lastName}
                       </td>
-                      <td>
+                      <td data-label="Code">
                         <code className="text-sm bg-gray-100 px-2 py-1 rounded">
                           {invitation.uniqueCode}
                         </code>
                       </td>
-                      <td>
+                      <td data-label="RSVP">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${badge.cls}`}>
                           <BadgeIcon className="h-3 w-3" />
                           {badge.label}
                         </span>
                       </td>
-                      <td>
+                      <td data-label="QR Code">
                         {invitation.qrCodeUrl && (
                           <img
                             src={invitation.qrCodeUrl}
@@ -526,10 +526,10 @@ export default function Invitations() {
                           />
                         )}
                       </td>
-                      <td>
+                      <td data-label="Vues">
                         <span className="font-semibold text-gray-700">{invitation.viewCount || 0}</span>
                       </td>
-                      <td>
+                      <td className="cell-actions">
                         <div className="flex items-center gap-2">
                           {inviteUrl && (
                             <a

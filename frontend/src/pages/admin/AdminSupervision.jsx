@@ -128,7 +128,7 @@ export default function AdminSupervision() {
               <p className="text-sm text-gray-400 py-6 text-center">Aucune tentative suspecte enregistrée.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm table-responsive">
                   <thead>
                     <tr className="text-left text-gray-400 border-b">
                       <th className="py-2 pr-4 font-medium">Quand</th>
@@ -140,14 +140,14 @@ export default function AdminSupervision() {
                   <tbody className="divide-y divide-gray-100">
                     {security.recent.map((e, i) => (
                       <tr key={i} className="text-gray-700">
-                        <td className="py-2 pr-4 whitespace-nowrap text-gray-500">{e.at ? format(new Date(e.at), 'd MMM HH:mm', { locale: fr }) : '—'}</td>
-                        <td className="py-2 pr-4 font-mono text-xs">{e.email || '—'}</td>
-                        <td className="py-2 pr-4">
+                        <td data-label="Quand" className="py-2 pr-4 whitespace-nowrap text-gray-500">{e.at ? format(new Date(e.at), 'd MMM HH:mm', { locale: fr }) : '—'}</td>
+                        <td data-label="Email" className="py-2 pr-4 font-mono text-xs">{e.email || '—'}</td>
+                        <td data-label="Raison" className="py-2 pr-4">
                           <span className="px-2 py-0.5 rounded-full text-xs bg-red-50 text-red-600">
                             {e.reason === 'unknown_email' ? 'Email inconnu' : e.reason === 'bad_password' ? 'Mot de passe' : (e.type || 'Échec')}
                           </span>
                         </td>
-                        <td className="py-2 pr-4 font-mono text-xs text-gray-500">{e.ip || '—'}</td>
+                        <td data-label="IP" className="py-2 pr-4 font-mono text-xs text-gray-500">{e.ip || '—'}</td>
                       </tr>
                     ))}
                   </tbody>

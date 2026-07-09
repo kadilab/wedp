@@ -173,7 +173,7 @@ export default function TemplatePreview({ template, className = '', weddingData 
     return (
       <div
         ref={containerRef}
-        className={`w-full overflow-hidden relative bg-white ${adaptive ? '' : 'h-full'} ${className}`}
+        className={`wysiwyg-canvas w-full overflow-hidden relative bg-white ${adaptive ? '' : 'h-full'} ${className}`}
         style={adaptive ? { aspectRatio: `${canvasWidth} / ${canvasHeight}` } : undefined}
       >
         {/* Google Fonts + custom uploaded fonts (shared source of truth) */}
@@ -446,7 +446,7 @@ export default function TemplatePreview({ template, className = '', weddingData 
 
   return (
     <div
-      className={`w-full overflow-hidden flex flex-col ${adaptive ? '' : 'h-full'} ${className}`}
+      className={`wysiwyg-canvas w-full overflow-hidden flex flex-col ${adaptive ? '' : 'h-full'} ${className}`}
       style={{ background: bgColor, fontFamily: headingFont, ...(adaptive ? { aspectRatio: '3 / 4' } : {}) }}
     >
       {/* Header gradient */}

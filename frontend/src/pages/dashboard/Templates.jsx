@@ -257,22 +257,20 @@ export default function Templates() {
                 <p className="text-sm text-gray-500 mt-1 line-clamp-2">
                   {template.description || 'Design élégant pour vos invitations'}
                 </p>
-                <div className="mt-3 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs px-2 py-1 bg-gold-100 text-gold-700 rounded">
-                      {EVENT_TYPE_LABELS[template.eventType] || 'Mariage'}
-                    </span>
-                    <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">
-                      {categories.find(c => c.value === template.category)?.label || template.category}
-                    </span>
-                  </div>
+                <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                  <span className="text-xs px-2 py-1 bg-gold-100 text-gold-700 rounded whitespace-nowrap">
+                    {EVENT_TYPE_LABELS[template.eventType] || 'Mariage'}
+                  </span>
+                  <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded whitespace-nowrap">
+                    {categories.find(c => c.value === template.category)?.label || template.category}
+                  </span>
                   {template.isPremium ? (
-                    <span className="text-xs text-gold-600 flex items-center">
+                    <span className="ml-auto text-xs text-gold-600 flex items-center whitespace-nowrap">
                       <StarSolidIcon className="h-3.5 w-3.5 mr-1" />
                       Premium
                     </span>
                   ) : (
-                    <span className="text-xs text-green-600 font-medium">Gratuit</span>
+                    <span className="ml-auto text-xs text-green-600 font-medium whitespace-nowrap">Gratuit</span>
                   )}
                 </div>
               </div>

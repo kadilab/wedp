@@ -121,7 +121,7 @@ export default function AdminWeddings() {
           </div>
         ) : (
           <div className="table-container">
-            <table className="table">
+            <table className="table table-responsive">
               <thead>
                 <tr>
                   <th>Type d'événement</th>
@@ -135,7 +135,7 @@ export default function AdminWeddings() {
               <tbody className="divide-y">
                 {weddings.map((wedding) => (
                   <tr key={wedding.id}>
-                    <td>
+                    <td data-label="Événement">
                       <div className="flex items-center">
                         <div className="h-10 w-10 rounded-full bg-rose-100 flex items-center justify-center">
                           <HeartIcon className="h-5 w-5 text-rose-500" />
@@ -148,25 +148,25 @@ export default function AdminWeddings() {
                         </div>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Propriétaire">
                       <p className="text-sm text-gray-900">
                         {wedding.user?.firstName} {wedding.user?.lastName}
                       </p>
                       <p className="text-xs text-gray-500">{wedding.user?.email}</p>
                     </td>
-                    <td className="text-sm text-gray-600">
+                    <td data-label="Date" className="text-sm text-gray-600">
                       {wedding.weddingDate
                         ? format(new Date(wedding.weddingDate), 'd MMM yyyy', { locale: fr })
                         : '-'}
                     </td>
-                    <td>
+                    <td data-label="Invités">
                       <span className="flex items-center text-sm text-gray-600">
                         <UserGroupIcon className="h-4 w-4 mr-1" />
                         {wedding._count?.guests || 0}
                       </span>
                     </td>
-                    <td>{getStatusBadge(wedding.status)}</td>
-                    <td>
+                    <td data-label="Statut">{getStatusBadge(wedding.status)}</td>
+                    <td className="cell-actions">
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => {

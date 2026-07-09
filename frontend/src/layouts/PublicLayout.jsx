@@ -7,6 +7,7 @@ import {
 import api from '../services/api'
 import { useAuthStore } from '../stores/authStore'
 import useSiteSettingsStore from '../stores/siteSettingsStore'
+import { useTheme } from '../utils/theme'
 
 const NAV = [
   { label: 'Accueil', to: '/', hash: false },
@@ -15,22 +16,13 @@ const NAV = [
   { label: 'Contact', to: '/#contact', hash: true },
 ]
 
-/** Read the initial public theme: stored choice → OS preference. */
-function initialTheme() {
-  if (typeof window === 'undefined') return 'light'
-  const stored = localStorage.getItem('public-theme')
-  if (stored === 'dark' || stored === 'light') return stored
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-}
-
 export default function PublicLayout() {
   const { isAuthenticated, user } = useAuthStore()
   const { siteName, siteLogo, logoHeight, contactEmail, supportPhone } = useSiteSettingsStore()
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const [theme, setTheme] = useState(initialTheme)
+  const { isDark, toggle: toggleTheme } = useTheme()
   const location = useLocation()
-  const isDark = theme === 'dark'
 
   useEffect(() => {
     if (sessionStorage.getItem('visit-tracked')) return
@@ -46,14 +38,6 @@ export default function PublicLayout() {
   }, [])
 
   useEffect(() => { setMenuOpen(false) }, [location.pathname])
-
-  const toggleTheme = () => {
-    setTheme((t) => {
-      const next = t === 'dark' ? 'light' : 'dark'
-      localStorage.setItem('public-theme', next)
-      return next
-    })
-  }
 
   const dashboardLink = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN' ? '/admin' : '/dashboard'
   const initial = (siteName || 'W').trim().charAt(0).toUpperCase()
@@ -84,7 +68,7 @@ export default function PublicLayout() {
   )
 
   return (
-    <div className={`pub-shell flex min-h-screen flex-col bg-bg text-content ${isDark ? 'dark' : ''}`}>
+    <div className="pub-shell flex min-h-screen flex-col bg-bg text-content">
       <style>{`
         .pub-shell { font-family: 'Montserrat', system-ui, sans-serif; }
         .pub-shell .brand-serif { font-family: 'Playfair Display', Georgia, serif; }

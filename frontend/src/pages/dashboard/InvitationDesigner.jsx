@@ -1162,7 +1162,7 @@ export default function InvitationDesigner() {
               {/* Current background preview */}
               {backgroundImage && (
                 <div className="relative rounded-lg overflow-hidden border bg-gray-100">
-                  <div style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}`, maxHeight: '240px', margin: '0 auto' }} className="relative bg-white">
+                  <div style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}`, maxHeight: '240px', margin: '0 auto' }} className="wysiwyg-canvas relative bg-white">
                     <img src={backgroundImage} alt="Fond" className="w-full h-full" style={{ objectFit: 'contain', objectPosition: 'center' }} />
                   </div>
                   <button
@@ -1299,7 +1299,7 @@ export default function InvitationDesigner() {
               ref={canvasRef}
               data-canvas="true"
               onMouseDown={handleCanvasMouseDown}
-              className="relative bg-white shadow-2xl overflow-hidden select-none"
+              className="wysiwyg-canvas relative bg-white shadow-2xl overflow-hidden select-none"
               style={{
                 width: canvasWidth,
                 height: canvasHeight,

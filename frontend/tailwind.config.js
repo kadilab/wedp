@@ -70,6 +70,11 @@ export default {
           950: '#4c0519',
         },
       },
+      // Default border color follows the theme token, so bare `border`/`border-b`
+      // elements (no explicit colour) adapt to dark mode too.
+      borderColor: {
+        DEFAULT: 'rgb(var(--border) / <alpha-value>)',
+      },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         serif: ['Playfair Display', 'Georgia', 'serif'],

@@ -200,7 +200,7 @@ export default function CreatorEarnings() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full table-responsive">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Template</th>
@@ -213,16 +213,16 @@ export default function CreatorEarnings() {
               <tbody className="divide-y divide-gray-200">
                 {earnings.map(earning => (
                   <tr key={earning.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                    <td data-label="Template" className="px-6 py-4 text-sm font-medium text-gray-900">
                       {earning.templateName}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td data-label="Commission %" className="px-6 py-4 text-sm text-gray-600">
                       {earning.commissionPercentage}%
                     </td>
-                    <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                    <td data-label="Amount" className="px-6 py-4 text-sm font-semibold text-gray-900">
                       {formatMoney(earning.commissionAmount)}
                     </td>
-                    <td className="px-6 py-4">
+                    <td data-label="Status" className="px-6 py-4">
                       <span
                         className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${
                           earning.status === 'PENDING'
@@ -235,7 +235,7 @@ export default function CreatorEarnings() {
                         {earning.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td data-label="Date" className="px-6 py-4 text-sm text-gray-600">
                       {new Date(earning.usedAt).toLocaleDateString()}
                     </td>
                   </tr>
