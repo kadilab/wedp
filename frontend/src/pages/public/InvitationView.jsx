@@ -46,17 +46,23 @@ const ChurchIcon = ({ className }) => (
 // Animations only run here (public invitation), never in the editor.
 function AnimatedElement({ el, style, className, children }) {
   const anim = el.animation
+  const rot = el.rotation || 0
   if (!isAnimated(anim)) {
     return <div className={className} style={style}>{children}</div>
   }
   const entrance = getEntranceMotion(anim)
   const loop = getLoopMotion(anim)
+  // Framer drives transforms via individual motion values, so a CSS
+  // `transform: rotate(...)` in `style` gets overwritten by `animate`. Strip it
+  // and re-apply the rotation as a motion value so it survives the animation.
+  const { transform, ...restStyle } = style || {}
+  const rotProps = rot ? { rotate: rot } : {}
   return (
     <motion.div
       className={className}
-      style={style}
-      initial={entrance?.initial}
-      animate={entrance?.animate}
+      style={restStyle}
+      initial={{ ...entrance?.initial, ...rotProps }}
+      animate={{ ...entrance?.animate, ...rotProps }}
       transition={entrance?.transition}
     >
       {loop ? (
@@ -637,7 +643,7 @@ export default function InvitationView() {
                 <AnimatedElement
                   key={el.id || idx}
                   el={el}
-                  className={`absolute break-words ${hasArc(el) ? 'overflow-visible' : 'overflow-hidden'}`}
+                  className="absolute break-words overflow-visible"
                   style={{
                     left: elLeft, top: elTop,
                     width: el.width, height: el.height,

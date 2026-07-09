@@ -395,7 +395,7 @@ export default function TemplatePreview({ template, className = '', weddingData 
                       letterSpacing: el.letterSpacing != null ? `${el.letterSpacing}px` : undefined,
                       textTransform: el.textTransform || 'none',
                       textShadow: textShadow !== 'none' ? `${textShadow} ${shadowColor}` : 'none',
-                      overflow: hasArc(el) ? 'visible' : 'hidden',
+                      overflow: 'visible',
                       wordBreak: 'break-words',
                       lineHeight: el.lineHeight || 1.2,
                       transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,

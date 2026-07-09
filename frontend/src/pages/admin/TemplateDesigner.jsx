@@ -2125,7 +2125,7 @@ export default function TemplateDesigner({ clientMode = false }) {
       lineHeight: el.lineHeight || 1.2,
       ...(textGradientStyle(el) || {})
     }
-    const textClass = 'block w-full h-full overflow-hidden whitespace-pre-wrap break-words leading-tight'
+    const textClass = 'block w-full h-full overflow-visible whitespace-pre-wrap break-words leading-tight'
 
     if (el.autoFit) {
       return <AutoFitText text={text} fontSize={el.fontSize} className={textClass} style={textStyle} />
