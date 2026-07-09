@@ -248,9 +248,17 @@ export default function PublicLayout() {
             </div>
           </div>
 
-          <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-border pt-8 text-xs text-muted sm:flex-row">
-            <p>© {new Date().getFullYear()} {siteName}. Tous droits réservés.</p>
-            <p>Conçu avec soin pour vos plus beaux événements.</p>
+          <div className="mt-12 flex flex-col gap-4 border-t border-border pt-8 text-xs text-muted">
+            <nav className="flex flex-wrap justify-center gap-x-5 gap-y-2 sm:justify-start">
+              <Link to="/legal/conditions" className="transition-colors hover:text-content">Conditions générales</Link>
+              <Link to="/legal/confidentialite" className="transition-colors hover:text-content">Confidentialité</Link>
+              <Link to="/legal/remboursement" className="transition-colors hover:text-content">Remboursement</Link>
+              <Link to="/legal/mentions" className="transition-colors hover:text-content">Mentions légales</Link>
+            </nav>
+            <div className="flex flex-col items-center justify-between gap-2 sm:flex-row">
+              <p>© {new Date().getFullYear()} {siteName}. Tous droits réservés.</p>
+              <p>Conçu avec soin pour vos plus beaux événements.</p>
+            </div>
           </div>
         </div>
       </footer>

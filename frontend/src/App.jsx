@@ -17,6 +17,7 @@ const Login = lazy(() => import('./pages/auth/Login'))
 const Register = lazy(() => import('./pages/auth/Register'))
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
 const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'))
+const VerifyEmail = lazy(() => import('./pages/auth/VerifyEmail'))
 
 const Dashboard = lazy(() => import('./pages/dashboard/Dashboard'))
 const Weddings = lazy(() => import('./pages/dashboard/Weddings'))
@@ -40,6 +41,7 @@ const CreatorBankAccounts = lazy(() => import('./pages/dashboard/CreatorBankAcco
 const CreatorPayoutRequest = lazy(() => import('./pages/dashboard/CreatorPayoutRequest'))
 const Marketplace = lazy(() => import('./pages/marketplace/Marketplace'))
 const MarketplaceTemplateDetail = lazy(() => import('./pages/marketplace/MarketplaceTemplateDetail'))
+const LegalPage = lazy(() => import('./pages/public/legal/LegalPage'))
 const TemplatePublish = lazy(() => import('./pages/dashboard/TemplatePublish'))
 
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
@@ -85,6 +87,8 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/marketplace/templates/:templateId" element={<MarketplaceTemplateDetail />} />
+        <Route path="/legal" element={<LegalPage />} />
+        <Route path="/legal/:slug" element={<LegalPage />} />
       </Route>
 
       {/* Auth Routes */}
@@ -97,6 +101,7 @@ function App() {
         } />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/verify-email/:token" element={<VerifyEmail />} />
       </Route>
 
       {/* Public Invitation View */}

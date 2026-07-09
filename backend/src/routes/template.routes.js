@@ -462,6 +462,16 @@ router.post('/:id/fork', authenticate, async (req, res) => {
     // - Another user's private custom template: forbidden.
     const isOwner = source.userId === req.user.id;
     const isApprovedMarketplace = source.marketplaceStatus === 'APPROVED';
+    const isCreator = req.user.isCreator || req.user.role === 'CREATOR';
+
+    // A creator may only duplicate their OWN custom templates (plus admin base
+    // templates, which are not "custom"). They must never clone another
+    // creator's template — even an approved marketplace one — to avoid copying
+    // someone else's design. Clients keep the right to fork approved marketplace
+    // templates (to use for their own event; the original creator still earns).
+    if (source.isCustom && !isOwner && isCreator) {
+      return res.status(403).json({ error: "En tant que créateur, vous ne pouvez dupliquer que vos propres templates." });
+    }
 
     if (source.isCustom && !isOwner && !isApprovedMarketplace) {
       return res.status(403).json({ error: "Vous ne pouvez pas cloner le template d'un autre utilisateur" });

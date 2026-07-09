@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const logger = require('./logger');
 const { recordOrderCommission } = require('./marketplace');
 const { createNotification, NotificationTemplates } = require('./notifications');
+const { sendInvitationOrderReceiptEmail } = require('./email');
 
 const prisma = new PrismaClient();
 
@@ -76,6 +77,12 @@ async function approveInvitationOrder(orderId, { processedBy = null, io = null }
     });
   } catch (err) {
     logger.error('Invitation order approve notification failed:', err);
+  }
+
+  // Email receipt to the buyer (async, best-effort — never blocks approval).
+  if (order.user?.email) {
+    sendInvitationOrderReceiptEmail(order.user, updatedOrder, order.wedding)
+      .catch(err => logger.error('Invitation order receipt email failed:', err));
   }
 
   return { order: updatedOrder, alreadyApproved: false };

@@ -30,6 +30,11 @@ const SCHEMA_PATCHES = {
     // QR / barcode: the code style is defined on the template and inherited here.
     code_type: "ADD COLUMN `code_type` VARCHAR(191) NULL DEFAULT 'qr'",
   },
+  users: {
+    // Email confirmation (verification link sent at registration).
+    email_verified:    "ADD COLUMN `email_verified` BOOLEAN NOT NULL DEFAULT false",
+    email_verify_token: "ADD COLUMN `email_verify_token` VARCHAR(191) NULL",
+  },
 };
 
 async function tableExists(prisma, table) {

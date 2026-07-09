@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const { registerValidation, loginValidation } = require('../middleware/validation.middleware');
 const { authenticate } = require('../middleware/auth.middleware');
-const { sendWelcomeEmail, sendPasswordResetEmail } = require('../utils/email');
+const { sendWelcomeEmail, sendPasswordResetEmail, sendVerificationEmail } = require('../utils/email');
 const { generateToken } = require('../utils/helpers');
 const logger = require('../utils/logger');
 const { createNotification, NotificationTemplates } = require('../utils/notifications');
@@ -38,6 +38,9 @@ router.post('/register', registerValidation, async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    // Email-confirmation token (sent by email; verified via /verify-email).
+    const emailVerifyToken = generateToken();
+
     // Create user
     const user = await prisma.user.create({
       data: {
@@ -47,7 +50,9 @@ router.post('/register', registerValidation, async (req, res) => {
         lastName,
         phone,
         role: 'CLIENT',
-        status: 'ACTIVE'
+        status: 'ACTIVE',
+        emailVerified: false,
+        emailVerifyToken
       },
       select: {
         id: true,
@@ -55,6 +60,7 @@ router.post('/register', registerValidation, async (req, res) => {
         firstName: true,
         lastName: true,
         role: true,
+        emailVerified: true,
         createdAt: true
       }
     });
@@ -78,8 +84,9 @@ router.post('/register', registerValidation, async (req, res) => {
       }
     });
 
-    // Send welcome email (async, don't wait)
+    // Send welcome + email-confirmation emails (async, don't wait)
     sendWelcomeEmail(user).catch(err => logger.error('Welcome email failed:', err));
+    sendVerificationEmail(user, emailVerifyToken).catch(err => logger.error('Verification email failed:', err));
 
     // Send welcome notification
     const welcome = NotificationTemplates.welcome(user.firstName);
@@ -166,7 +173,8 @@ router.post('/login', loginValidation, async (req, res) => {
         isCreator: user.isCreator,
         creatorProfileId: user.creatorProfileId,
         preferredLanguage: user.preferredLanguage,
-        darkMode: user.darkMode
+        darkMode: user.darkMode,
+        emailVerified: user.emailVerified
       },
       token
     });
@@ -260,7 +268,8 @@ router.post('/google', async (req, res) => {
         isCreator: user.isCreator,
         creatorProfileId: user.creatorProfileId,
         preferredLanguage: user.preferredLanguage,
-        darkMode: user.darkMode
+        darkMode: user.darkMode,
+        emailVerified: user.emailVerified
       },
       token
     });
@@ -292,6 +301,7 @@ router.get('/me', authenticate, async (req, res) => {
         status: true,
         preferredLanguage: true,
         darkMode: true,
+        emailVerified: true,
         createdAt: true,
         _count: {
           select: { weddings: true }
@@ -441,6 +451,60 @@ router.post('/logout', authenticate, async (req, res) => {
   } catch (error) {
     logger.error('Logout error:', error);
     res.json({ message: 'Déconnexion réussie' });
+  }
+});
+
+/**
+ * @route   GET /api/auth/verify-email/:token
+ * @desc    Confirm a user's email address from the link sent by email
+ * @access  Public
+ */
+router.get('/verify-email/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!token) return res.status(400).json({ error: 'Token manquant' });
+
+    const user = await prisma.user.findFirst({ where: { emailVerifyToken: token } });
+    if (!user) {
+      return res.status(400).json({ error: 'Lien de confirmation invalide ou déjà utilisé' });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerified: true, emailVerifyToken: null }
+    });
+
+    res.json({ message: 'Adresse email confirmée avec succès', email: user.email });
+  } catch (error) {
+    logger.error('Verify email error:', error);
+    res.status(500).json({ error: 'Erreur lors de la confirmation de l\'email' });
+  }
+});
+
+/**
+ * @route   POST /api/auth/resend-verification
+ * @desc    Resend the email-confirmation link to the current user
+ * @access  Private
+ */
+router.post('/resend-verification', authenticate, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    if (user.emailVerified) {
+      return res.json({ message: 'Votre email est déjà confirmé' });
+    }
+
+    const emailVerifyToken = generateToken();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { emailVerifyToken }
+    });
+
+    await sendVerificationEmail(user, emailVerifyToken);
+    res.json({ message: 'Email de confirmation renvoyé' });
+  } catch (error) {
+    logger.error('Resend verification error:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'envoi de l\'email' });
   }
 });
 

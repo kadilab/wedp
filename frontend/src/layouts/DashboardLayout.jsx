@@ -3,7 +3,8 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from 'react-query'
 import { useAuthStore } from '../stores/authStore'
 import useSiteSettingsStore from '../stores/siteSettingsStore'
-import { adminAPI } from '../services/api'
+import { adminAPI, authAPI } from '../services/api'
+import toast from 'react-hot-toast'
 import NotificationDropdown from '../components/notifications/NotificationDropdown'
 import {
   HomeIcon,
@@ -106,6 +107,19 @@ export default function DashboardLayout({ isAdmin = false }) {
   const { isDark, toggle: toggleTheme } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
+  const [resending, setResending] = useState(false)
+
+  const resendVerification = async () => {
+    setResending(true)
+    try {
+      await authAPI.resendVerification()
+      toast.success('Email de confirmation renvoyé. Vérifiez votre boîte mail.')
+    } catch (e) {
+      toast.error(e.response?.data?.error || "Échec de l'envoi. Réessayez plus tard.")
+    } finally {
+      setResending(false)
+    }
+  }
 
   const navSections = isAdmin
     ? adminNavSections
@@ -321,6 +335,23 @@ export default function DashboardLayout({ isAdmin = false }) {
             </div>
           </div>
         </header>
+
+        {/* Email verification banner */}
+        {user && user.emailVerified === false && (
+          <div className="mx-4 mt-4 flex flex-col gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between lg:mx-8 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+            <span className="flex items-center gap-2">
+              <span aria-hidden>✉️</span>
+              Confirmez votre adresse email pour sécuriser votre compte. Vérifiez votre boîte mail (et les spams).
+            </span>
+            <button
+              onClick={resendVerification}
+              disabled={resending}
+              className="shrink-0 self-start rounded-full bg-amber-500 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-600 disabled:opacity-60 sm:self-auto"
+            >
+              {resending ? 'Envoi…' : "Renvoyer l'email"}
+            </button>
+          </div>
+        )}
 
         {/* Page content */}
         <main className="p-4 lg:p-8">

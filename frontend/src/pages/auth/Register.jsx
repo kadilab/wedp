@@ -194,11 +194,11 @@ export default function Register() {
           />
           <label htmlFor="terms" className="ml-2 text-sm text-muted">
             J'accepte les{' '}
-            <a href="#" className="text-primary-600 hover:text-primary-700 dark:text-primary-400">
+            <a href="/legal/conditions" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-700 dark:text-primary-400">
               conditions d'utilisation
             </a>{' '}
             et la{' '}
-            <a href="#" className="text-primary-600 hover:text-primary-700 dark:text-primary-400">
+            <a href="/legal/confidentialite" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-700 dark:text-primary-400">
               politique de confidentialité
             </a>
           </label>

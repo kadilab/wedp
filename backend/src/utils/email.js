@@ -276,10 +276,123 @@ async function sendPaymentApprovedEmail(user, wedding) {
   });
 }
 
+/**
+ * Send an email-address confirmation link to a freshly-registered user.
+ */
+async function sendVerificationEmail(user, token) {
+  const siteName = await getSiteName();
+  const verifyUrl = `${process.env.FRONTEND_URL}/verify-email/${token}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #ff7a38, #ff5c00); padding: 30px; text-align: center; }
+        .header h1 { color: white; margin: 0; }
+        .content { padding: 30px; background: #f9f9f9; }
+        .button { display: inline-block; padding: 14px 34px; background: #ff5c00; color: white; text-decoration: none; border-radius: 8px; margin-top: 20px; font-weight: bold; }
+        .muted { color: #6b7280; font-size: 13px; word-break: break-all; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>✉️ Confirmez votre email</h1>
+        </div>
+        <div class="content">
+          <h2>Bonjour ${user.firstName},</h2>
+          <p>Merci de votre inscription sur ${siteName}. Pour activer pleinement votre compte, confirmez votre adresse email en cliquant sur le bouton ci-dessous :</p>
+          <a href="${verifyUrl}" class="button">Confirmer mon adresse email</a>
+          <p style="margin-top:24px;" class="muted">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br>${verifyUrl}</p>
+          <p style="margin-top:20px;">Si vous n'êtes pas à l'origine de cette inscription, ignorez cet email.</p>
+        </div>
+        <div class="footer">
+          <p>© ${new Date().getFullYear()} ${siteName}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: user.email,
+    subject: `Confirmez votre adresse email - ${siteName}`,
+    html
+  });
+}
+
+/**
+ * Send a payment receipt after an invitation-quota order is paid/approved.
+ */
+async function sendInvitationOrderReceiptEmail(user, order, wedding) {
+  const siteName = await getSiteName();
+  const amount = `${Number(order.totalAmount || 0).toLocaleString('fr-FR')} FC`;
+  const dateStr = new Date(order.processedAt || Date.now()).toLocaleString('fr-FR');
+  const ref = order.transactionId || order.id;
+  const eventName = wedding ? `${wedding.brideName || ''}${wedding.groomName ? ` & ${wedding.groomName}` : ''}`.trim() : '';
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #28a745; padding: 30px; text-align: center; }
+        .header h1 { color: white; margin: 0; }
+        .content { padding: 30px; background: #f9f9f9; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; background: #fff; border-radius: 8px; overflow: hidden; }
+        td { padding: 12px 16px; border-bottom: 1px solid #eee; font-size: 14px; }
+        td.k { color: #6b7280; }
+        td.v { text-align: right; font-weight: 600; }
+        .total td { font-size: 16px; background: #f0fdf4; }
+        .button { display: inline-block; padding: 12px 30px; background: #ff5c00; color: white; text-decoration: none; border-radius: 8px; margin-top: 10px; font-weight: bold; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🧾 Reçu de paiement</h1>
+        </div>
+        <div class="content">
+          <h2>Merci ${user.firstName} !</h2>
+          <p>Votre paiement a bien été reçu. Voici votre reçu :</p>
+          <table>
+            ${eventName ? `<tr><td class="k">Événement</td><td class="v">${eventName}</td></tr>` : ''}
+            <tr><td class="k">Quantité d'invitations</td><td class="v">${order.quantity}</td></tr>
+            <tr><td class="k">Référence transaction</td><td class="v">${ref}</td></tr>
+            <tr><td class="k">Date</td><td class="v">${dateStr}</td></tr>
+            <tr class="total"><td class="k">Montant payé</td><td class="v">${amount}</td></tr>
+          </table>
+          <p>Vos crédits d'invitations ont été ajoutés à votre compte.</p>
+          ${wedding ? `<a href="${process.env.FRONTEND_URL}/weddings/${wedding.id}/invitations" class="button">Voir mes invitations</a>` : ''}
+        </div>
+        <div class="footer">
+          <p>Conservez ce reçu. © ${new Date().getFullYear()} ${siteName}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: user.email,
+    subject: `Reçu de paiement (${amount}) - ${siteName}`,
+    html
+  });
+}
+
 module.exports = {
   sendEmail,
   sendWelcomeEmail,
   sendPasswordResetEmail,
   sendInvitationEmail,
-  sendPaymentApprovedEmail
+  sendPaymentApprovedEmail,
+  sendVerificationEmail,
+  sendInvitationOrderReceiptEmail
 };
