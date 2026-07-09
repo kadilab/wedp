@@ -260,14 +260,17 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-httpServer.listen(PORT, () => {
-  logger.info(`🚀 Server running on port ${PORT}`);
-  logger.info(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
-  // Self-heal known schema drift (adds missing columns to creator_bank_accounts
-  // on drifted production DBs). Non-blocking, idempotent, no-op when up to date.
-  const { ensureSchema } = require('./utils/ensureSchema');
-  ensureSchema(prisma);
+// Self-heal known schema drift (adds any missing columns on drifted DBs, e.g.
+// weddings.code_type). Idempotent + no-op when up to date. Runs BEFORE accepting
+// traffic so the first requests after a deploy never 500 on a missing column.
+// It never throws (errors are caught inside), so startup always proceeds.
+const { ensureSchema } = require('./utils/ensureSchema');
+ensureSchema(prisma).finally(() => {
+  httpServer.listen(PORT, () => {
+    logger.info(`🚀 Server running on port ${PORT}`);
+    logger.info(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+  });
 });
 
 // Graceful shutdown
