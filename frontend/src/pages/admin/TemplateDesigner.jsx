@@ -2444,8 +2444,15 @@ export default function TemplateDesigner({ clientMode = false }) {
                       max={MAX_CANVAS_DIMENSION}
                       value={canvasWidth}
                       onChange={(e) => {
-                        setCanvasWidth(Math.max(MIN_CANVAS_DIMENSION, Math.min(MAX_CANVAS_DIMENSION, parseInt(e.target.value) || MIN_CANVAS_DIMENSION)))
+                        // Clamp only the max while typing so intermediate digits
+                        // (e.g. "8" then "80" then "800") aren't snapped to the min.
+                        const v = parseInt(e.target.value, 10)
+                        if (!Number.isNaN(v)) setCanvasWidth(Math.min(MAX_CANVAS_DIMENSION, v))
                         setSelectedFormat('custom')
+                      }}
+                      onBlur={(e) => {
+                        const v = parseInt(e.target.value, 10)
+                        setCanvasWidth(Math.max(MIN_CANVAS_DIMENSION, Math.min(MAX_CANVAS_DIMENSION, Number.isNaN(v) ? MIN_CANVAS_DIMENSION : v)))
                       }}
                       className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
                     />
@@ -2458,8 +2465,13 @@ export default function TemplateDesigner({ clientMode = false }) {
                       max={MAX_CANVAS_DIMENSION}
                       value={canvasHeight}
                       onChange={(e) => {
-                        setCanvasHeight(Math.max(MIN_CANVAS_DIMENSION, Math.min(MAX_CANVAS_DIMENSION, parseInt(e.target.value) || MIN_CANVAS_DIMENSION)))
+                        const v = parseInt(e.target.value, 10)
+                        if (!Number.isNaN(v)) setCanvasHeight(Math.min(MAX_CANVAS_DIMENSION, v))
                         setSelectedFormat('custom')
+                      }}
+                      onBlur={(e) => {
+                        const v = parseInt(e.target.value, 10)
+                        setCanvasHeight(Math.max(MIN_CANVAS_DIMENSION, Math.min(MAX_CANVAS_DIMENSION, Number.isNaN(v) ? MIN_CANVAS_DIMENSION : v)))
                       }}
                       className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
                     />
@@ -4061,18 +4073,24 @@ export default function TemplateDesigner({ clientMode = false }) {
                           </label>
                           <div className="flex items-center gap-2">
                             <input
-                              type="range" min="6" max="200"
+                              type="range" min="6" max="400"
                               value={selectedElement.fontSize || 16}
                               onChange={(e) => updateElement(selectedId, { fontSize: parseInt(e.target.value) })}
                               className="flex-1 accent-primary-600"
                             />
                             <input
                               type="number"
-                              min="6" max="200"
+                              min="6" max="400"
                               value={selectedElement.fontSize || 16}
                               onChange={(e) => {
-                                const v = Math.max(6, Math.min(200, parseInt(e.target.value) || 6))
-                                updateElement(selectedId, { fontSize: v })
+                                // Clamp only the max while typing so the leading
+                                // digit isn't snapped up to the min (e.g. "18").
+                                const v = parseInt(e.target.value, 10)
+                                if (!Number.isNaN(v)) updateElement(selectedId, { fontSize: Math.min(400, v) })
+                              }}
+                              onBlur={(e) => {
+                                const v = parseInt(e.target.value, 10)
+                                updateElement(selectedId, { fontSize: Math.max(6, Math.min(400, Number.isNaN(v) ? 16 : v)) })
                               }}
                               className="w-16 px-2 py-1 text-xs border rounded text-center focus:ring-1 focus:ring-primary-500"
                             />
