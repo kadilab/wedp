@@ -77,6 +77,20 @@ class SocketService {
     }
   }
 
+  onGuestbookPost(callback) {
+    if (this.socket) {
+      this.socket.on('guestbook-post', callback)
+      this.listeners.set('guestbook-post', callback)
+    }
+  }
+
+  offGuestbookPost() {
+    if (this.socket && this.listeners.has('guestbook-post')) {
+      this.socket.off('guestbook-post', this.listeners.get('guestbook-post'))
+      this.listeners.delete('guestbook-post')
+    }
+  }
+
   onNotification(callback) {
     if (this.socket) {
       this.socket.on('notification', callback)

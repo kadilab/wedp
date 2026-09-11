@@ -4,8 +4,106 @@ const { PrismaClient } = require('@prisma/client');
 const logger = require('../utils/logger');
 const { createNotification, NotificationTemplates } = require('../utils/notifications');
 const { eventDisplayName } = require('../utils/helpers');
+const { uploadSingle, handleUploadError } = require('../middleware/upload.middleware');
 
 const prisma = new PrismaClient();
+
+// NOTE: these two routes use a static 'guestbook' first segment and MUST stay
+// registered before the generic '/:weddingSlug' and '/:weddingSlug/:invitationCode'
+// routes below — otherwise Express would match "guestbook" as a weddingSlug.
+
+/**
+ * @route   GET /api/public/guestbook/:weddingSlug
+ * @desc    Get the approved guestbook wall for a wedding (+ id, to join the socket room)
+ * @access  Public
+ */
+router.get('/guestbook/:weddingSlug', async (req, res) => {
+  try {
+    const wedding = await prisma.wedding.findUnique({
+      where: { slug: req.params.weddingSlug },
+      select: { id: true, guestbookEnabled: true, brideName: true, groomName: true, eventTitle: true, eventType: true }
+    });
+
+    if (!wedding || !wedding.guestbookEnabled) {
+      return res.status(404).json({ error: 'Livre d\'or non disponible' });
+    }
+
+    const posts = await prisma.guestbookPost.findMany({
+      where: { weddingId: wedding.id, status: 'APPROVED' },
+      orderBy: { createdAt: 'desc' },
+      take: 100
+    });
+
+    res.json({
+      wedding: { id: wedding.id, title: eventDisplayName(wedding) },
+      posts
+    });
+  } catch (error) {
+    logger.error('Get guestbook wall error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+/**
+ * @route   POST /api/public/guestbook/:weddingSlug
+ * @desc    Submit a guestbook post (message and/or photo)
+ * @access  Public
+ */
+router.post('/guestbook/:weddingSlug', uploadSingle('guestbookPhoto'), handleUploadError, async (req, res) => {
+  try {
+    const wedding = await prisma.wedding.findUnique({
+      where: { slug: req.params.weddingSlug }
+    });
+
+    if (!wedding || !wedding.guestbookEnabled) {
+      return res.status(404).json({ error: 'Livre d\'or non disponible' });
+    }
+
+    const authorName = (req.body.authorName || '').trim();
+    const message = (req.body.message || '').trim();
+    const photoUrl = req.file ? `/uploads/guestbook/${req.file.filename}` : null;
+
+    if (!authorName) {
+      return res.status(400).json({ error: 'Votre nom est requis' });
+    }
+    if (!message && !photoUrl) {
+      return res.status(400).json({ error: 'Ajoutez un message ou une photo' });
+    }
+
+    const post = await prisma.guestbookPost.create({
+      data: {
+        weddingId: wedding.id,
+        authorName,
+        message: message || null,
+        photoUrl,
+        status: wedding.guestbookAutoApprove ? 'APPROVED' : 'PENDING'
+      }
+    });
+
+    const io = req.app.get('io');
+    if (post.status === 'APPROVED') {
+      if (io) {
+        io.to(`wedding-${wedding.id}`).emit('guestbook-post', { weddingId: wedding.id, post });
+      }
+    } else {
+      const notif = NotificationTemplates.guestbookPostPending(eventDisplayName(wedding));
+      createNotification({
+        userId: wedding.userId,
+        ...notif,
+        data: { link: `/weddings/${wedding.id}/guestbook`, weddingId: wedding.id },
+        io
+      }).catch(err => logger.error('Guestbook notification failed:', err));
+    }
+
+    res.json({
+      message: post.status === 'APPROVED' ? 'Merci pour votre publication !' : 'Merci ! Votre publication sera visible après validation.',
+      post
+    });
+  } catch (error) {
+    logger.error('Submit guestbook post error:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'envoi' });
+  }
+});
 
 /**
  * @route   GET /i/:weddingSlug/:invitationCode

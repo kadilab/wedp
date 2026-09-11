@@ -26,7 +26,9 @@ import {
   ExclamationTriangleIcon,
   PlusIcon,
   XMarkIcon,
-  TableCellsIcon
+  TableCellsIcon,
+  CameraIcon,
+  TvIcon
 } from '@heroicons/react/24/outline'
 
 // Custom Church Icon
@@ -179,6 +181,20 @@ export default function WeddingDetail() {
       icon: ChartBarIcon,
       href: `/weddings/${id}/stats`,
       color: 'bg-gold-100 text-gold-600'
+    },
+    {
+      name: 'Livre d\'or',
+      description: 'Mur photos & messages des invités',
+      icon: CameraIcon,
+      href: `/weddings/${id}/guestbook`,
+      color: 'bg-pink-100 text-pink-600'
+    },
+    {
+      name: 'Écran live',
+      description: 'Affichage des arrivées à l\'entrée',
+      icon: TvIcon,
+      href: `/weddings/${id}/live`,
+      color: 'bg-violet-100 text-violet-600'
     }
   ]
 

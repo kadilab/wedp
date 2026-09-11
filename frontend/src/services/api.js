@@ -261,6 +261,26 @@ export const checkinAPI = {
   undo: (weddingId, checkInId) => api.delete(`/checkin/${weddingId}/${checkInId}`)
 }
 
+// Guestbook API
+export const guestbookAPI = {
+  // Public (no auth) — mur photos / livre d'or
+  getWall: (slug) => api.get(`/public/guestbook/${slug}`),
+  submit: (slug, { authorName, message, photo }) => {
+    const formData = new FormData()
+    formData.append('authorName', authorName)
+    if (message) formData.append('message', message)
+    if (photo) formData.append('guestbookPhoto', photo)
+    return api.post(`/public/guestbook/${slug}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+  // Owner/admin moderation
+  list: (weddingId) => api.get(`/guestbook/${weddingId}`),
+  moderate: (weddingId, postId, status) => api.patch(`/guestbook/${weddingId}/${postId}`, { status }),
+  remove: (weddingId, postId) => api.delete(`/guestbook/${weddingId}/${postId}`),
+  updateSettings: (weddingId, data) => api.patch(`/guestbook/${weddingId}/settings`, data)
+}
+
 // Coupon API
 export const couponAPI = {
   validate: (code, amount) => api.post('/coupons/validate', { code, amount })

@@ -64,6 +64,12 @@ enum RSVPStatus {
   DECLINED
 }
 
+enum GuestbookStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum PlanType {
   BASIC
   PREMIUM
@@ -322,7 +328,11 @@ model Wedding {
   // Custom Domain
   customDomain      String?       @unique @map("custom_domain")
   subdomain         String?       @unique
-  
+
+  // Digital guestbook / photo wall
+  guestbookEnabled     Boolean    @default(true) @map("guestbook_enabled")
+  guestbookAutoApprove Boolean    @default(true) @map("guestbook_auto_approve")
+
   // Status
   status            WeddingStatus @default(DRAFT)
   isPublished       Boolean       @default(false) @map("is_published")
@@ -347,6 +357,7 @@ model Wedding {
   checkIns          CheckIn[]
   printOrders       PrintOrder[]
   templateUsageTracks TemplateUsageTrack[]
+  guestbookPosts    GuestbookPost[]
 
   @@index([userId])
   @@index([status])
@@ -543,6 +554,22 @@ model CheckIn {
   @@index([weddingId])
   @@index([guestId])
   @@map("check_ins")
+}
+
+model GuestbookPost {
+  id          String          @id @default(uuid())
+  weddingId   String          @map("wedding_id")
+  authorName  String          @map("author_name")
+  message     String?         @db.Text
+  photoUrl    String?         @map("photo_url")
+  status      GuestbookStatus @default(APPROVED)
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  wedding     Wedding         @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+
+  @@index([weddingId])
+  @@index([status])
+  @@map("guestbook_posts")
 }
 
 model Log {

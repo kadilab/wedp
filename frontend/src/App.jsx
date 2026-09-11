@@ -28,6 +28,8 @@ const Guests = lazy(() => import('./pages/dashboard/Guests'))
 const SeatingPlan = lazy(() => import('./pages/dashboard/SeatingPlan'))
 const Invitations = lazy(() => import('./pages/dashboard/Invitations'))
 const CheckIn = lazy(() => import('./pages/dashboard/CheckIn'))
+const Guestbook = lazy(() => import('./pages/dashboard/Guestbook'))
+const LiveDisplay = lazy(() => import('./pages/dashboard/LiveDisplay'))
 const WeddingStats = lazy(() => import('./pages/dashboard/WeddingStats'))
 const Templates = lazy(() => import('./pages/dashboard/Templates'))
 const CreatorTemplates = lazy(() => import('./pages/dashboard/CreatorTemplates'))
@@ -59,6 +61,8 @@ const TemplateDesigner = lazy(() => import('./pages/admin/TemplateDesigner'))
 
 const Home = lazy(() => import('./pages/public/Home'))
 const InvitationView = lazy(() => import('./pages/public/InvitationView'))
+const GuestbookSubmit = lazy(() => import('./pages/public/GuestbookSubmit'))
+const GuestbookDisplay = lazy(() => import('./pages/public/GuestbookDisplay'))
 
 // Lightweight full-screen fallback shown while a route chunk loads.
 function RouteFallback() {
@@ -108,6 +112,10 @@ function App() {
       <Route path="/i/:weddingSlug/:invitationCode" element={<InvitationView />} />
       <Route path="/i/:weddingSlug" element={<InvitationView />} />
 
+      {/* Public Guestbook (photo wall) */}
+      <Route path="/gb/:slug" element={<GuestbookSubmit />} />
+      <Route path="/gb/:slug/display" element={<GuestbookDisplay />} />
+
       {/* Client Dashboard Routes */}
       <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
         <Route path="/dashboard" element={
@@ -123,6 +131,7 @@ function App() {
         <Route path="/weddings/:id/seating" element={<SeatingPlan />} />
         <Route path="/weddings/:id/invitations" element={<Invitations />} />
         <Route path="/weddings/:id/checkin" element={<CheckIn />} />
+        <Route path="/weddings/:id/guestbook" element={<Guestbook />} />
         <Route path="/weddings/:id/stats" element={<WeddingStats />} />
         <Route path="/templates" element={<Templates />} />
         <Route path="/creator-templates" element={<CreatorTemplates />} />
@@ -140,6 +149,11 @@ function App() {
       {/* Client Template Designer (full-screen, outside DashboardLayout) */}
       <Route path="/templates/:templateId/design" element={
         <ProtectedRoute><TemplateDesigner clientMode={true} /></ProtectedRoute>
+      } />
+
+      {/* Live arrivals screen (full-screen kiosk mode, outside DashboardLayout) */}
+      <Route path="/weddings/:id/live" element={
+        <ProtectedRoute><LiveDisplay /></ProtectedRoute>
       } />
 
       {/* Admin Template Designer (full-screen, outside DashboardLayout) */}

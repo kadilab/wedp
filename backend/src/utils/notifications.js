@@ -157,6 +157,13 @@ const NotificationTemplates = {
     message: `${guestName} vient d'arriver à "${weddingTitle}".`
   }),
 
+  // New guestbook post awaiting moderation
+  guestbookPostPending: (weddingTitle) => ({
+    type: 'guestbook',
+    title: 'Nouveau message en attente',
+    message: `Une nouvelle publication du livre d'or pour "${weddingTitle}" attend votre validation.`
+  }),
+
   // Invitation sent
   invitationSent: (count, weddingTitle) => ({
     type: 'invitation',
