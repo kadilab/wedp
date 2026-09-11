@@ -29,6 +29,9 @@ const SCHEMA_PATCHES = {
   weddings: {
     // QR / barcode: the code style is defined on the template and inherited here.
     code_type: "ADD COLUMN `code_type` VARCHAR(191) NULL DEFAULT 'qr'",
+    // Digital guestbook / photo wall (see migration 20260911200928_add_guestbook).
+    guestbook_enabled:      "ADD COLUMN `guestbook_enabled` BOOLEAN NOT NULL DEFAULT true",
+    guestbook_auto_approve: "ADD COLUMN `guestbook_auto_approve` BOOLEAN NOT NULL DEFAULT true",
   },
   users: {
     // Email confirmation (verification link sent at registration).
