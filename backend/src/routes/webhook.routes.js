@@ -53,7 +53,7 @@ async function webhookHandler(req, res) {
   const signature = req.headers['x-kpay-signature'];
   const raw = req.rawBody || Buffer.from(JSON.stringify(req.body || {}));
 
-  if (!kpay.verifyWebhookSignature(raw, signature)) {
+  if (!(await kpay.verifyWebhookSignature(raw, signature))) {
     logger.warn('K-PAY webhook: invalid signature');
     return res.status(401).json({ error: 'Invalid signature' });
   }

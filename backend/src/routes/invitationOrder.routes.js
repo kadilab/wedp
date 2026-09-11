@@ -248,7 +248,7 @@ router.post('/:weddingId', authenticate, async (req, res) => {
  */
 router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) => {
   try {
-    if (!kpay.isConfigured()) {
+    if (!(await kpay.isConfigured())) {
       return res.status(503).json({ error: 'Paiement automatique non configuré' });
     }
 

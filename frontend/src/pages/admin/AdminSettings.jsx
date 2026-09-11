@@ -32,6 +32,14 @@ const DEFAULT_FORM = {
   telegramBotToken: '',
   telegramChatId: '',
   telegramNotificationsEnabled: false,
+  kpayEnabled: true,
+  kpayApiKey: '',
+  kpaySecretKey: '',
+  kpayWebhookSecret: '',
+  kpayBaseUrl: '',
+  kpayPriceCurrency: 'CDF',
+  kpayAccountCurrency: 'CDF',
+  kpayMinAmount: '50',
   enableEmailNotifications: true,
   enableAdminNotifications: true,
   printServiceEnabled: false
@@ -78,6 +86,14 @@ export default function AdminSettings() {
       telegramBotToken: s.telegramBotToken || '',
       telegramChatId: s.telegramChatId || '',
       telegramNotificationsEnabled: s.telegramNotificationsEnabled === 'true' || s.telegramNotificationsEnabled === true,
+      kpayEnabled: s.kpayEnabled !== 'false' && s.kpayEnabled !== false,
+      kpayApiKey: s.kpayApiKey || '',
+      kpaySecretKey: s.kpaySecretKey || '',
+      kpayWebhookSecret: s.kpayWebhookSecret || '',
+      kpayBaseUrl: s.kpayBaseUrl || '',
+      kpayPriceCurrency: s.kpayPriceCurrency || DEFAULT_FORM.kpayPriceCurrency,
+      kpayAccountCurrency: s.kpayAccountCurrency || DEFAULT_FORM.kpayAccountCurrency,
+      kpayMinAmount: s.kpayMinAmount || DEFAULT_FORM.kpayMinAmount,
       enableEmailNotifications: s.enableEmailNotifications !== 'false' && s.enableEmailNotifications !== false,
       enableAdminNotifications: s.enableAdminNotifications !== 'false' && s.enableAdminNotifications !== false,
       printServiceEnabled: s.printServiceEnabled === 'true' || s.printServiceEnabled === true
@@ -105,6 +121,20 @@ export default function AdminSettings() {
       onError: (err) => toast.error(err.response?.data?.error || 'Échec du test Telegram')
     }
   )
+
+  const testKpayMutation = useMutation(() => adminAPI.getKpayOverview(), {
+    onSuccess: (res) => {
+      const d = res.data
+      if (!d.configured) {
+        toast.error('K-PAY non configuré — enregistrez une clé API et une clé secrète d\'abord')
+      } else if (d.error) {
+        toast.error(d.error)
+      } else {
+        toast.success(`Connecté à K-PAY (${d.environment || 'environnement inconnu'})`)
+      }
+    },
+    onError: (err) => toast.error(err.response?.data?.error || 'Échec du test K-PAY')
+  })
 
   const logoUploadMutation = useMutation((file) => adminAPI.uploadSettingsLogo(file), {
     onSuccess: (res) => {
@@ -658,6 +688,149 @@ export default function AdminSettings() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t">
+                  <h3 className="text-lg font-serif font-bold text-gray-900">
+                    K-PAY (paiements automatiques)
+                  </h3>
+                  <p className="text-gray-500 text-sm mt-1 mb-4">
+                    Permet aux clients de payer directement par Mobile Money (achat de quota
+                    d'invitations, paiement des créateurs) sans validation manuelle.
+                  </p>
+
+                  <div className="flex items-center justify-between py-3 border-b mb-4">
+                    <p className="font-medium text-gray-900">Activer les paiements automatiques K-PAY</p>
+                    <label htmlFor="kpayEnabledToggle" className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        id="kpayEnabledToggle"
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={formData.kpayEnabled}
+                        onChange={(e) => updateField('kpayEnabled', e.target.checked)}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label htmlFor="kpayApiKey" className="block text-sm font-medium text-gray-700 mb-1">
+                        Clé API
+                      </label>
+                      <input
+                        id="kpayApiKey"
+                        type="password"
+                        autoComplete="off"
+                        className="input font-mono"
+                        placeholder="kpay_live_..."
+                        value={formData.kpayApiKey}
+                        onChange={(e) => updateField('kpayApiKey', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="kpaySecretKey" className="block text-sm font-medium text-gray-700 mb-1">
+                        Clé secrète
+                      </label>
+                      <input
+                        id="kpaySecretKey"
+                        type="password"
+                        autoComplete="off"
+                        className="input font-mono"
+                        placeholder="••••••••••••••••"
+                        value={formData.kpaySecretKey}
+                        onChange={(e) => updateField('kpaySecretKey', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="kpayWebhookSecret" className="block text-sm font-medium text-gray-700 mb-1">
+                        Secret webhook
+                      </label>
+                      <input
+                        id="kpayWebhookSecret"
+                        type="password"
+                        autoComplete="off"
+                        className="input font-mono"
+                        placeholder="Depuis le dashboard K-PAY"
+                        value={formData.kpayWebhookSecret}
+                        onChange={(e) => updateField('kpayWebhookSecret', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="kpayBaseUrl" className="block text-sm font-medium text-gray-700 mb-1">
+                        URL de l'API
+                      </label>
+                      <input
+                        id="kpayBaseUrl"
+                        type="text"
+                        className="input font-mono"
+                        placeholder="https://admin.kpay.site"
+                        value={formData.kpayBaseUrl}
+                        onChange={(e) => updateField('kpayBaseUrl', e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <h4 className="text-sm font-semibold text-gray-700 mt-2 mb-3">Paramètres avancés</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <label htmlFor="kpayPriceCurrency" className="block text-sm font-medium text-gray-700 mb-1">
+                        Devise des prix
+                      </label>
+                      <input
+                        id="kpayPriceCurrency"
+                        type="text"
+                        maxLength={3}
+                        className="input font-mono uppercase"
+                        placeholder="CDF"
+                        value={formData.kpayPriceCurrency}
+                        onChange={(e) => updateField('kpayPriceCurrency', e.target.value.toUpperCase())}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="kpayAccountCurrency" className="block text-sm font-medium text-gray-700 mb-1">
+                        Devise du compte K-PAY
+                      </label>
+                      <input
+                        id="kpayAccountCurrency"
+                        type="text"
+                        maxLength={3}
+                        className="input font-mono uppercase"
+                        placeholder="CDF"
+                        value={formData.kpayAccountCurrency}
+                        onChange={(e) => updateField('kpayAccountCurrency', e.target.value.toUpperCase())}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="kpayMinAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                        Montant minimum
+                      </label>
+                      <input
+                        id="kpayMinAmount"
+                        type="number"
+                        min="0"
+                        step="1"
+                        className="input"
+                        placeholder="50"
+                        value={formData.kpayMinAmount}
+                        onChange={(e) => updateField('kpayMinAmount', e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => testKpayMutation.mutate()}
+                      disabled={testKpayMutation.isLoading}
+                      className="btn-outline text-sm"
+                    >
+                      {testKpayMutation.isLoading ? 'Test en cours...' : 'Tester la connexion'}
+                    </button>
+                    <p className="text-xs text-gray-400">
+                      Teste avec les clés actuellement enregistrées — enregistrez d'abord si vous venez d'en modifier une.
+                    </p>
                   </div>
                 </div>
               </div>

@@ -1,7 +1,10 @@
 const crypto = require('crypto');
 const https = require('https');
+const { PrismaClient } = require('@prisma/client');
 const logger = require('./logger');
 const fx = require('./fx');
+
+const prisma = new PrismaClient();
 
 // Force IPv4 — avoids connect timeouts when the host's IPv6 is broken (common on
 // VPS / VPN). We use Node's built-in `https` module to stay dependency-free:
@@ -11,28 +14,57 @@ const ipv4Agent = new https.Agent({ family: 4, keepAlive: true });
 
 // K-PAY Mobile Money client.
 // Docs: https://kpay.site/documentation
-const BASE_URL = process.env.KPAY_BASE_URL || 'https://admin.kpay.site';
-const API_KEY = process.env.KPAY_API_KEY || '';
-const SECRET_KEY = process.env.KPAY_SECRET_KEY || '';
-const WEBHOOK_SECRET = process.env.KPAY_WEBHOOK_SECRET || '';
+//
+// Configurable from Admin → Paramètres → Paiement (stored in the `Setting`
+// table), same pattern as Telegram (see telegram.js:getTelegramConfig). A
+// non-empty DB value wins; otherwise falls back to the env vars so an existing
+// VPS configured only via `.env` keeps working unchanged. `kpayEnabled` absent
+// from the DB means "enabled" — preserves current behavior for installs that
+// have never touched this screen.
+const SETTING_KEYS = [
+  'kpayEnabled', 'kpayBaseUrl', 'kpayApiKey', 'kpaySecretKey', 'kpayWebhookSecret',
+  'kpayAccountCurrency', 'kpayPriceCurrency', 'kpayMinAmount'
+];
 
-const isConfigured = () => Boolean(API_KEY && SECRET_KEY);
+async function getKpayConfig() {
+  const rows = await prisma.setting.findMany({ where: { key: { in: SETTING_KEYS } } });
+  const db = {};
+  rows.forEach(s => { db[s.key] = s.value; });
+
+  return {
+    enabled: db.kpayEnabled === undefined ? true : db.kpayEnabled !== 'false',
+    baseUrl: db.kpayBaseUrl || process.env.KPAY_BASE_URL || 'https://admin.kpay.site',
+    apiKey: db.kpayApiKey || process.env.KPAY_API_KEY || '',
+    secretKey: db.kpaySecretKey || process.env.KPAY_SECRET_KEY || '',
+    webhookSecret: db.kpayWebhookSecret || process.env.KPAY_WEBHOOK_SECRET || '',
+    accountCurrency: (db.kpayAccountCurrency || process.env.KPAY_ACCOUNT_CURRENCY || 'CDF').toUpperCase(),
+    priceCurrency: (db.kpayPriceCurrency || process.env.KPAY_PRICE_CURRENCY || 'CDF').toUpperCase(),
+    minAmount: db.kpayMinAmount || process.env.KPAY_MIN_AMOUNT || ''
+  };
+}
+
+async function isConfigured() {
+  const cfg = await getKpayConfig();
+  return cfg.enabled && Boolean(cfg.apiKey && cfg.secretKey);
+}
 
 // K-PAY charges in the OPERATOR-COUNTRY currency (the `currency` field is
 // derived by K-PAY, never sent). Convert our stored price into the K-PAY
 // account/zone currency:
-//   KPAY_PRICE_CURRENCY   = currency our prices are stored in (default CDF — set
-//                           in the admin price inputs).
-//   KPAY_ACCOUNT_CURRENCY = currency K-PAY settles in (CDF for RDC operators).
+//   priceCurrency   = currency our prices are stored in (default CDF — set
+//                     in the admin price inputs).
+//   accountCurrency = currency K-PAY settles in (CDF for RDC operators).
 // When both match (the common RDC case) NO conversion happens — the price is
 // already in the right currency. Otherwise an FX rate is fetched LIVE
-// (fxapi.app, cached 1h) with env fallback (KPAY_USD_RATE / KPAY_USD_TO_XAF).
-// USD uses decimals; XAF/XOF/CDF/KES are whole units. KPAY_MIN_AMOUNT = floor.
+// (fxapi.app, cached 1h) with env fallback (KPAY_USD_RATE / KPAY_USD_TO_XAF —
+// not exposed in Settings, too niche). USD uses decimals; XAF/XOF/CDF/KES are
+// whole units. minAmount = floor.
 async function toAccountAmount(price) {
   const value = Number(price);
   if (!Number.isFinite(value) || value <= 0) return 0;
-  const account = (process.env.KPAY_ACCOUNT_CURRENCY || 'CDF').toUpperCase();
-  const priceCur = (process.env.KPAY_PRICE_CURRENCY || 'CDF').toUpperCase();
+  const cfg = await getKpayConfig();
+  const account = cfg.accountCurrency;
+  const priceCur = cfg.priceCurrency;
   const isDecimal = account === 'USD';
 
   // Rate to go from priceCur -> account. Same currency = no conversion.
@@ -44,7 +76,7 @@ async function toAccountAmount(price) {
   }
 
   let amount = isDecimal ? Math.round(value * rate * 100) / 100 : Math.round(value * rate);
-  const min = parseFloat(process.env.KPAY_MIN_AMOUNT || (isDecimal ? '0.5' : '50')) || (isDecimal ? 0.5 : 50);
+  const min = parseFloat(cfg.minAmount || (isDecimal ? '0.5' : '50')) || (isDecimal ? 0.5 : 50);
   if (amount < min) amount = min;
   return amount;
 }
@@ -77,11 +109,12 @@ function httpsRequest(url, { method, headers, body, timeoutMs = 20000 }) {
 // Single HTTP helper for all K-PAY calls: IPv4 + retry on transient transport
 // errors. Throws an Error with `.status` and `.data` on non-2xx responses.
 async function kpayFetch(path, { method = 'GET', body, retries = 2 } = {}) {
-  const url = `${BASE_URL}/api/v1${path}`;
+  const cfg = await getKpayConfig();
+  const url = `${cfg.baseUrl}/api/v1${path}`;
   const payload = body ? JSON.stringify(body) : undefined;
   const headers = {
-    'X-API-Key': API_KEY,
-    'X-Secret-Key': SECRET_KEY,
+    'X-API-Key': cfg.apiKey,
+    'X-Secret-Key': cfg.secretKey,
     'Content-Type': 'application/json'
   };
   if (payload) headers['Content-Length'] = Buffer.byteLength(payload);
@@ -177,10 +210,11 @@ function getAvailability() {
  * Verify a webhook signature. K-PAY sends HMAC-SHA256 (hex) of the raw JSON
  * body in the `X-KPAY-Signature` header.
  */
-function verifyWebhookSignature(rawBody, signature) {
+async function verifyWebhookSignature(rawBody, signature) {
   // KPay signs with the dashboard webhook secret; fall back to the secret key
   // when no dedicated webhook secret is set (matches the reference integration).
-  const secret = WEBHOOK_SECRET || SECRET_KEY;
+  const cfg = await getKpayConfig();
+  const secret = cfg.webhookSecret || cfg.secretKey;
   if (!secret || !signature || !rawBody) return false;
   try {
     const expected = crypto.createHmac('sha256', secret)
@@ -196,6 +230,7 @@ function verifyWebhookSignature(rawBody, signature) {
 }
 
 module.exports = {
+  getKpayConfig,
   isConfigured,
   toAccountAmount,
   normalizeMomoPhone,
@@ -208,6 +243,5 @@ module.exports = {
   getBalance,
   getMe,
   getAvailability,
-  verifyWebhookSignature,
-  BASE_URL
+  verifyWebhookSignature
 };

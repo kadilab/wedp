@@ -235,7 +235,7 @@ router.get('/dashboard', authenticate, isAdmin, async (req, res) => {
  * @access  Private/Admin
  */
 router.get('/kpay/overview', authenticate, isAdmin, async (req, res) => {
-  if (!kpay.isConfigured()) {
+  if (!(await kpay.isConfigured())) {
     return res.json({ configured: false });
   }
   try {
@@ -2266,7 +2266,7 @@ router.get('/payouts/:payoutId', authenticate, isAdmin, async (req, res) => {
  */
 router.post('/payouts/:payoutId/kpay', authenticate, isAdmin, async (req, res) => {
   try {
-    if (!kpay.isConfigured()) {
+    if (!(await kpay.isConfigured())) {
       return res.status(503).json({ message: 'K-PAY non configuré' });
     }
     const { provider, phoneNumber } = req.body || {};
