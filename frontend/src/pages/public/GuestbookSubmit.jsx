@@ -105,7 +105,6 @@ export default function GuestbookSubmit() {
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onChange={handlePhotoChange}
                 className="hidden"
               />
