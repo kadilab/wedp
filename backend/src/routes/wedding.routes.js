@@ -10,6 +10,7 @@ const { normalizeTables } = require('../utils/tables');
 const { generateQRCode } = require('../utils/qrcode');
 const { safeDeleteUploads } = require('../utils/fileCleanup');
 const { recordTemplateUsage } = require('../utils/marketplace');
+const { findAccessibleWedding } = require('../utils/weddingAccess');
 const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
@@ -290,17 +291,25 @@ router.get('/', authenticate, paginationValidation, async (req, res) => {
     const { skip, take, page, limit } = paginate(req.query.page, req.query.limit);
     const { status, search } = req.query;
 
+    // Own weddings + weddings the user was invited to as an accepted collaborator.
     const where = {
-      userId: req.user.id,
-      ...(status && { status }),
-      ...(search && {
-        OR: [
-          { brideName: { contains: search } },
-          { groomName: { contains: search } },
-          { honoreeName: { contains: search } },
-          { eventTitle: { contains: search } }
-        ]
-      })
+      AND: [
+        {
+          OR: [
+            { userId: req.user.id },
+            { collaborators: { some: { userId: req.user.id, status: 'ACCEPTED' } } }
+          ]
+        },
+        ...(status ? [{ status }] : []),
+        ...(search ? [{
+          OR: [
+            { brideName: { contains: search } },
+            { groomName: { contains: search } },
+            { honoreeName: { contains: search } },
+            { eventTitle: { contains: search } }
+          ]
+        }] : [])
+      ]
     };
 
     const [weddings, total] = await Promise.all([
@@ -330,7 +339,8 @@ router.get('/', authenticate, paginationValidation, async (req, res) => {
     // Add computed fields
     const weddingsWithExtras = weddings.map(w => ({
       ...w,
-      daysUntil: daysUntilWedding(w.weddingDate)
+      daysUntil: daysUntilWedding(w.weddingDate),
+      isOwner: w.userId === req.user.id
     }));
 
     res.json({
@@ -350,11 +360,7 @@ router.get('/', authenticate, paginationValidation, async (req, res) => {
  */
 router.get('/:id', authenticate, isOwner(), async (req, res) => {
   try {
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: req.params.id,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      },
+    const wedding = await findAccessibleWedding(req.user, req.params.id, {
       include: {
         template: true,
         plan: true,
@@ -386,6 +392,9 @@ router.get('/:id', authenticate, isOwner(), async (req, res) => {
     if (!wedding) {
       return res.status(404).json({ error: 'Projet non trouvé' });
     }
+
+    wedding.isOwner = wedding.userId === req.user.id
+      || req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
 
     // Calculate statistics
     const stats = {
@@ -755,7 +764,7 @@ router.post('/:id/logo', authenticate, isOwner(), uploadSingle('logo'), handleUp
  * @desc    Delete wedding
  * @access  Private
  */
-router.delete('/:id', authenticate, isOwner(), async (req, res) => {
+router.delete('/:id', authenticate, isOwner('userId', { allowCollaborator: false }), async (req, res) => {
   try {
     // Gather the wedding's own uploaded assets + its invitations' generated
     // files so we can remove them from disk after the DB row is deleted.

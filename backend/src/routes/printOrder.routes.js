@@ -4,6 +4,7 @@ const { PrismaClient } = require('@prisma/client');
 const { authenticate, isAdmin } = require('../middleware/auth.middleware');
 const { paginate, buildPaginationMeta } = require('../utils/helpers');
 const { paginationValidation } = require('../middleware/validation.middleware');
+const { findAccessibleWedding } = require('../utils/weddingAccess');
 const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
@@ -103,12 +104,7 @@ router.post('/', authenticate, async (req, res) => {
     }
 
     // Verify wedding ownership
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      }
-    });
+    const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage introuvable' });

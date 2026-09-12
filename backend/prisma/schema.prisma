@@ -107,6 +107,12 @@ enum TemplateUsageStatus {
   PAID
 }
 
+enum CollaboratorStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
 enum CreatorPayoutStatus {
   PENDING
   APPROVED
@@ -153,6 +159,7 @@ model User {
   payoutApprovals   CreatorPayout[] @relation("payout_approved_by")
   templateUsageTracks TemplateUsageTrack[]
   creatorPayouts    CreatorPayout[] @relation("payout_creator_user")
+  weddingCollaborations WeddingCollaborator[]
 
   @@map("users")
 }
@@ -358,6 +365,7 @@ model Wedding {
   printOrders       PrintOrder[]
   templateUsageTracks TemplateUsageTrack[]
   guestbookPosts    GuestbookPost[]
+  collaborators     WeddingCollaborator[]
 
   @@index([userId])
   @@index([status])
@@ -570,6 +578,24 @@ model GuestbookPost {
   @@index([weddingId])
   @@index([status])
   @@map("guestbook_posts")
+}
+
+model WeddingCollaborator {
+  id          String             @id @default(uuid())
+  weddingId   String             @map("wedding_id")
+  userId      String?            @map("user_id")
+  inviteToken String             @unique @map("invite_token")
+  status      CollaboratorStatus @default(PENDING)
+  invitedBy   String             @map("invited_by")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  acceptedAt  DateTime?          @map("accepted_at")
+
+  wedding     Wedding            @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+  user        User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([weddingId])
+  @@index([userId])
+  @@map("wedding_collaborators")
 }
 
 model Log {

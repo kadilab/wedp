@@ -164,6 +164,13 @@ const NotificationTemplates = {
     message: `Une nouvelle publication du livre d'or pour "${weddingTitle}" attend votre validation.`
   }),
 
+  // A collaborator accepted an invite link
+  collaboratorJoined: (collaboratorName, weddingTitle) => ({
+    type: 'collaborator',
+    title: 'Nouveau collaborateur',
+    message: `${collaboratorName} a rejoint "${weddingTitle}" en tant que collaborateur.`
+  }),
+
   // Invitation sent
   invitationSent: (count, weddingTitle) => ({
     type: 'invitation',

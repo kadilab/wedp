@@ -10,6 +10,7 @@ const { generateQRCode, generateUniqueCode } = require('../utils/qrcode');
 const { buildGuestShare, NoInvitationError } = require('../utils/guestMessaging');
 const { eventUsesTables, eventUsesPlusOnes, getGuestCategoryOptions } = require('../utils/eventTypes');
 const { normalizeTables, tableName } = require('../utils/tables');
+const { findAccessibleWedding } = require('../utils/weddingAccess');
 const logger = require('../utils/logger');
 const fs = require('fs').promises;
 
@@ -26,12 +27,7 @@ router.post('/:weddingId', authenticate, createGuestValidation, async (req, res)
     const { firstName, lastName, email, phone, tableNumber, category, plusOnes, dietaryRestrictions, notes } = req.body;
 
     // Verify wedding ownership
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      }
-    });
+    const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvé' });
@@ -92,12 +88,7 @@ router.post('/:weddingId/import', authenticate, uploadSingle('file'), handleUplo
     }
 
     // Verify wedding ownership
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      }
-    });
+    const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvé' });
@@ -200,12 +191,7 @@ router.get('/:weddingId', authenticate, paginationValidation, async (req, res) =
     const { status, search, table } = req.query;
 
     // Verify wedding ownership
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      }
-    });
+    const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvé' });
@@ -263,7 +249,7 @@ router.get('/:weddingId', authenticate, paginationValidation, async (req, res) =
  */
 router.get('/:weddingId/seating', authenticate, async (req, res) => {
   try {
-    const wedding = await findOwnedWedding(req, req.params.weddingId);
+    const wedding = await findAccessibleWedding(req.user, req.params.weddingId);
     if (!wedding) return res.status(404).json({ error: 'Événement non trouvé' });
 
     const guests = await prisma.guest.findMany({
@@ -293,7 +279,7 @@ router.get('/:weddingId/seating', authenticate, async (req, res) => {
  */
 router.get('/:weddingId/template', authenticate, async (req, res) => {
   try {
-    const wedding = await findOwnedWedding(req, req.params.weddingId);
+    const wedding = await findAccessibleWedding(req.user, req.params.weddingId);
     if (!wedding) return res.status(404).json({ error: 'Événement non trouvé' });
 
     const usesPlusOnes = eventUsesPlusOnes(wedding.eventType);
@@ -347,12 +333,7 @@ router.get('/:weddingId/export', authenticate, async (req, res) => {
     const { weddingId } = req.params;
 
     // Verify wedding ownership
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      }
-    });
+    const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
       return res.status(404).json({ error: 'Événement non trouvé' });
@@ -416,12 +397,7 @@ router.get('/:weddingId/:guestId', authenticate, async (req, res) => {
     const { weddingId, guestId } = req.params;
 
     // Verify wedding ownership
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      }
-    });
+    const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvé' });
@@ -472,12 +448,7 @@ router.post('/:weddingId/bulk', authenticate, async (req, res) => {
     }
 
     // Verify wedding ownership
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      }
-    });
+    const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvé' });
@@ -555,12 +526,7 @@ router.put('/:weddingId/:guestId', authenticate, async (req, res) => {
     const { firstName, lastName, email, phone, tableNumber, category, plusOnes, dietaryRestrictions, notes, rsvpStatus } = req.body;
 
     // Verify wedding ownership
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      }
-    });
+    const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvé' });
@@ -602,12 +568,7 @@ router.delete('/:weddingId/:guestId', authenticate, async (req, res) => {
     const { weddingId, guestId } = req.params;
 
     // Verify wedding ownership
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      }
-    });
+    const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvé' });
@@ -625,18 +586,6 @@ router.delete('/:weddingId/:guestId', authenticate, async (req, res) => {
 });
 
 /**
- * Helper: load a wedding the requester owns (or is staff for).
- */
-async function findOwnedWedding(req, weddingId) {
-  return prisma.wedding.findFirst({
-    where: {
-      id: weddingId,
-      ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-    }
-  });
-}
-
-/**
  * @route   GET /api/guests/:weddingId/:guestId/whatsapp
  * @desc    Build the personalized WhatsApp share link (+ message + invitation
  *          URL) for a single guest. Ensures the guest has an invitation code.
@@ -645,7 +594,7 @@ async function findOwnedWedding(req, weddingId) {
 router.get('/:weddingId/:guestId/whatsapp', authenticate, async (req, res) => {
   try {
     const { weddingId, guestId } = req.params;
-    const wedding = await findOwnedWedding(req, weddingId);
+    const wedding = await findAccessibleWedding(req.user, weddingId);
     if (!wedding) return res.status(404).json({ error: 'Mariage non trouvé' });
 
     const guest = await prisma.guest.findFirst({
@@ -677,7 +626,7 @@ router.get('/:weddingId/whatsapp/bulk', authenticate, async (req, res) => {
   try {
     const { weddingId } = req.params;
     const { status, onlyUnsent } = req.query;
-    const wedding = await findOwnedWedding(req, weddingId);
+    const wedding = await findAccessibleWedding(req.user, weddingId);
     if (!wedding) return res.status(404).json({ error: 'Mariage non trouvé' });
 
     const guests = await prisma.guest.findMany({
@@ -717,7 +666,7 @@ router.get('/:weddingId/whatsapp/bulk', authenticate, async (req, res) => {
 router.post('/:weddingId/:guestId/mark-sent', authenticate, async (req, res) => {
   try {
     const { weddingId, guestId } = req.params;
-    const wedding = await findOwnedWedding(req, weddingId);
+    const wedding = await findAccessibleWedding(req.user, weddingId);
     if (!wedding) return res.status(404).json({ error: 'Mariage non trouvé' });
 
     const guest = await prisma.guest.findFirst({ where: { id: guestId, weddingId } });

@@ -5,6 +5,7 @@ const { authenticate, optionalAuth } = require('../middleware/auth.middleware');
 const logger = require('../utils/logger');
 const { createNotification, NotificationTemplates } = require('../utils/notifications');
 const { eventDisplayName } = require('../utils/helpers');
+const { findAccessibleWedding, isAcceptedCollaborator } = require('../utils/weddingAccess');
 
 const prisma = new PrismaClient();
 
@@ -37,9 +38,11 @@ router.post('/scan', authenticate, async (req, res) => {
       });
     }
 
-    // Verify permission (owner or admin)
-    if (req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && invitation.wedding.user.id !== req.user.id) {
-      return res.status(403).json({ error: 'AccÃ¨s non autorisÃ©' });
+    // Verify permission (owner, staff, or an accepted collaborator)
+    const isStaff = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
+    const isOwner = invitation.wedding.user.id === req.user.id;
+    if (!isStaff && !isOwner && !(await isAcceptedCollaborator(req.user.id, invitation.weddingId))) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
     }
 
     // Check if guest already checked in
@@ -156,12 +159,7 @@ router.get('/:weddingId', authenticate, async (req, res) => {
     const { weddingId } = req.params;
 
     // Verify wedding ownership
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      }
-    });
+    const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvÃ©' });
@@ -209,11 +207,7 @@ router.get('/:weddingId/live', authenticate, async (req, res) => {
   try {
     const { weddingId } = req.params;
 
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      },
+    const wedding = await findAccessibleWedding(req.user, weddingId, {
       include: {
         guests: {
           select: {
@@ -281,11 +275,7 @@ router.get('/:weddingId/manifest', authenticate, async (req, res) => {
   try {
     const { weddingId } = req.params;
 
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      },
+    const wedding = await findAccessibleWedding(req.user, weddingId, {
       include: {
         guests: {
           select: {
@@ -351,12 +341,7 @@ router.post('/:weddingId/sync', authenticate, async (req, res) => {
     const { weddingId } = req.params;
     const scans = Array.isArray(req.body.scans) ? req.body.scans : [];
 
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      }
-    });
+    const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvÃ©' });
@@ -435,12 +420,7 @@ router.delete('/:weddingId/:checkInId', authenticate, async (req, res) => {
     const { weddingId, checkInId } = req.params;
 
     // Verify wedding ownership
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      }
-    });
+    const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvÃ©' });

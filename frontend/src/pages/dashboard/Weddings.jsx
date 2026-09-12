@@ -212,6 +212,11 @@ export default function Weddings() {
                 <span className="absolute left-3 top-3 rounded-full border border-border bg-surface/90 px-2.5 py-1 text-xs font-medium text-content backdrop-blur">
                   {EVENT_TYPE_LABELS[wedding.eventType] || 'Mariage'}
                 </span>
+                {wedding.isOwner === false && (
+                  <span className="absolute left-3 top-11 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 backdrop-blur dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
+                    Collaborateur
+                  </span>
+                )}
                 <span className="absolute right-3 top-3">
                   {getStatusBadge(effectiveStatus(wedding))}
                 </span>

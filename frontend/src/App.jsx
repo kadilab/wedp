@@ -30,6 +30,8 @@ const Invitations = lazy(() => import('./pages/dashboard/Invitations'))
 const CheckIn = lazy(() => import('./pages/dashboard/CheckIn'))
 const Guestbook = lazy(() => import('./pages/dashboard/Guestbook'))
 const LiveDisplay = lazy(() => import('./pages/dashboard/LiveDisplay'))
+const Collaborators = lazy(() => import('./pages/dashboard/Collaborators'))
+const CollaboratorAccept = lazy(() => import('./pages/dashboard/CollaboratorAccept'))
 const WeddingStats = lazy(() => import('./pages/dashboard/WeddingStats'))
 const Templates = lazy(() => import('./pages/dashboard/Templates'))
 const CreatorTemplates = lazy(() => import('./pages/dashboard/CreatorTemplates'))
@@ -132,6 +134,7 @@ function App() {
         <Route path="/weddings/:id/invitations" element={<Invitations />} />
         <Route path="/weddings/:id/checkin" element={<CheckIn />} />
         <Route path="/weddings/:id/guestbook" element={<Guestbook />} />
+        <Route path="/weddings/:id/collaborators" element={<Collaborators />} />
         <Route path="/weddings/:id/stats" element={<WeddingStats />} />
         <Route path="/templates" element={<Templates />} />
         <Route path="/creator-templates" element={<CreatorTemplates />} />
@@ -154,6 +157,13 @@ function App() {
       {/* Live arrivals screen (full-screen kiosk mode, outside DashboardLayout) */}
       <Route path="/weddings/:id/live" element={
         <ProtectedRoute><LiveDisplay /></ProtectedRoute>
+      } />
+
+      {/* Collaborator invite link — requires auth; ProtectedRoute bounces to
+          /login with state={{from: location}} and Login/Register bring the
+          user right back here after signing in. */}
+      <Route path="/collab/:token" element={
+        <ProtectedRoute><CollaboratorAccept /></ProtectedRoute>
       } />
 
       {/* Admin Template Designer (full-screen, outside DashboardLayout) */}

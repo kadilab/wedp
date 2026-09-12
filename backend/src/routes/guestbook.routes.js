@@ -3,19 +3,13 @@ const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const { authenticate } = require('../middleware/auth.middleware');
 const { safeDeleteUploads } = require('../utils/helpers');
+const { findAccessibleWedding } = require('../utils/weddingAccess');
 const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
 
-const isStaff = (user) => user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
-
 async function findOwnedWedding(weddingId, user) {
-  return prisma.wedding.findFirst({
-    where: {
-      id: weddingId,
-      ...(!isStaff(user) && { userId: user.id })
-    }
-  });
+  return findAccessibleWedding(user, weddingId);
 }
 
 /**

@@ -8,6 +8,7 @@ const { authenticate } = require('../middleware/auth.middleware');
 const { generateQRCode, generateUniqueCode, generateQRCodeBase64 } = require('../utils/qrcode');
 const { generateInvitationPDF, generateBatchPDFs, generateInvitationImage, generatePrintLayoutPDF, calculateImposition } = require('../utils/pdf');
 const { getWeddingQuota } = require('../utils/invitationQuota');
+const { findAccessibleWedding } = require('../utils/weddingAccess');
 const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
@@ -22,12 +23,7 @@ router.get('/:weddingId', authenticate, async (req, res) => {
     const { weddingId } = req.params;
 
     // Verify wedding ownership
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      }
-    });
+    const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvÃ©' });
@@ -72,15 +68,7 @@ router.post('/:weddingId/generate', authenticate, async (req, res) => {
     const { guestIds } = req.body;
 
     // Verify wedding ownership and status
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      },
-      include: {
-        template: true
-      }
-    });
+    const wedding = await findAccessibleWedding(req.user, weddingId, { include: { template: true } });
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvÃ©' });
@@ -189,19 +177,8 @@ router.post('/:weddingId/generate-pdfs', authenticate, async (req, res) => {
     const { weddingId } = req.params;
     const { guestIds } = req.body;
 
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      },
-      include: {
-        template: true,
-        guests: {
-          include: {
-            invitation: true
-          }
-        }
-      }
+    const wedding = await findAccessibleWedding(req.user, weddingId, {
+      include: { template: true, guests: { include: { invitation: true } } }
     });
 
     if (!wedding) {
@@ -282,19 +259,8 @@ router.post('/:weddingId/generate-images', authenticate, async (req, res) => {
     const { weddingId } = req.params;
     const { guestIds } = req.body;
 
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      },
-      include: {
-        template: true,
-        guests: {
-          include: {
-            invitation: true
-          }
-        }
-      }
+    const wedding = await findAccessibleWedding(req.user, weddingId, {
+      include: { template: true, guests: { include: { invitation: true } } }
     });
 
     if (!wedding) {
@@ -378,18 +344,8 @@ router.get('/:weddingId/download-all', authenticate, async (req, res) => {
     const selectedIds = String(req.query.guestIds || '').split(',').map(s => s.trim()).filter(Boolean);
     const selectedSet = selectedIds.length ? new Set(selectedIds) : null;
 
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      },
-      include: {
-        guests: {
-          include: {
-            invitation: true
-          }
-        }
-      }
+    const wedding = await findAccessibleWedding(req.user, weddingId, {
+      include: { guests: { include: { invitation: true } } }
     });
 
     if (!wedding) {
@@ -465,11 +421,7 @@ router.post('/:weddingId/print-layout', authenticate, async (req, res) => {
     const { guestIds, printSize = 'A6', sheetSize = 'A4', orientation = 'portrait' } = req.body;
     const ids = Array.isArray(guestIds) ? guestIds.filter(Boolean) : [];
 
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      },
+    const wedding = await findAccessibleWedding(req.user, weddingId, {
       include: {
         template: true,
         guests: {
@@ -550,12 +502,7 @@ router.post('/:weddingId/:guestId/regenerate', authenticate, async (req, res) =>
   try {
     const { weddingId, guestId } = req.params;
 
-    const wedding = await prisma.wedding.findFirst({
-      where: {
-        id: weddingId,
-        ...(req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN' && { userId: req.user.id })
-      }
-    });
+    const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvÃ©' });

@@ -165,12 +165,14 @@ const isCreator = async (req, res, next) => {
 };
 
 /**
- * Check resource ownership
+ * Check resource ownership. By default an ACCEPTED collaborator on the
+ * wedding is treated as an owner too — pass { allowCollaborator: false } for
+ * owner-only actions (deleting the event, etc).
  */
-const isOwner = (resourceField = 'userId') => {
+const isOwner = (resourceField = 'userId', { allowCollaborator = true } = {}) => {
   return async (req, res, next) => {
     const resourceId = req.params.id;
-    
+
     if (!resourceId) {
       return next();
     }
@@ -193,9 +195,16 @@ const isOwner = (resourceField = 'userId') => {
               { guests: { some: { id: resourceId } } }
             ]
           },
-          select: { userId: true }
+          select: {
+            id: true,
+            userId: true,
+            ...(allowCollaborator && {
+              collaborators: { where: { userId: req.user.id, status: 'ACCEPTED' }, select: { id: true } }
+            })
+          }
         });
-        isOwnerOfResource = wedding?.userId === req.user.id;
+        isOwnerOfResource = wedding?.userId === req.user.id
+          || (allowCollaborator && wedding?.collaborators?.length > 0);
       }
 
       if (!isOwnerOfResource) {

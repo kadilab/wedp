@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
@@ -10,6 +10,9 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false)
   const { register: registerUser, isLoading } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  const from = location.state?.from?.pathname || '/dashboard'
 
   const {
     register,
@@ -31,7 +34,7 @@ export default function Register() {
     
     if (result.success) {
       toast.success('Inscription réussie ! Bienvenue.')
-      navigate('/dashboard')
+      navigate(from, { replace: true })
     } else {
       toast.error(result.error)
     }
@@ -230,7 +233,7 @@ export default function Register() {
 
       <p className="mt-8 text-center text-muted">
         Déjà un compte ?{' '}
-        <Link to="/login" className="font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400">
+        <Link to="/login" state={location.state} className="font-semibold text-primary-600 hover:text-primary-700 dark:text-primary-400">
           Se connecter
         </Link>
       </p>

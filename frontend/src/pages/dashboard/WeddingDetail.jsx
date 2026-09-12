@@ -28,7 +28,8 @@ import {
   XMarkIcon,
   TableCellsIcon,
   CameraIcon,
-  TvIcon
+  TvIcon,
+  UsersIcon
 } from '@heroicons/react/24/outline'
 
 // Custom Church Icon
@@ -195,7 +196,14 @@ export default function WeddingDetail() {
       icon: TvIcon,
       href: `/weddings/${id}/live`,
       color: 'bg-violet-100 text-violet-600'
-    }
+    },
+    ...(wedding?.isOwner !== false ? [{
+      name: 'Collaborateurs',
+      description: 'Inviter un co-organisateur ou témoin',
+      icon: UsersIcon,
+      href: `/weddings/${id}/collaborators`,
+      color: 'bg-amber-100 text-amber-600'
+    }] : [])
   ]
 
   return (
@@ -214,14 +222,16 @@ export default function WeddingDetail() {
             <PencilIcon className="h-4 w-4" />
             Modifier
           </Link>
-          <button
-            onClick={() => setShowDeleteModal(true)}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-500/50 px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
-            title="Supprimer l'événement"
-          >
-            <TrashIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Supprimer</span>
-          </button>
+          {wedding?.isOwner !== false && (
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-500/50 px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
+              title="Supprimer l'événement"
+            >
+              <TrashIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Supprimer</span>
+            </button>
+          )}
         </div>
       </div>
 

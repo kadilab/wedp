@@ -281,6 +281,14 @@ export const guestbookAPI = {
   updateSettings: (weddingId, data) => api.patch(`/guestbook/${weddingId}/settings`, data)
 }
 
+// Collaborator API — co-organisateurs/témoins invités sur un mariage
+export const collaboratorAPI = {
+  inviteLink: (weddingId) => api.post(`/collaborators/${weddingId}/invite`),
+  list: (weddingId) => api.get(`/collaborators/${weddingId}`),
+  remove: (weddingId, collaboratorId) => api.delete(`/collaborators/${weddingId}/${collaboratorId}`),
+  accept: (token) => api.post(`/collaborators/accept/${token}`)
+}
+
 // Coupon API
 export const couponAPI = {
   validate: (code, amount) => api.post('/coupons/validate', { code, amount })
