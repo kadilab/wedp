@@ -35,6 +35,7 @@ const useSiteSettingsStore = create((set, get) => ({
   contactEmail: '',
   supportPhone: '',
   printServiceEnabled: false,
+  googleClientId: '',
   loaded: false,
 
   fetchSettings: async () => {
@@ -49,6 +50,7 @@ const useSiteSettingsStore = create((set, get) => ({
         contactEmail: data.contactEmail || '',
         supportPhone: data.supportPhone || '',
         printServiceEnabled: data.printServiceEnabled === 'true' || data.printServiceEnabled === true,
+        googleClientId: data.googleClientId || '',
         loaded: true
       })
       // Update page title

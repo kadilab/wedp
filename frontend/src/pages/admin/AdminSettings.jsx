@@ -42,7 +42,9 @@ const DEFAULT_FORM = {
   kpayMinAmount: '50',
   enableEmailNotifications: true,
   enableAdminNotifications: true,
-  printServiceEnabled: false
+  printServiceEnabled: false,
+  googleClientId: '',
+  googleClientSecret: ''
 }
 
 export default function AdminSettings() {
@@ -96,7 +98,9 @@ export default function AdminSettings() {
       kpayMinAmount: s.kpayMinAmount || DEFAULT_FORM.kpayMinAmount,
       enableEmailNotifications: s.enableEmailNotifications !== 'false' && s.enableEmailNotifications !== false,
       enableAdminNotifications: s.enableAdminNotifications !== 'false' && s.enableAdminNotifications !== false,
-      printServiceEnabled: s.printServiceEnabled === 'true' || s.printServiceEnabled === true
+      printServiceEnabled: s.printServiceEnabled === 'true' || s.printServiceEnabled === true,
+      googleClientId: s.googleClientId || '',
+      googleClientSecret: s.googleClientSecret || ''
     })
     // Sync logo preview
     if (s.siteLogo) setLogoPreview(s.siteLogo)
@@ -446,6 +450,53 @@ export default function AdminSettings() {
                       </p>
                     </div>
                   </label>
+                </div>
+
+                {/* Google OAuth */}
+                <div className="pt-6 border-t">
+                  <h3 className="text-lg font-serif font-bold text-gray-900">
+                    Connexion avec Google
+                  </h3>
+                  <p className="text-gray-500 text-sm mt-1 mb-4">
+                    Identifiants OAuth du projet Google Cloud utilisé pour le bouton « Continuer avec
+                    Google » (inscription/connexion). Le Client ID doit aussi être autorisé pour ton
+                    domaine dans Google Cloud Console (Identifiants → Origines JavaScript autorisées).
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="googleClientId" className="block text-sm font-medium text-gray-700 mb-1">
+                        Client ID
+                      </label>
+                      <input
+                        id="googleClientId"
+                        type="text"
+                        autoComplete="off"
+                        className="input font-mono"
+                        placeholder="xxxxxxxxxx.apps.googleusercontent.com"
+                        value={formData.googleClientId}
+                        onChange={(e) => updateField('googleClientId', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="googleClientSecret" className="block text-sm font-medium text-gray-700 mb-1">
+                        Client Secret
+                      </label>
+                      <input
+                        id="googleClientSecret"
+                        type="text"
+                        autoComplete="off"
+                        className="input font-mono"
+                        placeholder="GOCSPX-..."
+                        value={formData.googleClientSecret}
+                        onChange={(e) => updateField('googleClientSecret', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-400">
+                    Le Client ID est envoyé au navigateur (valeur publique par design). Le Client Secret
+                    n'est pas utilisé par le flux actuel mais reste disponible pour une évolution future.
+                  </p>
                 </div>
               </div>
             )}

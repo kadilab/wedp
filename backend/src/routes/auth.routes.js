@@ -10,10 +10,7 @@ const { generateToken } = require('../utils/helpers');
 const logger = require('../utils/logger');
 const { createNotification, NotificationTemplates } = require('../utils/notifications');
 const { recordSecurityEvent } = require('../utils/supervision');
-const { OAuth2Client } = require('google-auth-library');
-
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
-const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+const { verifyGoogleIdToken } = require('../utils/googleAuth');
 
 const prisma = new PrismaClient();
 
@@ -191,9 +188,6 @@ router.post('/login', loginValidation, async (req, res) => {
  */
 router.post('/google', async (req, res) => {
   try {
-    if (!GOOGLE_CLIENT_ID) {
-      return res.status(503).json({ error: 'Connexion Google non configurée' });
-    }
     const { credential } = req.body;
     if (!credential) {
       return res.status(400).json({ error: 'Jeton Google manquant' });
@@ -202,8 +196,7 @@ router.post('/google', async (req, res) => {
     // Verify the ID token against our client id (audience).
     let payload;
     try {
-      const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
-      payload = ticket.getPayload();
+      payload = await verifyGoogleIdToken(credential);
     } catch (err) {
       logger.warn('Google token verification failed:', err.message);
       return res.status(401).json({ error: 'Jeton Google invalide' });

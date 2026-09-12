@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from 'react-query'
@@ -6,8 +6,26 @@ import { Toaster } from 'react-hot-toast'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import App from './App.jsx'
 import { GOOGLE_CLIENT_ID } from './config/google'
+import useSiteSettingsStore from './stores/siteSettingsStore'
 import { initTheme } from './utils/theme'
 import './index.css'
+
+// The Client ID an admin sets in Settings → Général overrides the built-in
+// default without a rebuild. Starts with the hardcoded fallback (so the
+// button works immediately) and upgrades once /api/settings/public loads.
+function GoogleOAuthWrapper({ children }) {
+  const { googleClientId, fetchSettings } = useSiteSettingsStore()
+
+  useEffect(() => {
+    fetchSettings()
+  }, [fetchSettings])
+
+  return (
+    <GoogleOAuthProvider clientId={googleClientId || GOOGLE_CLIENT_ID}>
+      {children}
+    </GoogleOAuthProvider>
+  )
+}
 
 // Sync <html> with the stored/OS theme (the pre-paint script in index.html does
 // this too; this keeps it correct across hot reloads and hard navigations).
@@ -30,7 +48,7 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <GoogleOAuthWrapper>
       <BrowserRouter>
         <App />
         <Toaster
@@ -60,7 +78,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           }}
         />
       </BrowserRouter>
-      </GoogleOAuthProvider>
+      </GoogleOAuthWrapper>
     </QueryClientProvider>
   </React.StrictMode>
 )
