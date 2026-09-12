@@ -28,6 +28,21 @@ function eventDisplayName(wedding) {
   return getEventDisplayTitle(wedding);
 }
 
+// Cleans a drink options list: trims, drops empties/duplicates. Mirrors the
+// same lightweight normalization tables.js does for `tables`.
+function normalizeDrinkOptions(list) {
+  if (!Array.isArray(list)) return undefined;
+  const seen = new Set();
+  const cleaned = [];
+  for (const item of list) {
+    const name = typeof item === 'string' ? item.trim() : '';
+    if (!name || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    cleaned.push(name);
+  }
+  return cleaned;
+}
+
 function calculatePrintPrice(quantity, paperType, finish, size) {
   const basePrice = PRINT_PRICING.size[size] || PRINT_PRICING.size.A5;
   const paperExtra = PRINT_PRICING.paperType[paperType] || 0;
@@ -106,7 +121,9 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
       additionalInfo,
       socialLinks,
       // Seated tables (predefined table names)
-      tables
+      tables,
+      // Drink options offered to guests when they RSVP
+      drinkOptions
     } = req.body;
 
     // Generate unique slug from whatever names the event type provides:
@@ -155,6 +172,7 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
         venueMapUrl,
         // Seated tables (strings or {name,seats,x,y}) — only for events with tables
         tables: Array.isArray(tables) ? normalizeTables(tables) : undefined,
+        drinkOptions: normalizeDrinkOptions(drinkOptions),
         customMessage,
         primaryColor,
         secondaryColor,
@@ -480,6 +498,8 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
       qrCodeSize,
       // Tables
       tables,
+      // Drink options offered to guests when they RSVP
+      drinkOptions,
       // Multi-image templates
       templateImages
     } = req.body;
@@ -595,6 +615,7 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
         ...(printNotes !== undefined && { printNotes }),
         // Tables
         ...(tables !== undefined && { tables: Array.isArray(tables) ? normalizeTables(tables) : tables }),
+        ...(drinkOptions !== undefined && { drinkOptions: normalizeDrinkOptions(drinkOptions) }),
         // Multi-image templates
         ...(templateImages !== undefined && { templateImages })
       },

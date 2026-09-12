@@ -331,7 +331,8 @@ model Wedding {
   additionalInfo    String?       @db.Text @map("additional_info")
   socialLinks       Json?         @map("social_links") // {instagram, website, hashtag}
   tables            Json?         // ["Table VIP", "Table 1", "Table 2", ...] - noms des tables prédéfinis
-  
+  drinkOptions      Json?         @map("drink_options") // ["Champagne", "Vin rouge", "Jus", ...] - proposées au RSVP
+
   // Custom Domain
   customDomain      String?       @unique @map("custom_domain")
   subdomain         String?       @unique
@@ -389,6 +390,7 @@ model Guest {
   rsvpStatus        RSVPStatus  @default(PENDING) @map("rsvp_status")
   rsvpDate          DateTime?   @map("rsvp_date")
   rsvpMessage       String?     @db.Text @map("rsvp_message")
+  drinkChoice       String?     @map("drink_choice") // Boisson choisie par l'invité parmi wedding.drinkOptions
   
   invitationSent    Boolean     @default(false) @map("invitation_sent")
   invitationSentAt  DateTime?   @map("invitation_sent_at")

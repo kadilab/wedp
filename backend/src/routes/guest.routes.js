@@ -359,6 +359,7 @@ router.get('/:weddingId/export', authenticate, async (req, res) => {
       'Catégorie': g.category || '',
       'Accompagnants': g.plusOnes,
       'Statut RSVP': g.rsvpStatus,
+      'Boisson': g.drinkChoice || '',
       'Régime alimentaire': g.dietaryRestrictions || '',
       'Notes': g.notes || '',
       'Code Invitation': g.invitation?.uniqueCode || ''

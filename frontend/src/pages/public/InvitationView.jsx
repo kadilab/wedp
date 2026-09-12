@@ -162,11 +162,93 @@ function MusicToggle({ musicUrl, audioRef, isPlaying, onToggle, accentColor = '#
   )
 }
 
+// RSVP block: the "confirm my attendance" button/status badge, and the
+// response form itself (attending/maybe/declined, headcount, drink choice).
+// Shared between the three invitation render paths (generic link, canvas
+// design, legacy template) — only a few paddings/sizes differ between them.
+function RsvpForm({
+  guest, showRsvpForm, setShowRsvpForm, rsvpStatus, setRsvpStatus,
+  numberOfGuests, setNumberOfGuests, selectedDrink, setSelectedDrink,
+  drinkOptions, handleRSVPSubmit, rsvpMutation, primaryColor, headingFont, textColor,
+  dense = false
+}) {
+  const hasDrinkOptions = Array.isArray(drinkOptions) && drinkOptions.length > 0
+  return !showRsvpForm ? (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} className="text-center">
+      {guest?.rsvpStatus === 'PENDING' ? (
+        <button onClick={() => setShowRsvpForm(true)} className={`${dense ? 'text-lg' : 'text-xl'} px-10 py-3 rounded-lg font-semibold text-white shadow-lg transition-transform hover:scale-105`} style={{ backgroundColor: primaryColor }}>
+          Confirmer ma présence
+        </button>
+      ) : (
+        <div className={`inline-flex items-center px-6 py-3 rounded-full ${dense ? 'text-lg' : ''} ${
+          guest?.rsvpStatus === 'CONFIRMED' ? 'bg-green-100 text-green-700' :
+          guest?.rsvpStatus === 'DECLINED' ? 'bg-red-100 text-red-700' :
+          'bg-yellow-100 text-yellow-700'
+        }`}>
+          {guest?.rsvpStatus === 'CONFIRMED' && <><CheckCircleIcon className="h-5 w-5 mr-2" />Présence confirmée</>}
+          {guest?.rsvpStatus === 'DECLINED' && <><XCircleIcon className="h-5 w-5 mr-2" />Absence confirmée</>}
+          {guest?.rsvpStatus === 'MAYBE' && <><QuestionMarkCircleIcon className="h-5 w-5 mr-2" />Peut-être</>}
+        </div>
+      )}
+    </motion.div>
+  ) : (
+    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className={dense ? 'bg-white rounded-xl shadow-lg p-6' : 'bg-gray-50 rounded-xl p-4'}>
+      <h3 className={`${dense ? 'text-lg' : 'text-sm'} font-bold mb-3`} style={{ fontFamily: headingFont, color: textColor }}>Confirmez votre présence</h3>
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        {[
+          { key: 'CONFIRMED', label: 'Je serai présent', Icon: CheckCircleIcon, bgColor: '#10b981', bgLight: '#f0fdf4' },
+          { key: 'MAYBE', label: 'Peut-être', Icon: QuestionMarkCircleIcon, bgColor: '#eab308', bgLight: '#fefce8' },
+          { key: 'DECLINED', label: 'Je ne pourrai pas', Icon: XCircleIcon, bgColor: '#ef4444', bgLight: '#fef2f2' }
+        ].map(({ key, label, Icon, bgColor, bgLight }) => (
+          <button key={key} onClick={() => setRsvpStatus(key)}
+            className={`${dense ? 'p-3' : 'p-2'} rounded-lg border-2 transition-all`}
+            style={{
+              borderColor: rsvpStatus === key ? bgColor : '#e5e7eb',
+              backgroundColor: rsvpStatus === key ? bgLight : 'transparent'
+            }}>
+            <Icon className="h-5 w-5 mx-auto mb-1" style={{
+              color: rsvpStatus === key ? bgColor : '#9ca3af'
+            }} />
+            <p className="text-xs font-medium">{label}</p>
+          </button>
+        ))}
+      </div>
+      {rsvpStatus === 'CONFIRMED' && (
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Nombre de personnes</label>
+          <div className="flex items-center justify-center gap-3">
+            <button onClick={() => setNumberOfGuests(Math.max(1, numberOfGuests - 1))} className={`${dense ? 'h-8 w-8' : 'h-7 w-7 text-sm'} rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center`}>-</button>
+            <span className="text-lg font-bold text-gray-900 w-8 text-center">{numberOfGuests}</span>
+            <button onClick={() => setNumberOfGuests(Math.min(10, numberOfGuests + 1))} className={`${dense ? 'h-8 w-8' : 'h-7 w-7 text-sm'} rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center`}>+</button>
+          </div>
+        </div>
+      )}
+      {rsvpStatus === 'CONFIRMED' && hasDrinkOptions && (
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Boisson préférée</label>
+          <select value={selectedDrink} onChange={(e) => setSelectedDrink(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700">
+            <option value="">Sélectionner...</option>
+            {drinkOptions.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+      )}
+      <div className="flex gap-3">
+        <button onClick={() => setShowRsvpForm(false)} className="flex-1 btn-secondary">Annuler</button>
+        <button onClick={handleRSVPSubmit} disabled={!rsvpStatus || rsvpMutation.isLoading}
+          className="flex-1 text-white rounded-lg py-2 font-medium" style={{ backgroundColor: primaryColor }}>
+          {rsvpMutation.isLoading ? 'Envoi...' : 'Confirmer'}
+        </button>
+      </div>
+    </motion.div>
+  )
+}
+
 export default function InvitationView() {
   const { weddingSlug, invitationCode } = useParams()
   const { siteName } = useSiteSettingsStore()
   const [rsvpStatus, setRsvpStatus] = useState(null)
   const [numberOfGuests, setNumberOfGuests] = useState(1)
+  const [selectedDrink, setSelectedDrink] = useState('')
   const [showRsvpForm, setShowRsvpForm] = useState(false)
   const audioRef = useRef(null)
   const [isMusicPlaying, setIsMusicPlaying] = useState(false)
@@ -269,7 +351,8 @@ export default function InvitationView() {
     if (!rsvpStatus) return toast.error('Veuillez sélectionner une réponse')
     rsvpMutation.mutate({
       response: rsvpStatus,
-      plusOnes: rsvpStatus === 'CONFIRMED' ? numberOfGuests : 0
+      plusOnes: rsvpStatus === 'CONFIRMED' ? numberOfGuests : 0,
+      ...(rsvpStatus === 'CONFIRMED' && { drinkChoice: selectedDrink || null })
     })
   }
 
@@ -751,66 +834,24 @@ export default function InvitationView() {
 
         {/* RSVP section below the design canvas */}
         <div className="w-full max-w-lg mx-auto mt-6 px-4">
-          {/* RSVP */}
-          {!showRsvpForm ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} className="text-center">
-              {guest?.rsvpStatus === 'PENDING' ? (
-                <button onClick={() => setShowRsvpForm(true)} className="text-lg px-10 py-3 rounded-lg font-semibold text-white shadow-lg transition-transform hover:scale-105" style={{ backgroundColor: primaryColor }}>
-                  Confirmer ma présence
-                </button>
-              ) : (
-                <div className={`inline-flex items-center px-6 py-3 rounded-full text-lg ${
-                  guest?.rsvpStatus === 'CONFIRMED' ? 'bg-green-100 text-green-700' :
-                  guest?.rsvpStatus === 'DECLINED' ? 'bg-red-100 text-red-700' :
-                  'bg-yellow-100 text-yellow-700'
-                }`}>
-                  {guest?.rsvpStatus === 'CONFIRMED' && <><CheckCircleIcon className="h-5 w-5 mr-2" />Présence confirmée</>}
-                  {guest?.rsvpStatus === 'DECLINED' && <><XCircleIcon className="h-5 w-5 mr-2" />Absence confirmée</>}
-                  {guest?.rsvpStatus === 'MAYBE' && <><QuestionMarkCircleIcon className="h-5 w-5 mr-2" />Peut-être</>}
-                </div>
-              )}
-            </motion.div>
-          ) : (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-bold mb-3" style={{ fontFamily: headingFont, color: textColor }}>Confirmez votre présence</h3>
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                {[
-                  { key: 'CONFIRMED', label: 'Je serai présent', Icon: CheckCircleIcon, bgColor: '#10b981', bgLight: '#f0fdf4' },
-                  { key: 'MAYBE', label: 'Peut-être', Icon: QuestionMarkCircleIcon, bgColor: '#eab308', bgLight: '#fefce8' },
-                  { key: 'DECLINED', label: 'Je ne pourrai pas', Icon: XCircleIcon, bgColor: '#ef4444', bgLight: '#fef2f2' }
-                ].map(({ key, label, Icon, bgColor, bgLight }) => (
-                  <button key={key} onClick={() => setRsvpStatus(key)}
-                    className="p-3 rounded-lg border-2 transition-all"
-                    style={{
-                      borderColor: rsvpStatus === key ? bgColor : '#e5e7eb',
-                      backgroundColor: rsvpStatus === key ? bgLight : 'transparent'
-                    }}>
-                    <Icon className="h-5 w-5 mx-auto mb-1" style={{
-                      color: rsvpStatus === key ? bgColor : '#9ca3af'
-                    }} />
-                    <p className="text-xs font-medium">{label}</p>
-                  </button>
-                ))}
-              </div>
-              {rsvpStatus === 'CONFIRMED' && (
-                <div className="mb-3">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Nombre de personnes</label>
-                  <div className="flex items-center justify-center gap-3">
-                    <button onClick={() => setNumberOfGuests(Math.max(1, numberOfGuests - 1))} className="h-8 w-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center">-</button>
-                    <span className="text-lg font-bold text-gray-900 w-8 text-center">{numberOfGuests}</span>
-                    <button onClick={() => setNumberOfGuests(Math.min(10, numberOfGuests + 1))} className="h-8 w-8 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center">+</button>
-                  </div>
-                </div>
-              )}
-              <div className="flex gap-3">
-                <button onClick={() => setShowRsvpForm(false)} className="flex-1 btn-secondary">Annuler</button>
-                <button onClick={handleRSVPSubmit} disabled={!rsvpStatus || rsvpMutation.isLoading}
-                  className="flex-1 text-white rounded-lg py-2 font-medium" style={{ backgroundColor: primaryColor }}>
-                  {rsvpMutation.isLoading ? 'Envoi...' : 'Confirmer'}
-                </button>
-              </div>
-            </motion.div>
-          )}
+          <RsvpForm
+            dense
+            guest={guest}
+            showRsvpForm={showRsvpForm}
+            setShowRsvpForm={setShowRsvpForm}
+            rsvpStatus={rsvpStatus}
+            setRsvpStatus={setRsvpStatus}
+            numberOfGuests={numberOfGuests}
+            setNumberOfGuests={setNumberOfGuests}
+            selectedDrink={selectedDrink}
+            setSelectedDrink={setSelectedDrink}
+            drinkOptions={wedding?.drinkOptions}
+            handleRSVPSubmit={handleRSVPSubmit}
+            rsvpMutation={rsvpMutation}
+            primaryColor={primaryColor}
+            headingFont={headingFont}
+            textColor={textColor}
+          />
 
           <div className="text-center mt-4 text-gray-400 text-sm">
             <p>Créé avec ❤️ sur {siteName}</p>
@@ -1097,65 +1138,23 @@ export default function InvitationView() {
             )}
 
             {/* RSVP Section */}
-            {!showRsvpForm ? (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, delay: 1 }}>
-                {guest?.rsvpStatus === 'PENDING' ? (
-                  <button onClick={() => setShowRsvpForm(true)} className="text-xl px-10 py-3 rounded-lg font-semibold text-white shadow-lg transition-transform hover:scale-105" style={{ backgroundColor: primaryColor }}>
-                    Confirmer ma présence
-                  </button>
-                ) : (
-                  <div className={`inline-flex items-center px-6 py-3 rounded-full ${
-                    guest?.rsvpStatus === 'CONFIRMED' ? 'bg-green-100 text-green-700' :
-                    guest?.rsvpStatus === 'DECLINED' ? 'bg-red-100 text-red-700' :
-                    'bg-yellow-100 text-yellow-700'
-                  }`}>
-                    {guest?.rsvpStatus === 'CONFIRMED' && <><CheckCircleIcon className="h-5 w-5 mr-2" />Présence confirmée</>}
-                    {guest?.rsvpStatus === 'DECLINED' && <><XCircleIcon className="h-5 w-5 mr-2" />Absence confirmée</>}
-                    {guest?.rsvpStatus === 'MAYBE' && <><QuestionMarkCircleIcon className="h-5 w-5 mr-2" />Peut-être</>}
-                  </div>
-                )}
-              </motion.div>
-            ) : (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-gray-50 rounded-xl p-4">
-                <h3 className="text-sm font-bold mb-3" style={{ fontFamily: headingFont, color: textColor }}>Confirmez votre présence</h3>
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  {[
-                    { key: 'CONFIRMED', label: 'Je serai présent', Icon: CheckCircleIcon, bgColor: '#10b981', bgLight: '#f0fdf4' },
-                    { key: 'MAYBE', label: 'Peut-être', Icon: QuestionMarkCircleIcon, bgColor: '#eab308', bgLight: '#fefce8' },
-                    { key: 'DECLINED', label: 'Je ne pourrai pas', Icon: XCircleIcon, bgColor: '#ef4444', bgLight: '#fef2f2' }
-                  ].map(({ key, label, Icon, bgColor, bgLight }) => (
-                    <button key={key} onClick={() => setRsvpStatus(key)}
-                      className="p-2 rounded-lg border-2 transition-all"
-                      style={{
-                        borderColor: rsvpStatus === key ? bgColor : '#e5e7eb',
-                        backgroundColor: rsvpStatus === key ? bgLight : 'transparent'
-                      }}>
-                      <Icon className="h-5 w-5 mx-auto mb-1" style={{
-                        color: rsvpStatus === key ? bgColor : '#9ca3af'
-                      }} />
-                      <p className="text-xs font-medium">{label}</p>
-                    </button>
-                  ))}
-                </div>
-                {rsvpStatus === 'CONFIRMED' && (
-                  <div className="mb-3">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Nombre de personnes</label>
-                    <div className="flex items-center justify-center gap-3">
-                      <button onClick={() => setNumberOfGuests(Math.max(1, numberOfGuests - 1))} className="h-7 w-7 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-sm">-</button>
-                      <span className="text-lg font-bold text-gray-900 w-8 text-center">{numberOfGuests}</span>
-                      <button onClick={() => setNumberOfGuests(Math.min(10, numberOfGuests + 1))} className="h-7 w-7 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center text-sm">+</button>
-                    </div>
-                  </div>
-                )}
-                <div className="flex gap-3">
-                  <button onClick={() => setShowRsvpForm(false)} className="flex-1 btn-secondary">Annuler</button>
-                  <button onClick={handleRSVPSubmit} disabled={!rsvpStatus || rsvpMutation.isLoading}
-                    className="flex-1 text-white rounded-lg py-2 font-medium" style={{ backgroundColor: primaryColor }}>
-                    {rsvpMutation.isLoading ? 'Envoi...' : 'Confirmer'}
-                  </button>
-                </div>
-              </motion.div>
-            )}
+            <RsvpForm
+              guest={guest}
+              showRsvpForm={showRsvpForm}
+              setShowRsvpForm={setShowRsvpForm}
+              rsvpStatus={rsvpStatus}
+              setRsvpStatus={setRsvpStatus}
+              numberOfGuests={numberOfGuests}
+              setNumberOfGuests={setNumberOfGuests}
+              selectedDrink={selectedDrink}
+              setSelectedDrink={setSelectedDrink}
+              drinkOptions={wedding?.drinkOptions}
+              handleRSVPSubmit={handleRSVPSubmit}
+              rsvpMutation={rsvpMutation}
+              primaryColor={primaryColor}
+              headingFont={headingFont}
+              textColor={textColor}
+            />
 
             {/* QR Code - styled with wedding settings */}
             {invitationInfo?.qrCodeUrl && (

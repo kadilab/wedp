@@ -54,6 +54,8 @@ export default function Guests() {
   const eventType = wedding?.eventType || 'WEDDING'
   const usesTables = eventUsesTables(wedding?.eventType)
   const usesPlusOnes = eventUsesPlusOnes(wedding?.eventType)
+  const drinkOptions = Array.isArray(wedding?.drinkOptions) ? wedding.drinkOptions : []
+  const usesDrinks = drinkOptions.length > 0
 
   const { data: quotaData } = useQuery(
     ['quota', weddingId],
@@ -384,6 +386,7 @@ export default function Guests() {
                   {usesTables && <th className="px-5 py-3">Table</th>}
                   <th className="px-5 py-3">RSVP</th>
                   {usesPlusOnes && <th className="px-5 py-3">Type</th>}
+                  {usesDrinks && <th className="px-5 py-3">Boisson</th>}
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -406,6 +409,9 @@ export default function Guests() {
                           {guest.plusOnes > 0 ? '👫 Couple' : '🧍 Singleton'}
                         </span>
                       </td>
+                    )}
+                    {usesDrinks && (
+                      <td className="px-5 py-3 text-gray-600">{guest.drinkChoice || <span className="text-gray-300">—</span>}</td>
                     )}
                     <td className="px-5 py-3">
                       <div className="flex justify-end"><GuestActions guest={guest} /></div>
@@ -440,6 +446,9 @@ export default function Guests() {
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${guest.plusOnes > 0 ? 'bg-rose-100 text-rose-700' : 'bg-gray-100 text-gray-600'}`}>
                       {guest.plusOnes > 0 ? '👫 Couple' : '🧍 Singleton'}
                     </span>
+                  )}
+                  {usesDrinks && guest.drinkChoice && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">🥤 {guest.drinkChoice}</span>
                   )}
                 </div>
 

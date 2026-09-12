@@ -6,6 +6,7 @@ import api, { weddingAPI, templateAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import TemplatePreview from '../../components/templates/TemplatePreview'
 import TablesEditor from '../../components/TablesEditor'
+import DrinkOptionsEditor from '../../components/DrinkOptionsEditor'
 import { eventUsesCouple, eventUsesHonoree, eventUsesFreeTitle, eventUsesTables, honoreeFieldLabel } from '../../utils/eventTypes'
 import { getVisibleFields } from '../../utils/templateVariables'
 import {
@@ -84,6 +85,7 @@ export default function WeddingCreate() {
     defaultValues: {
       eventType: preselectedEventType || 'WEDDING',
       tables: [],
+      drinkOptions: [],
       templateId: preselectedTemplateId || ''
     }
   })
@@ -306,6 +308,7 @@ export default function WeddingCreate() {
       ...(isFreeTitle ? { eventTitle: data.eventTitle } : {}),
       // Predefined tables (only for events that seat guests)
       ...(eventUsesTables(eventType) ? { tables: data.tables || [] } : {}),
+      drinkOptions: data.drinkOptions || [],
       templateId: cleanValue(data.templateId),
       customMessage: cleanValue(data.customMessage),
       // Le style du QR est porté par le template (éditeur) — non réglable ici.
@@ -711,6 +714,13 @@ export default function WeddingCreate() {
           {step === STEP_INFO && eventUsesTables(eventType) && (
             <div className="mt-6">
               <TablesEditor value={watch('tables') || []} onChange={(v) => setValue('tables', v)} />
+            </div>
+          )}
+
+          {/* ===================== STEP INFO: Liste de boissons ===================== */}
+          {step === STEP_INFO && (
+            <div className="mt-6">
+              <DrinkOptionsEditor value={watch('drinkOptions') || []} onChange={(v) => setValue('drinkOptions', v)} />
             </div>
           )}
 

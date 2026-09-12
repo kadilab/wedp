@@ -8,6 +8,7 @@ import toast from 'react-hot-toast'
 import TemplatePreview from '../../components/templates/TemplatePreview'
 import ImageUpload from '../../components/common/ImageUpload'
 import TablesEditor from '../../components/TablesEditor'
+import DrinkOptionsEditor from '../../components/DrinkOptionsEditor'
 import { eventUsesCouple, eventUsesHonoree, eventUsesFreeTitle, eventUsesTables, honoreeFieldLabel, getEventDisplayTitle } from '../../utils/eventTypes'
 import {
   ArrowLeftIcon, TrashIcon, BuildingLibraryIcon, MusicalNoteIcon,
@@ -66,6 +67,7 @@ export default function WeddingEdit() {
       eventTitle: wedding.eventTitle || '',
       honoreeName: wedding.honoreeName || '',
       tables: Array.isArray(wedding.tables) ? wedding.tables : [],
+      drinkOptions: Array.isArray(wedding.drinkOptions) ? wedding.drinkOptions : [],
       weddingDate: wedding.weddingDate?.split('T')[0],
       ceremonyTime: wedding.ceremonyTime || '',
       venueName: wedding.venueName || '',
@@ -241,6 +243,7 @@ export default function WeddingEdit() {
       ...(isHonoree ? { honoreeName: data.honoreeName } : {}),
       ...(isFreeTitle ? { eventTitle: data.eventTitle } : {}),
       ...(eventUsesTables(wedding?.eventType) ? { tables: data.tables || [] } : {}),
+      drinkOptions: data.drinkOptions || [],
       // Programme — weddings only
       ...(isWedding ? {
         communeDate: data.communeDate ? new Date(data.communeDate).toISOString() : null,
@@ -624,6 +627,11 @@ export default function WeddingEdit() {
           <TablesEditor value={watch('tables') || []} onChange={(v) => setValue('tables', v)} />
         </div>
         )}
+
+        {/* ==================== Liste de boissons ==================== */}
+        <div className="rounded-2xl border border-border bg-surface p-8">
+          <DrinkOptionsEditor value={watch('drinkOptions') || []} onChange={(v) => setValue('drinkOptions', v, { shouldDirty: true })} />
+        </div>
 
         {/* ==================== Section 2: Programme (Mariage uniquement) ==================== */}
         {isWedding && (

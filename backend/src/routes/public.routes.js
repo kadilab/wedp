@@ -208,7 +208,8 @@ router.get('/:weddingSlug/:invitationCode', async (req, res) => {
         qrCodeSize: wedding.qrCodeSize,
         qrCodeStyle: wedding.qrCodeStyle,
         qrCodeColor: wedding.qrCodeColor,
-        qrCodeBgColor: wedding.qrCodeBgColor
+        qrCodeBgColor: wedding.qrCodeBgColor,
+        drinkOptions: wedding.drinkOptions
       },
       guest: {
         firstName: invitation.guest.firstName,
@@ -216,7 +217,8 @@ router.get('/:weddingSlug/:invitationCode', async (req, res) => {
         fullName: `${invitation.guest.firstName} ${invitation.guest.lastName}`,
         tableNumber: invitation.guest.tableNumber,
         plusOnes: invitation.guest.plusOnes,
-        rsvpStatus: invitation.guest.rsvpStatus
+        rsvpStatus: invitation.guest.rsvpStatus,
+        drinkChoice: invitation.guest.drinkChoice
       },
       invitation: {
         uniqueCode: invitation.uniqueCode,
@@ -241,7 +243,7 @@ router.get('/:weddingSlug/:invitationCode', async (req, res) => {
 router.post('/:weddingSlug/:invitationCode/rsvp', async (req, res) => {
   try {
     const { weddingSlug, invitationCode } = req.params;
-    const { response, message, plusOnes } = req.body;
+    const { response, message, plusOnes, drinkChoice } = req.body;
 
     if (!['CONFIRMED', 'DECLINED'].includes(response)) {
       return res.status(400).json({ error: 'Réponse invalide' });
@@ -253,6 +255,14 @@ router.post('/:weddingSlug/:invitationCode/rsvp', async (req, res) => {
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvé' });
+    }
+
+    // Drink choice must match one of the options the organizer configured
+    // (or be omitted/cleared) — guards against arbitrary free text ending up
+    // in the caterer's count.
+    const drinkOptions = Array.isArray(wedding.drinkOptions) ? wedding.drinkOptions : [];
+    if (drinkChoice && !drinkOptions.includes(drinkChoice)) {
+      return res.status(400).json({ error: 'Boisson invalide' });
     }
 
     const invitation = await prisma.invitation.findUnique({
@@ -276,7 +286,8 @@ router.post('/:weddingSlug/:invitationCode/rsvp', async (req, res) => {
         rsvpStatus: response,
         rsvpDate: new Date(),
         rsvpMessage: message || null,
-        ...(plusOnes !== undefined && { plusOnes })
+        ...(plusOnes !== undefined && { plusOnes }),
+        ...(drinkChoice !== undefined && { drinkChoice: drinkChoice || null })
       }
     });
 
@@ -364,6 +375,7 @@ router.get('/:weddingSlug', async (req, res) => {
         coverPhoto: true,
         logo: true,
         musicUrl: true,
+        drinkOptions: true,
         isPublished: true,
         status: true
       }
@@ -387,7 +399,8 @@ router.get('/:weddingSlug', async (req, res) => {
         venueMapUrl: wedding.venueMapUrl,
         coverPhoto: wedding.coverPhoto,
         logo: wedding.logo,
-        musicUrl: wedding.musicUrl
+        musicUrl: wedding.musicUrl,
+        drinkOptions: wedding.drinkOptions
       }
     });
   } catch (error) {
