@@ -721,7 +721,7 @@ export default function AdminSettings() {
                       </label>
                       <input
                         id="kpayApiKey"
-                        type="password"
+                        type="text"
                         autoComplete="off"
                         className="input font-mono"
                         placeholder="kpay_live_..."
@@ -735,10 +735,10 @@ export default function AdminSettings() {
                       </label>
                       <input
                         id="kpaySecretKey"
-                        type="password"
+                        type="text"
                         autoComplete="off"
                         className="input font-mono"
-                        placeholder="••••••••••••••••"
+                        placeholder="Depuis le dashboard K-PAY"
                         value={formData.kpaySecretKey}
                         onChange={(e) => updateField('kpaySecretKey', e.target.value)}
                       />
@@ -749,7 +749,7 @@ export default function AdminSettings() {
                       </label>
                       <input
                         id="kpayWebhookSecret"
-                        type="password"
+                        type="text"
                         autoComplete="off"
                         className="input font-mono"
                         placeholder="Depuis le dashboard K-PAY"

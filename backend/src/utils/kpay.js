@@ -26,6 +26,14 @@ const SETTING_KEYS = [
   'kpayAccountCurrency', 'kpayPriceCurrency', 'kpayMinAmount'
 ];
 
+// Copy-pasting a key from a dashboard very often drags in a leading/trailing
+// space or newline — trim defensively so that alone never causes a silent
+// "Invalid API credentials" from K-PAY.
+const pick = (dbVal, envVal, fallback = '') => {
+  const v = (dbVal && String(dbVal).trim()) || (envVal && String(envVal).trim()) || fallback;
+  return v;
+};
+
 async function getKpayConfig() {
   const rows = await prisma.setting.findMany({ where: { key: { in: SETTING_KEYS } } });
   const db = {};
@@ -33,13 +41,13 @@ async function getKpayConfig() {
 
   return {
     enabled: db.kpayEnabled === undefined ? true : db.kpayEnabled !== 'false',
-    baseUrl: db.kpayBaseUrl || process.env.KPAY_BASE_URL || 'https://admin.kpay.site',
-    apiKey: db.kpayApiKey || process.env.KPAY_API_KEY || '',
-    secretKey: db.kpaySecretKey || process.env.KPAY_SECRET_KEY || '',
-    webhookSecret: db.kpayWebhookSecret || process.env.KPAY_WEBHOOK_SECRET || '',
-    accountCurrency: (db.kpayAccountCurrency || process.env.KPAY_ACCOUNT_CURRENCY || 'CDF').toUpperCase(),
-    priceCurrency: (db.kpayPriceCurrency || process.env.KPAY_PRICE_CURRENCY || 'CDF').toUpperCase(),
-    minAmount: db.kpayMinAmount || process.env.KPAY_MIN_AMOUNT || ''
+    baseUrl: pick(db.kpayBaseUrl, process.env.KPAY_BASE_URL, 'https://admin.kpay.site'),
+    apiKey: pick(db.kpayApiKey, process.env.KPAY_API_KEY),
+    secretKey: pick(db.kpaySecretKey, process.env.KPAY_SECRET_KEY),
+    webhookSecret: pick(db.kpayWebhookSecret, process.env.KPAY_WEBHOOK_SECRET),
+    accountCurrency: pick(db.kpayAccountCurrency, process.env.KPAY_ACCOUNT_CURRENCY, 'CDF').toUpperCase(),
+    priceCurrency: pick(db.kpayPriceCurrency, process.env.KPAY_PRICE_CURRENCY, 'CDF').toUpperCase(),
+    minAmount: pick(db.kpayMinAmount, process.env.KPAY_MIN_AMOUNT)
   };
 }
 
