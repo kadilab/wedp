@@ -32,8 +32,7 @@ import {
   QrCodeIcon,
   LinkIcon,
   GlobeAltIcon,
-  SpeakerWaveIcon,
-  SpeakerXMarkIcon
+  SpeakerWaveIcon
 } from '@heroicons/react/24/outline'
 
 const ChurchIcon = ({ className }) => (
@@ -124,6 +123,42 @@ function ScaledCanvas({ width, height, className, children, hPadding = 24 }) {
         {children}
       </div>
     </div>
+  )
+}
+
+// Floating background-music control. Browsers block audible autoplay
+// without a user gesture, so this can't just play silently in the
+// background — it needs to be noticeable enough that a guest actually taps
+// it: a pill with a label and a gentle pulse while silent, collapsing to a
+// small icon-only circle once playing so it stops competing for attention.
+function MusicToggle({ musicUrl, audioRef, isPlaying, onToggle, accentColor = '#df6746' }) {
+  if (!musicUrl) return null
+  return (
+    <>
+      <audio ref={audioRef} src={musicUrl} loop />
+      <motion.button
+        type="button"
+        onClick={onToggle}
+        layout
+        className="fixed bottom-5 right-5 z-50 flex h-12 items-center gap-2 rounded-full bg-white px-3 text-sm font-medium text-gray-700 shadow-lg transition-shadow hover:shadow-xl"
+        aria-label={isPlaying ? 'Couper la musique' : 'Jouer la musique'}
+        title={isPlaying ? 'Couper la musique' : 'Jouer la musique'}
+      >
+        <motion.span
+          animate={!isPlaying ? { scale: [1, 1.15, 1] } : { scale: 1 }}
+          transition={!isPlaying ? { repeat: Infinity, duration: 1.6 } : {}}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+          style={{ backgroundColor: isPlaying ? `${accentColor}22` : accentColor }}
+        >
+          {isPlaying ? (
+            <SpeakerWaveIcon className="h-4 w-4" style={{ color: accentColor }} />
+          ) : (
+            <MusicalNoteIcon className="h-4 w-4 text-white" />
+          )}
+        </motion.span>
+        {!isPlaying && <span className="whitespace-nowrap pr-1">Musique</span>}
+      </motion.button>
+    </>
   )
 }
 
@@ -312,24 +347,7 @@ export default function InvitationView() {
   if (!invitationCode && wedding && !invitationResponse) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-white to-gold-50 p-4">
-        {wedding.musicUrl && (
-          <>
-            <audio ref={audioRef} src={wedding.musicUrl} loop />
-            <button
-              type="button"
-              onClick={toggleMusic}
-              className="fixed bottom-5 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg backdrop-blur transition hover:scale-105 hover:bg-white"
-              aria-label={isMusicPlaying ? 'Couper la musique' : 'Jouer la musique'}
-              title={isMusicPlaying ? 'Couper la musique' : 'Jouer la musique'}
-            >
-              {isMusicPlaying ? (
-                <SpeakerWaveIcon className="h-6 w-6 text-rose-500" />
-              ) : (
-                <SpeakerXMarkIcon className="h-6 w-6 text-gray-400" />
-              )}
-            </button>
-          </>
-        )}
+        <MusicToggle musicUrl={wedding.musicUrl} audioRef={audioRef} isPlaying={isMusicPlaying} onToggle={toggleMusic} accentColor="#f43f5e" />
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -505,25 +523,7 @@ export default function InvitationView() {
 
     return (
       <div className="min-h-screen flex flex-col items-center justify-start bg-gray-100 py-6 px-3" style={{ fontFamily: bodyFont }}>
-        {/* Background music */}
-        {wedding?.musicUrl && (
-          <>
-            <audio ref={audioRef} src={wedding.musicUrl} loop />
-            <button
-              type="button"
-              onClick={toggleMusic}
-              className="fixed bottom-5 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg backdrop-blur transition hover:scale-105 hover:bg-white"
-              aria-label={isMusicPlaying ? 'Couper la musique' : 'Jouer la musique'}
-              title={isMusicPlaying ? 'Couper la musique' : 'Jouer la musique'}
-            >
-              {isMusicPlaying ? (
-                <SpeakerWaveIcon className="h-6 w-6" style={{ color: primaryColor }} />
-              ) : (
-                <SpeakerXMarkIcon className="h-6 w-6 text-gray-400" />
-              )}
-            </button>
-          </>
-        )}
+        <MusicToggle musicUrl={wedding?.musicUrl} audioRef={audioRef} isPlaying={isMusicPlaying} onToggle={toggleMusic} accentColor={primaryColor} />
 
         {/* Google Fonts + custom uploaded fonts */}
         <FontStyles />
@@ -828,25 +828,7 @@ export default function InvitationView() {
         fontFamily: bodyFont
       }}
     >
-      {/* Background music */}
-      {wedding?.musicUrl && (
-        <>
-          <audio ref={audioRef} src={wedding.musicUrl} loop />
-          <button
-            type="button"
-            onClick={toggleMusic}
-            className="fixed bottom-5 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg backdrop-blur transition hover:scale-105 hover:bg-white"
-            aria-label={isMusicPlaying ? 'Couper la musique' : 'Jouer la musique'}
-            title={isMusicPlaying ? 'Couper la musique' : 'Jouer la musique'}
-          >
-            {isMusicPlaying ? (
-              <SpeakerWaveIcon className="h-6 w-6" style={{ color: primaryColor }} />
-            ) : (
-              <SpeakerXMarkIcon className="h-6 w-6 text-gray-400" />
-            )}
-          </button>
-        </>
-      )}
+      <MusicToggle musicUrl={wedding?.musicUrl} audioRef={audioRef} isPlaying={isMusicPlaying} onToggle={toggleMusic} accentColor={primaryColor} />
 
       {/* Default gradient BG if no custom */}
       {!hasCustomBg && (
