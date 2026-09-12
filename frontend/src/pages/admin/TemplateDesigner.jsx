@@ -858,11 +858,19 @@ export default function TemplateDesigner({ clientMode = false }) {
   const markerInputRef = useRef(null)
   const previewInputRef = useRef(null)
 
-  // Load existing template if editing
+  // Load existing template if editing. This powers an active edit session
+  // (a useEffect below re-syncs local state — including the background —
+  // from `templateData` on every change), so it must NOT silently refetch
+  // in the background: the app's default QueryClient refetches on window
+  // focus after 30s of staleness, which would clobber any unsaved in-editor
+  // change (e.g. a just-uploaded background) back to the last-saved server
+  // value the moment the user switched tabs and came back. Explicit
+  // `invalidateQueries` calls after a save still force a refetch regardless
+  // of staleTime, so saved changes reload correctly.
   const { data: templateData, isLoading } = useQuery(
     ['admin-template', templateId],
     () => clientMode ? templateAPI.getOne(templateId) : adminAPI.getTemplate(templateId),
-    { enabled: isEditing }
+    { enabled: isEditing, refetchOnWindowFocus: false, staleTime: Infinity }
   )
 
   // Initialize from existing template
@@ -1611,7 +1619,13 @@ export default function TemplateDesigner({ clientMode = false }) {
       const res = templateId
         ? await templateAPI.uploadBackgroundForTemplate(templateId, formData)
         : await templateAPI.uploadBackground(formData)
-      setBackgroundUrl(res.data.backgroundUrl || res.data.backgroundImage)
+      const uploadedUrl = res.data.backgroundUrl || res.data.backgroundImage
+      setBackgroundUrl(uploadedUrl)
+      // Keep previewImage in sync too — handleSave falls back to the stale
+      // previewImage state (`previewImage || backgroundUrl`) when saving via
+      // the admin update route, which would otherwise silently re-save the
+      // OLD preview image over this newly uploaded background.
+      setPreviewImage(uploadedUrl)
       toast.success('Image de fond chargée !')
       setActivePanel('elements')
 
