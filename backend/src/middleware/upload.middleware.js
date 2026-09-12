@@ -2,6 +2,8 @@ const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
+const sharp = require('sharp');
+const logger = require('../utils/logger');
 
 // Ensure upload directories exist
 const uploadDirs = ['uploads', 'uploads/images', 'uploads/covers', 'uploads/logos', 'uploads/csv', 'uploads/pdfs', 'uploads/qrcodes', 'uploads/backgrounds', 'uploads/qr-logos', 'uploads/couple-photos', 'uploads/avatars', 'uploads/template-backgrounds', 'uploads/templates', 'uploads/icons', 'uploads/fonts', 'uploads/guestbook', 'uploads/music'];
@@ -104,8 +106,77 @@ const upload = multer({
   }
 });
 
-// Single file upload
-const uploadSingle = (fieldName) => upload.single(fieldName);
+// Max pixel width to keep per upload field — guests download every one of
+// these on the public invitation page, often on mobile data, so raw
+// phone-camera originals (often 3000px+/several MB) get downsized and
+// recompressed in place. Fields not listed here (music, font, csv, avatar
+// handled separately, etc.) are left untouched.
+const RESIZE_WIDTH_BY_FIELD = {
+  cover: 1920,
+  coverPhoto: 1920,
+  background: 1920,
+  backgroundImage: 1920,
+  templateBackground: 1920,
+  couplePhoto: 1600,
+  guestbookPhoto: 1600,
+  previewImage: 1200,
+  bannerImage: 1920,
+  logo: 800,
+  qrLogo: 400,
+  qrCodeLogo: 400,
+  profileImage: 600,
+  avatar: 600,
+  icon: 400,
+  thumbnail: 800,
+};
+
+// Resizes + recompresses an uploaded image in place, right after multer has
+// written it to disk. Runs before handleUploadError in the middleware chain,
+// but since it's a normal (3-arg) middleware, Express automatically skips it
+// on a multer error (next(err) jumps straight to the 4-arg error handler) —
+// so ordering is safe without any extra checks here.
+const optimizeImage = async (req, res, next) => {
+  if (!req.file) return next();
+  const maxWidth = RESIZE_WIDTH_BY_FIELD[req.file.fieldname];
+  const mimetype = req.file.mimetype || '';
+  // Skip formats sharp shouldn't rewrite: vector (SVG) and animated (GIF).
+  if (!maxWidth || !mimetype.startsWith('image/') || mimetype === 'image/svg+xml' || mimetype === 'image/gif') {
+    return next();
+  }
+
+  try {
+    const filePath = req.file.path;
+    const original = fs.readFileSync(filePath);
+    const image = sharp(original, { failOn: 'none' }).rotate(); // auto-orient from EXIF
+    const metadata = await sharp(original).metadata();
+    if (metadata.width && metadata.width > maxWidth) {
+      image.resize({ width: maxWidth, withoutEnlargement: true });
+    }
+
+    let buffer;
+    if (metadata.format === 'png') {
+      buffer = await image.png({ compressionLevel: 9, palette: true }).toBuffer();
+    } else if (metadata.format === 'webp') {
+      buffer = await image.webp({ quality: 82 }).toBuffer();
+    } else {
+      buffer = await image.jpeg({ quality: 82, mozjpeg: true }).toBuffer();
+    }
+
+    // Only replace the original if we actually saved space — a tiny/already
+    // optimized source could theoretically grow slightly after re-encoding.
+    if (buffer.length < original.length) {
+      fs.writeFileSync(filePath, buffer);
+      req.file.size = buffer.length;
+    }
+  } catch (err) {
+    // Never fail an upload because optimization failed — keep the original file.
+    logger.warn(`Image optimization skipped for ${req.file.fieldname}: ${err.message}`);
+  }
+  next();
+};
+
+// Single file upload (multer, then automatic resize/compression for images)
+const uploadSingle = (fieldName) => [upload.single(fieldName), optimizeImage];
 
 // Multiple files upload
 const uploadMultiple = (fieldName, maxCount = 10) => upload.array(fieldName, maxCount);
