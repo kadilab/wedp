@@ -505,6 +505,30 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
       }
     }
 
+    // Re-derive QR/barcode style from the newly selected template's QR
+    // element — same inheritance as wedding creation (see POST /). Without
+    // this, switching templates in "Modifier" left the wedding's QR style
+    // frozen on whatever the ORIGINAL template (or the column defaults, i.e.
+    // a plain black QR) had, since these columns are otherwise only ever set
+    // at creation time. Skipped when the caller explicitly sends its own
+    // qrCodeColor/qrCodeBgColor (a manual override takes priority).
+    let qrColorFinal = qrCodeColor;
+    let qrBgFinal = qrCodeBgColor;
+    let codeTypeFinal;
+    if (templateId && qrCodeColor === undefined && qrCodeBgColor === undefined) {
+      try {
+        const tpl = await prisma.template.findUnique({ where: { id: templateId }, select: { config: true } });
+        const qrEl = (tpl?.config?.designElements || []).find((e) => e && e.type === 'qrcode');
+        if (qrEl) {
+          if (qrEl.qrColor) qrColorFinal = qrEl.qrColor;
+          qrBgFinal = qrEl.qrTransparentBg ? 'transparent' : (qrEl.qrBgColor || qrBgFinal);
+          codeTypeFinal = qrEl.codeType === 'barcode' ? 'barcode' : 'qr';
+        }
+      } catch (e) {
+        logger.warn('QR style inheritance from template failed:', e.message);
+      }
+    }
+
     const wedding = await prisma.wedding.update({
       where: { id: req.params.id },
       data: {
@@ -556,8 +580,9 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
         ...(socialLinks !== undefined && { socialLinks: socialLinks || null }),
         // QR Code
         ...(qrCodeStyle !== undefined && { qrCodeStyle }),
-        ...(qrCodeColor !== undefined && { qrCodeColor }),
-        ...(qrCodeBgColor !== undefined && { qrCodeBgColor }),
+        ...(qrColorFinal !== undefined && { qrCodeColor: qrColorFinal }),
+        ...(qrBgFinal !== undefined && { qrCodeBgColor: qrBgFinal }),
+        ...(codeTypeFinal !== undefined && { codeType: codeTypeFinal }),
         ...(qrCodeSize !== undefined && { qrCodeSize: parseInt(qrCodeSize) || 300 }),
         // Print service
         ...(wantsPrintService !== undefined && { wantsPrintService }),
