@@ -785,6 +785,61 @@ router.post('/:id/logo', authenticate, isOwner(), uploadSingle('logo'), handleUp
 });
 
 /**
+ * @route   POST /api/weddings/:id/music
+ * @desc    Upload background music for the public invitation page
+ * @access  Private
+ */
+router.post('/:id/music', authenticate, isOwner(), uploadSingle('music'), handleUploadError, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Aucun fichier audio uploadé' });
+    }
+
+    const musicPath = `/uploads/music/${req.file.filename}`;
+
+    // Replacing the music: remove the old file (if any) now that it's
+    // orphaned — same cleanup pattern as other wedding asset uploads.
+    const current = await prisma.wedding.findUnique({ where: { id: req.params.id }, select: { musicUrl: true } });
+    if (current?.musicUrl) await safeDeleteUploads([current.musicUrl]);
+
+    await prisma.wedding.update({
+      where: { id: req.params.id },
+      data: { musicUrl: musicPath }
+    });
+
+    res.json({
+      message: 'Musique mise à jour',
+      musicUrl: musicPath
+    });
+  } catch (error) {
+    logger.error('Upload music error:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'upload' });
+  }
+});
+
+/**
+ * @route   DELETE /api/weddings/:id/music
+ * @desc    Remove the background music
+ * @access  Private
+ */
+router.delete('/:id/music', authenticate, isOwner(), async (req, res) => {
+  try {
+    const current = await prisma.wedding.findUnique({ where: { id: req.params.id }, select: { musicUrl: true } });
+    if (current?.musicUrl) await safeDeleteUploads([current.musicUrl]);
+
+    await prisma.wedding.update({
+      where: { id: req.params.id },
+      data: { musicUrl: null }
+    });
+
+    res.json({ message: 'Musique supprimée' });
+  } catch (error) {
+    logger.error('Remove music error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+/**
  * @route   DELETE /api/weddings/:id
  * @desc    Delete wedding
  * @access  Private

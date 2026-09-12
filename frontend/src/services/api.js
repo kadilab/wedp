@@ -127,6 +127,17 @@ export const weddingAPI = {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
   },
+  uploadMusic: (id, file, onProgress) => {
+    const formData = new FormData()
+    formData.append('music', file)
+    return api.post(`/weddings/${id}/music`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: onProgress
+        ? (e) => onProgress(Math.round((e.loaded * 100) / (e.total || e.loaded)))
+        : undefined
+    })
+  },
+  removeMusic: (id) => api.delete(`/weddings/${id}/music`),
   // Upload one image for a specific template photo placeholder (multi-image templates)
   uploadTemplateImage: (id, placeholderId, file, onProgress) => {
     const formData = new FormData()

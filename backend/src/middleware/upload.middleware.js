@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 
 // Ensure upload directories exist
-const uploadDirs = ['uploads', 'uploads/images', 'uploads/covers', 'uploads/logos', 'uploads/csv', 'uploads/pdfs', 'uploads/qrcodes', 'uploads/backgrounds', 'uploads/qr-logos', 'uploads/couple-photos', 'uploads/avatars', 'uploads/template-backgrounds', 'uploads/templates', 'uploads/icons', 'uploads/fonts', 'uploads/guestbook'];
+const uploadDirs = ['uploads', 'uploads/images', 'uploads/covers', 'uploads/logos', 'uploads/csv', 'uploads/pdfs', 'uploads/qrcodes', 'uploads/backgrounds', 'uploads/qr-logos', 'uploads/couple-photos', 'uploads/avatars', 'uploads/template-backgrounds', 'uploads/templates', 'uploads/icons', 'uploads/fonts', 'uploads/guestbook', 'uploads/music'];
 uploadDirs.forEach(dir => {
   const fullPath = path.join(__dirname, '../../', dir);
   if (!fs.existsSync(fullPath)) {
@@ -41,6 +41,8 @@ const storage = multer.diskStorage({
       folder = 'uploads/csv';
     } else if (file.fieldname === 'guestbookPhoto') {
       folder = 'uploads/guestbook';
+    } else if (file.fieldname === 'music') {
+      folder = 'uploads/music';
     }
     
     cb(null, path.join(__dirname, '../../', folder));
@@ -74,6 +76,15 @@ const fileFilter = (req, file, cb) => {
       cb(null, true);
     } else {
       cb(new Error('Formats acceptés : .ttf, .otf, .woff, .woff2'), false);
+    }
+  } else if (file.fieldname === 'music') {
+    // Background music — mimetypes are inconsistent across browsers/devices,
+    // so also trust the extension (mirrors the 'font' handling above).
+    const allowedAudioTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/mp4', 'audio/x-m4a', 'audio/aac'];
+    if (allowedAudioTypes.includes(file.mimetype) || /\.(mp3|wav|ogg|m4a|aac)$/i.test(file.originalname)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Formats acceptés : .mp3, .wav, .ogg, .m4a, .aac'), false);
     }
   } else {
     if (allowedImageTypes.includes(file.mimetype)) {

@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect } from 'react'
+import { useState, useLayoutEffect, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation } from 'react-query'
 import { publicAPI } from '../../services/api'
@@ -31,7 +31,9 @@ import {
   MusicalNoteIcon,
   QrCodeIcon,
   LinkIcon,
-  GlobeAltIcon
+  GlobeAltIcon,
+  SpeakerWaveIcon,
+  SpeakerXMarkIcon
 } from '@heroicons/react/24/outline'
 
 const ChurchIcon = ({ className }) => (
@@ -131,6 +133,8 @@ export default function InvitationView() {
   const [rsvpStatus, setRsvpStatus] = useState(null)
   const [numberOfGuests, setNumberOfGuests] = useState(1)
   const [showRsvpForm, setShowRsvpForm] = useState(false)
+  const audioRef = useRef(null)
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false)
 
   // Fetch full invitation when both slug and code are present
   const { data: invitationData, isLoading: isLoadingInvitation, error: invitationError } = useQuery(
@@ -154,6 +158,27 @@ export default function InvitationView() {
   const guest = invitationResponse?.guest
   const template = invitationResponse?.template  // Template is at top level of invitation response
   const invitationInfo = invitationResponse?.invitation  // QR code, uniqueCode, etc.
+
+  // Background music — most browsers block audible autoplay without a user
+  // gesture, so this attempt silently no-ops there and the floating button
+  // (rendered near the bottom of this component) lets the guest start it.
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!wedding?.musicUrl || !audio) return
+    audio.volume = 0.6
+    audio.play().then(() => setIsMusicPlaying(true)).catch(() => setIsMusicPlaying(false))
+  }, [wedding?.musicUrl])
+
+  const toggleMusic = () => {
+    const audio = audioRef.current
+    if (!audio) return
+    if (audio.paused) {
+      audio.play().then(() => setIsMusicPlaying(true)).catch(() => {})
+    } else {
+      audio.pause()
+      setIsMusicPlaying(false)
+    }
+  }
 
   // Wedding gets the bride & groom name treatment; everything else uses
   // a single generic event title.
@@ -287,6 +312,24 @@ export default function InvitationView() {
   if (!invitationCode && wedding && !invitationResponse) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-white to-gold-50 p-4">
+        {wedding.musicUrl && (
+          <>
+            <audio ref={audioRef} src={wedding.musicUrl} loop />
+            <button
+              type="button"
+              onClick={toggleMusic}
+              className="fixed bottom-5 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg backdrop-blur transition hover:scale-105 hover:bg-white"
+              aria-label={isMusicPlaying ? 'Couper la musique' : 'Jouer la musique'}
+              title={isMusicPlaying ? 'Couper la musique' : 'Jouer la musique'}
+            >
+              {isMusicPlaying ? (
+                <SpeakerWaveIcon className="h-6 w-6 text-rose-500" />
+              ) : (
+                <SpeakerXMarkIcon className="h-6 w-6 text-gray-400" />
+              )}
+            </button>
+          </>
+        )}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -462,6 +505,26 @@ export default function InvitationView() {
 
     return (
       <div className="min-h-screen flex flex-col items-center justify-start bg-gray-100 py-6 px-3" style={{ fontFamily: bodyFont }}>
+        {/* Background music */}
+        {wedding?.musicUrl && (
+          <>
+            <audio ref={audioRef} src={wedding.musicUrl} loop />
+            <button
+              type="button"
+              onClick={toggleMusic}
+              className="fixed bottom-5 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg backdrop-blur transition hover:scale-105 hover:bg-white"
+              aria-label={isMusicPlaying ? 'Couper la musique' : 'Jouer la musique'}
+              title={isMusicPlaying ? 'Couper la musique' : 'Jouer la musique'}
+            >
+              {isMusicPlaying ? (
+                <SpeakerWaveIcon className="h-6 w-6" style={{ color: primaryColor }} />
+              ) : (
+                <SpeakerXMarkIcon className="h-6 w-6 text-gray-400" />
+              )}
+            </button>
+          </>
+        )}
+
         {/* Google Fonts + custom uploaded fonts */}
         <FontStyles />
 
@@ -765,6 +828,26 @@ export default function InvitationView() {
         fontFamily: bodyFont
       }}
     >
+      {/* Background music */}
+      {wedding?.musicUrl && (
+        <>
+          <audio ref={audioRef} src={wedding.musicUrl} loop />
+          <button
+            type="button"
+            onClick={toggleMusic}
+            className="fixed bottom-5 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-lg backdrop-blur transition hover:scale-105 hover:bg-white"
+            aria-label={isMusicPlaying ? 'Couper la musique' : 'Jouer la musique'}
+            title={isMusicPlaying ? 'Couper la musique' : 'Jouer la musique'}
+          >
+            {isMusicPlaying ? (
+              <SpeakerWaveIcon className="h-6 w-6" style={{ color: primaryColor }} />
+            ) : (
+              <SpeakerXMarkIcon className="h-6 w-6 text-gray-400" />
+            )}
+          </button>
+        </>
+      )}
+
       {/* Default gradient BG if no custom */}
       {!hasCustomBg && (
         <div className="absolute inset-0 bg-gradient-to-br from-rose-50 via-white to-gold-50" />

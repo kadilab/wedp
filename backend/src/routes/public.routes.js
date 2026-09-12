@@ -363,6 +363,7 @@ router.get('/:weddingSlug', async (req, res) => {
         venueMapUrl: true,
         coverPhoto: true,
         logo: true,
+        musicUrl: true,
         isPublished: true,
         status: true
       }
@@ -385,7 +386,8 @@ router.get('/:weddingSlug', async (req, res) => {
         venueCity: wedding.venueCity,
         venueMapUrl: wedding.venueMapUrl,
         coverPhoto: wedding.coverPhoto,
-        logo: wedding.logo
+        logo: wedding.logo,
+        musicUrl: wedding.musicUrl
       }
     });
   } catch (error) {

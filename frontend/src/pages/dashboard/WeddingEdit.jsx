@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
@@ -158,6 +158,33 @@ export default function WeddingEdit() {
   )
   const handlePhotoUpload = (file, filename, onProgress) =>
     uploadPhotoMutation.mutateAsync({ file, onProgress })
+
+  const musicInputRef = useRef(null)
+  const [musicUploadProgress, setMusicUploadProgress] = useState(null)
+  const uploadMusicMutation = useMutation(
+    ({ file, onProgress }) => weddingAPI.uploadMusic(id, file, onProgress),
+    {
+      onSuccess: () => {
+        toast.success('Musique mise à jour')
+        queryClient.invalidateQueries(['wedding', id])
+      },
+      onError: (error) => toast.error(error.response?.data?.error || "Erreur lors de l'upload"),
+      onSettled: () => setMusicUploadProgress(null)
+    }
+  )
+  const removeMusicMutation = useMutation(() => weddingAPI.removeMusic(id), {
+    onSuccess: () => {
+      toast.success('Musique supprimée')
+      queryClient.invalidateQueries(['wedding', id])
+    },
+    onError: () => toast.error('Erreur lors de la suppression')
+  })
+  const handleMusicFileChange = (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    uploadMusicMutation.mutate({ file, onProgress: setMusicUploadProgress })
+  }
 
   // One upload handler per template photo placeholder (multi-image templates)
   const makeTemplateImageUpload = (placeholderId) => async (file, filename, onProgress) => {
@@ -387,6 +414,61 @@ export default function WeddingEdit() {
               <textarea className="input" rows={2} placeholder="Parking, allergies..." {...register('additionalInfo')} />
             </div>
           </div>
+
+          {/* Background music */}
+          <div className="border-t border-border pt-6 space-y-3">
+            <h3 className="font-medium text-content flex items-center">
+              <MusicalNoteIcon className="h-5 w-5 mr-2 text-primary-500" />
+              Musique de fond
+            </h3>
+            <p className="text-sm text-muted">
+              Jouée automatiquement (avec un bouton pour couper le son) sur la page d'invitation publique.
+            </p>
+
+            {wedding?.musicUrl ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <audio controls src={wedding.musicUrl} className="h-10 w-full sm:max-w-xs" />
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => musicInputRef.current?.click()}
+                    disabled={uploadMusicMutation.isLoading}
+                    className="btn-outline btn-sm"
+                  >
+                    Remplacer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeMusicMutation.mutate()}
+                    disabled={removeMusicMutation.isLoading}
+                    className="btn-ghost btn-sm text-red-500"
+                  >
+                    Retirer
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => musicInputRef.current?.click()}
+                disabled={uploadMusicMutation.isLoading}
+                className="btn-outline btn-sm inline-flex items-center gap-1.5"
+              >
+                <MusicalNoteIcon className="h-4 w-4" />
+                {uploadMusicMutation.isLoading
+                  ? `Envoi...${musicUploadProgress != null ? ` ${musicUploadProgress}%` : ''}`
+                  : 'Ajouter une musique'}
+              </button>
+            )}
+            <input
+              ref={musicInputRef}
+              type="file"
+              accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac"
+              className="hidden"
+              onChange={handleMusicFileChange}
+            />
+            <p className="text-xs text-muted">MP3, WAV, OGG, M4A ou AAC — 10 Mo max.</p>
+          </div>
         </div>
         )}
 
@@ -455,6 +537,61 @@ export default function WeddingEdit() {
               <label className="label">Informations supplémentaires</label>
               <textarea className="input" rows={2} placeholder="Parking, dress code..." {...register('additionalInfo')} />
             </div>
+          </div>
+
+          {/* Background music */}
+          <div className="border-t border-border pt-6 space-y-3">
+            <h3 className="font-medium text-content flex items-center">
+              <MusicalNoteIcon className="h-5 w-5 mr-2 text-primary-500" />
+              Musique de fond
+            </h3>
+            <p className="text-sm text-muted">
+              Jouée automatiquement (avec un bouton pour couper le son) sur la page d'invitation publique.
+            </p>
+
+            {wedding?.musicUrl ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <audio controls src={wedding.musicUrl} className="h-10 w-full sm:max-w-xs" />
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => musicInputRef.current?.click()}
+                    disabled={uploadMusicMutation.isLoading}
+                    className="btn-outline btn-sm"
+                  >
+                    Remplacer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeMusicMutation.mutate()}
+                    disabled={removeMusicMutation.isLoading}
+                    className="btn-ghost btn-sm text-red-500"
+                  >
+                    Retirer
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => musicInputRef.current?.click()}
+                disabled={uploadMusicMutation.isLoading}
+                className="btn-outline btn-sm inline-flex items-center gap-1.5"
+              >
+                <MusicalNoteIcon className="h-4 w-4" />
+                {uploadMusicMutation.isLoading
+                  ? `Envoi...${musicUploadProgress != null ? ` ${musicUploadProgress}%` : ''}`
+                  : 'Ajouter une musique'}
+              </button>
+            )}
+            <input
+              ref={musicInputRef}
+              type="file"
+              accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac"
+              className="hidden"
+              onChange={handleMusicFileChange}
+            />
+            <p className="text-xs text-muted">MP3, WAV, OGG, M4A ou AAC — 10 Mo max.</p>
           </div>
         </div>
         )}
