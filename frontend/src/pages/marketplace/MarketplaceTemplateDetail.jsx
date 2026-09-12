@@ -2,6 +2,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import api from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
+import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import TemplatePreview from '../../components/templates/TemplatePreview';
 import {
   ArrowLongLeftIcon, ArrowRightIcon, LinkIcon, SparklesIcon,
@@ -36,6 +37,11 @@ export default function MarketplaceTemplateDetail() {
   );
 
   const template = data?.template;
+
+  useDocumentMeta(
+    template ? `${template.name} — Modèle d'invitation | Winvite.pro` : undefined,
+    template?.description || `Modèle d'invitation digitale ${EVENT_TYPE_LABELS[template?.eventType] || ''} sur Winvite.pro : QR code par invité, suivi RSVP en temps réel.`
+  );
 
   if (isLoading) {
     return (

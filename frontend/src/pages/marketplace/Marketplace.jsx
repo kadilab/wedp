@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import api from '../../services/api';
 import MarketplaceTemplateCard from '../../components/MarketplaceTemplateCard';
+import { useDocumentMeta } from '../../hooks/useDocumentMeta';
 import {
   SparklesIcon, ChevronDownIcon, ArrowLongLeftIcon, ArrowLongRightIcon,
   PaintBrushIcon, ArrowRightIcon, MagnifyingGlassIcon, XMarkIcon
@@ -85,6 +86,11 @@ export default function Marketplace() {
   const templates = data?.templates || [];
   const pagination = data?.pagination || {};
   const total = pagination.total ?? templates.length;
+
+  useDocumentMeta(
+    'Modèles d\'invitations digitales — Winvite.pro',
+    'Parcourez des modèles d\'invitations digitales pour mariage, anniversaire, cérémonie et plus : QR code par invité, suivi RSVP en temps réel et paiement Mobile Money.'
+  );
 
   function setParam(key, value) {
     const next = new URLSearchParams(searchParams);
