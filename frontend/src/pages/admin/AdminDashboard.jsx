@@ -42,7 +42,7 @@ function KpayBalanceCard({ data, loading }) {
           </div>
           {data?.environment && (
             <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isLive ? 'bg-emerald-400/30 text-emerald-50' : 'bg-amber-400/30 text-amber-50'}`}>
-              {isLive ? 'LIVE' : 'TEST'}
+              {isLive ? 'TEST' : 'LIVE'}
             </span>
           )}
         </div>

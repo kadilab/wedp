@@ -14,7 +14,7 @@ import {
   CalendarDaysIcon, HeartIcon,
   SparklesIcon,
   SwatchIcon, ExclamationTriangleIcon,
-  EyeIcon, UserIcon, PhotoIcon
+  EyeIcon, UserIcon, PhotoIcon, PaintBrushIcon, LockClosedIcon
 } from '@heroicons/react/24/outline'
 
 const ChurchIcon = ({ className }) => (
@@ -146,6 +146,30 @@ export default function WeddingEdit() {
     }
   )
 
+  // Clone a shared/marketplace template into the client's own copy — points
+  // this wedding at the clone and drops it straight into the visual editor so
+  // they can adapt colors/background/layout to their event. The original
+  // creator still earns their commission (the clone keeps a lineage pointer
+  // back to the marketplace template, see backend fork route).
+  const forkTemplateMutation = useMutation(
+    (templateId) => templateAPI.fork(templateId, id),
+    {
+      onSuccess: (res) => {
+        const forkedId = res.data?.template?.id
+        queryClient.invalidateQueries('my-templates')
+        queryClient.invalidateQueries(['wedding', id])
+        toast.success('Template dupliqué — personnalisez-le à votre goût')
+        if (forkedId) navigate(`/templates/${forkedId}/design?wedding=${id}`)
+      },
+      onError: (error) => toast.error(error.response?.data?.error || 'Erreur lors de la duplication du template')
+    }
+  )
+  const handlePersonalize = (e, templateId) => {
+    e.preventDefault()
+    e.stopPropagation()
+    forkTemplateMutation.mutate(templateId)
+  }
+
   const uploadPhotoMutation = useMutation(
     ({ file, onProgress }) => weddingAPI.uploadCouplePhoto(id, file, onProgress),
     {
@@ -196,13 +220,11 @@ export default function WeddingEdit() {
 
   const cleanValue = (val) => (val === '' || val === undefined) ? null : val
 
-  const locked = (wedding?._count?.invitations || 0) > 0
+  // Once invitations exist, only the template is frozen (its layout/QR are
+  // baked into invitations already issued) — every other field stays editable.
+  const templateLocked = (wedding?._count?.invitations || 0) > 0
 
   const onSubmit = (data) => {
-    if (locked) {
-      toast.error('Des invitations ont déjà été générées : les informations ne sont plus modifiables.')
-      return
-    }
     const submitData = {
       weddingDate: new Date(data.weddingDate).toISOString(),
       customMessage: cleanValue(data.customMessage),
@@ -273,14 +295,14 @@ export default function WeddingEdit() {
         </p>
       </div>
 
-      {locked && (
+      {templateLocked && (
         <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
           <ExclamationTriangleIcon className="h-6 w-6 shrink-0 text-amber-500 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Informations verrouillées</p>
+            <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Template verrouillé</p>
             <p className="text-sm text-amber-700/90 dark:text-amber-400/80">
-              Des invitations ont déjà été générées pour cet événement. Pour éviter toute fraude,
-              les informations ne sont plus modifiables.
+              Des invitations ont déjà été générées pour cet événement : le template ne peut plus être changé.
+              Les autres informations (textes, dates, lieu, couleurs…) restent modifiables.
             </p>
           </div>
         </div>
@@ -689,10 +711,10 @@ export default function WeddingEdit() {
                       </p>
                       <div className="grid grid-cols-2 gap-3">
                         {myTemplates.map((tmpl) => (
-                          <label key={tmpl.id} className={`cursor-pointer rounded-xl border-2 overflow-hidden transition-all ${
+                          <label key={tmpl.id} className={`group relative rounded-xl border-2 overflow-hidden transition-all ${templateLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
                             selectedTemplateId === tmpl.id ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-primary-100 hover:border-primary-300 hover:shadow-sm'
                           }`}>
-                            <input type="radio" value={tmpl.id} className="hidden" {...register('templateId')} />
+                            <input type="radio" value={tmpl.id} className="hidden" disabled={templateLocked} {...register('templateId')} />
                             <div className="aspect-[3/4] bg-gradient-wedding flex items-center justify-center relative">
                               <TemplatePreview template={tmpl} weddingData={previewWeddingData} />
                               {selectedTemplateId === tmpl.id && (
@@ -705,6 +727,15 @@ export default function WeddingEdit() {
                               <span className="absolute top-2 left-2 bg-primary-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
                                 <UserIcon className="h-2.5 w-2.5" /> Mon template
                               </span>
+                              {!templateLocked && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/templates/${tmpl.id}/design?wedding=${id}`) }}
+                                  className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-primary-700 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-white"
+                                >
+                                  <PaintBrushIcon className="h-3.5 w-3.5" /> Modifier le design
+                                </button>
+                              )}
                             </div>
                             <div className="p-2">
                               <p className="font-medium text-sm text-content truncate">{tmpl.name}</p>
@@ -718,10 +749,10 @@ export default function WeddingEdit() {
                   )}
                   <div className="grid grid-cols-2 gap-3">
                     {templates.map((tmpl) => (
-                      <label key={tmpl.id} className={`cursor-pointer rounded-xl border-2 overflow-hidden transition-all ${
+                      <label key={tmpl.id} className={`group relative rounded-xl border-2 overflow-hidden transition-all ${templateLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
                         selectedTemplateId === tmpl.id ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-border hover:border-border hover:shadow-sm'
                       }`}>
-                        <input type="radio" value={tmpl.id} className="hidden" {...register('templateId')} />
+                        <input type="radio" value={tmpl.id} className="hidden" disabled={templateLocked} {...register('templateId')} />
                         <div className="aspect-[3/4] bg-gradient-wedding flex items-center justify-center relative">
                           <TemplatePreview template={tmpl} weddingData={previewWeddingData} />
                           {selectedTemplateId === tmpl.id && (
@@ -734,6 +765,17 @@ export default function WeddingEdit() {
                           {tmpl.isPremium && (
                             <span className="absolute top-2 right-2 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">Premium</span>
                           )}
+                          {!templateLocked && (
+                            <button
+                              type="button"
+                              disabled={forkTemplateMutation.isLoading}
+                              onClick={(e) => handlePersonalize(e, tmpl.id)}
+                              className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-primary-700 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-white disabled:opacity-60"
+                            >
+                              <PaintBrushIcon className="h-3.5 w-3.5" />
+                              {forkTemplateMutation.isLoading && forkTemplateMutation.variables === tmpl.id ? 'Duplication...' : 'Personnaliser'}
+                            </button>
+                          )}
                         </div>
                         <div className="p-2">
                           <p className="font-medium text-sm text-content truncate">{tmpl.name}</p>
@@ -742,6 +784,12 @@ export default function WeddingEdit() {
                       </label>
                     ))}
                   </div>
+                  {templateLocked && (
+                    <p className="flex items-center gap-1.5 text-xs text-muted">
+                      <LockClosedIcon className="h-3.5 w-3.5" />
+                      Le template est verrouillé car des invitations ont déjà été générées.
+                    </p>
+                  )}
                 </div>
 
                 {/* Right: live preview panel */}
@@ -802,8 +850,8 @@ export default function WeddingEdit() {
           </button>
           <div className="flex items-center gap-4">
             <button type="button" onClick={() => navigate(`/weddings/${id}`)} className="btn-secondary">Annuler</button>
-            <button type="submit" disabled={locked || !isDirty || updateMutation.isLoading} className="btn-primary">
-              {locked ? 'Verrouillé' : updateMutation.isLoading ? 'Enregistrement...' : 'Enregistrer'}
+            <button type="submit" disabled={!isDirty || updateMutation.isLoading} className="btn-primary">
+              {updateMutation.isLoading ? 'Enregistrement...' : 'Enregistrer'}
             </button>
           </div>
         </div>

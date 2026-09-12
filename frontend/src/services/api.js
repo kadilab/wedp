@@ -247,7 +247,7 @@ export const templateAPI = {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   saveDesign: (id, data) => api.put(`/templates/${id}/design`, data),
-  fork: (id) => api.post(`/templates/${id}/fork`),
+  fork: (id, weddingId) => api.post(`/templates/${id}/fork`, weddingId ? { weddingId } : undefined),
   createBlank: (data) => api.post('/templates/blank', data)
 }
 

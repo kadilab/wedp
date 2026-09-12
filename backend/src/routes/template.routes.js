@@ -5,6 +5,8 @@ const { authenticate, isAdmin } = require('../middleware/auth.middleware');
 const { paginationValidation } = require('../middleware/validation.middleware');
 const { uploadSingle, uploadMultiple, handleUploadError } = require('../middleware/upload.middleware');
 const { generateSlug, paginate, buildPaginationMeta } = require('../utils/helpers');
+const { findAccessibleWedding } = require('../utils/weddingAccess');
+const { recordTemplateUsage } = require('../utils/marketplace');
 const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
@@ -441,11 +443,36 @@ router.post('/', authenticate, isAdmin, async (req, res) => {
 
 /**
  * @route   POST /api/templates/:id/fork
- * @desc    Create a user-owned copy of a template for customization
+ * @desc    Create a user-owned copy of a template for customization. Pass
+ *          `weddingId` to also re-point that wedding to the new copy in the
+ *          same request (rejected once the wedding's template is locked).
  * @access  Private
  */
 router.post('/:id/fork', authenticate, async (req, res) => {
   try {
+    const { weddingId } = req.body || {};
+
+    // Re-pointing a wedding only makes sense while its template isn't locked
+    // yet (mirrors the TEMPLATE_LOCKED check in PUT /api/weddings/:id) — fail
+    // fast, before creating an orphaned fork nobody asked for.
+    let wedding = null;
+    if (weddingId) {
+      wedding = await findAccessibleWedding(req.user, weddingId);
+      if (!wedding) {
+        return res.status(404).json({ error: 'Événement non trouvé' });
+      }
+      const isStaff = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
+      if (!isStaff) {
+        const invitationCount = await prisma.invitation.count({ where: { weddingId } });
+        if (invitationCount > 0) {
+          return res.status(403).json({
+            error: 'Des invitations ont déjà été générées pour cet événement. Le template ne peut plus être changé.',
+            code: 'TEMPLATE_LOCKED'
+          });
+        }
+      }
+    }
+
     const source = await prisma.template.findUnique({
       where: { id: req.params.id }
     });
@@ -513,7 +540,17 @@ router.post('/:id/fork', authenticate, async (req, res) => {
       }
     });
 
-    res.status(201).json({ message: 'Template dupliqué', template: forked });
+    let updatedWedding = null;
+    if (wedding) {
+      updatedWedding = await prisma.wedding.update({
+        where: { id: wedding.id },
+        data: { templateId: forked.id }
+      });
+      recordTemplateUsage({ templateId: forked.id, weddingId: wedding.id })
+        .catch((err) => logger.error('recordTemplateUsage failed on template fork:', err));
+    }
+
+    res.status(201).json({ message: 'Template dupliqué', template: forked, wedding: updatedWedding });
   } catch (error) {
     logger.error('Fork template error:', error);
     res.status(500).json({ error: 'Erreur lors de la duplication du template' });

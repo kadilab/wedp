@@ -487,20 +487,22 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
     // Get current wedding state before update
     const currentWedding = await prisma.wedding.findUnique({
       where: { id: req.params.id },
-      select: { wantsPrintService: true, eventType: true, brideName: true, groomName: true, honoreeName: true, eventTitle: true }
+      select: { wantsPrintService: true, eventType: true, brideName: true, groomName: true, honoreeName: true, eventTitle: true, templateId: true }
     });
 
-    // Anti-fraud: once invitations have been generated for this event, its
-    // content can no longer be edited — otherwise a client could buy a few
-    // invitations, change the names and re-use them for other people/events.
-    // Staff (admin) can still edit for support.
+    // Anti-fraud: once invitations have been generated, the TEMPLATE itself is
+    // frozen — otherwise a client could keep swapping designs (each with its
+    // own QR/code layout) against the same already-issued invitations. Other
+    // fields (names, dates, venue, colors, texts…) stay editable throughout,
+    // since guests only ever see the latest content when they scan their code.
+    // Staff (admin) can still change anything for support.
     const isStaff = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
-    if (!isStaff) {
+    if (!isStaff && templateId !== undefined && currentWedding && templateId !== currentWedding.templateId) {
       const invitationCount = await prisma.invitation.count({ where: { weddingId: req.params.id } });
       if (invitationCount > 0) {
         return res.status(403).json({
-          error: 'Des invitations ont déjà été générées pour cet événement. Les informations ne sont plus modifiables.',
-          code: 'WEDDING_LOCKED'
+          error: 'Des invitations ont déjà été générées pour cet événement. Le template ne peut plus être changé (les autres informations restent modifiables).',
+          code: 'TEMPLATE_LOCKED'
         });
       }
     }
