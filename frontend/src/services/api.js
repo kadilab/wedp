@@ -335,7 +335,16 @@ export const printOrderAPI = {
 export const publicAPI = {
   getInvitation: (weddingSlug, invitationCode) => api.get(`/public/${weddingSlug}/${invitationCode}`),
   getWeddingInfo: (weddingSlug) => api.get(`/public/${weddingSlug}`),
-  submitRSVP: (weddingSlug, invitationCode, data) => api.post(`/public/${weddingSlug}/${invitationCode}/rsvp`, data)
+  submitRSVP: (weddingSlug, invitationCode, data) => api.post(`/public/${weddingSlug}/${invitationCode}/rsvp`, data),
+  // Gift registry (cagnotte) — guest-facing, no auth
+  getGiftInfo: (weddingSlug) => api.get(`/public/gift/${weddingSlug}`),
+  initGift: (weddingSlug, data) => api.post(`/public/gift/${weddingSlug}/init`, data),
+  giftStatus: (contributionId) => api.get(`/public/gift/status/${contributionId}`)
+}
+
+// Gift registry (cagnotte) — dashboard/owner side
+export const giftAPI = {
+  getContributions: (weddingId) => api.get(`/gifts/${weddingId}`)
 }
 
 // Admin API

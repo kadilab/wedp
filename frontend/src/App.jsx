@@ -31,6 +31,7 @@ const CheckIn = lazy(() => import('./pages/dashboard/CheckIn'))
 const Guestbook = lazy(() => import('./pages/dashboard/Guestbook'))
 const LiveDisplay = lazy(() => import('./pages/dashboard/LiveDisplay'))
 const Collaborators = lazy(() => import('./pages/dashboard/Collaborators'))
+const GiftRegistry = lazy(() => import('./pages/dashboard/GiftRegistry'))
 const CollaboratorAccept = lazy(() => import('./pages/dashboard/CollaboratorAccept'))
 const WeddingStats = lazy(() => import('./pages/dashboard/WeddingStats'))
 const Templates = lazy(() => import('./pages/dashboard/Templates'))
@@ -135,6 +136,7 @@ function App() {
         <Route path="/weddings/:id/checkin" element={<CheckIn />} />
         <Route path="/weddings/:id/guestbook" element={<Guestbook />} />
         <Route path="/weddings/:id/collaborators" element={<Collaborators />} />
+        <Route path="/weddings/:id/gifts" element={<GiftRegistry />} />
         <Route path="/weddings/:id/stats" element={<WeddingStats />} />
         <Route path="/templates" element={<Templates />} />
         <Route path="/creator-templates" element={<CreatorTemplates />} />

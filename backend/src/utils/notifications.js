@@ -204,6 +204,13 @@ const NotificationTemplates = {
     type: 'guest',
     title: `${count > 1 ? 'Invités ajoutés' : 'Invité ajouté'}`,
     message: `${count} invité${count > 1 ? 's' : ''} ajouté${count > 1 ? 's' : ''} à "${weddingTitle}".`
+  }),
+
+  // Gift registry (cagnotte) contribution confirmed
+  giftReceived: (donorName, amount, currency, weddingTitle) => ({
+    type: 'gift',
+    title: 'Nouveau cadeau reçu 🎁',
+    message: `${donorName} vous a envoyé ${amount} ${currency} pour "${weddingTitle}".`
   })
 };
 

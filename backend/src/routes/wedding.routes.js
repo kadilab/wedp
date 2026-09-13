@@ -500,6 +500,10 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
       tables,
       // Drink options offered to guests when they RSVP
       drinkOptions,
+      // Online gift registry (cagnotte)
+      giftRegistryEnabled,
+      giftRegistryGoal,
+      giftRegistryMessage,
       // Multi-image templates
       templateImages
     } = req.body;
@@ -616,6 +620,9 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
         // Tables
         ...(tables !== undefined && { tables: Array.isArray(tables) ? normalizeTables(tables) : tables }),
         ...(drinkOptions !== undefined && { drinkOptions: normalizeDrinkOptions(drinkOptions) }),
+        ...(giftRegistryEnabled !== undefined && { giftRegistryEnabled: !!giftRegistryEnabled }),
+        ...(giftRegistryGoal !== undefined && { giftRegistryGoal: giftRegistryGoal === '' || giftRegistryGoal === null ? null : parseFloat(giftRegistryGoal) }),
+        ...(giftRegistryMessage !== undefined && { giftRegistryMessage: giftRegistryMessage || null }),
         // Multi-image templates
         ...(templateImages !== undefined && { templateImages })
       },

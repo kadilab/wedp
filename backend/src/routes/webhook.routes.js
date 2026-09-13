@@ -5,12 +5,15 @@ const logger = require('../utils/logger');
 const kpay = require('../utils/kpay');
 const { approveInvitationOrder } = require('../utils/invitationOrders');
 const { markPayoutPaid, markPayoutFailed } = require('../utils/payouts');
+const { createNotification, NotificationTemplates } = require('../utils/notifications');
+const { eventDisplayName } = require('../utils/helpers');
 
 const prisma = new PrismaClient();
 
 // externalId conventions used when we initiate K-PAY operations.
 const ORDER_PREFIX = 'inv_';
 const PAYOUT_PREFIX = 'payout_';
+const GIFT_PREFIX = 'gift_';
 
 async function handlePaymentEvent(event, payload, io) {
   const externalId = payload.externalId || '';
@@ -30,6 +33,40 @@ async function handlePaymentEvent(event, payload, io) {
       data: { adminNote: `K-PAY ${event}: ${payload.failureReason || 'n/a'}` }
     }).catch(() => {});
     logger.info(`K-PAY: payment ${event} for order ${orderId}`);
+  }
+}
+
+async function handleGiftEvent(event, payload, io) {
+  const externalId = payload.externalId || '';
+  if (!externalId.startsWith(GIFT_PREFIX)) {
+    logger.warn(`K-PAY gift webhook with unknown externalId: ${externalId}`);
+    return;
+  }
+  const contributionId = externalId.slice(GIFT_PREFIX.length);
+
+  if (event === 'payment.completed') {
+    const updated = await prisma.giftContribution.updateMany({
+      where: { id: contributionId, status: { not: 'APPROVED' } },
+      data: { status: 'APPROVED', paidAt: new Date() }
+    });
+    if (updated.count > 0) {
+      const contribution = await prisma.giftContribution.findUnique({ where: { id: contributionId } });
+      const wedding = contribution && await prisma.wedding.findUnique({ where: { id: contribution.weddingId } });
+      if (contribution && wedding) {
+        const notif = NotificationTemplates.giftReceived(
+          contribution.donorName, contribution.amount, contribution.currency, eventDisplayName(wedding)
+        );
+        createNotification({
+          userId: wedding.userId,
+          ...notif,
+          data: { link: `/weddings/${wedding.id}/gifts`, weddingId: wedding.id },
+          io
+        }).catch((err) => logger.error('Gift notification failed:', err));
+      }
+    }
+    logger.info(`K-PAY: gift contribution ${contributionId} approved via payment ${payload.paymentId}`);
+  } else if (event === 'payment.failed' || event === 'payment.cancelled') {
+    logger.info(`K-PAY: gift payment ${event} for contribution ${contributionId}`);
   }
 }
 
@@ -67,7 +104,12 @@ async function webhookHandler(req, res) {
 
   try {
     if (event.startsWith('payment.')) {
-      await handlePaymentEvent(event, payload, io);
+      const externalId = payload.externalId || '';
+      if (externalId.startsWith(GIFT_PREFIX)) {
+        await handleGiftEvent(event, payload, io);
+      } else {
+        await handlePaymentEvent(event, payload, io);
+      }
     } else if (event.startsWith('payout.')) {
       await handlePayoutEvent(event, payload, io);
     } else if (event.startsWith('refund.')) {

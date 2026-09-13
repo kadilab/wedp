@@ -1,12 +1,14 @@
-import { useState, useLayoutEffect, useEffect, useRef } from 'react'
+import { useState, useLayoutEffect, useEffect, useRef, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
-import { useQuery, useMutation } from 'react-query'
+import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { publicAPI } from '../../services/api'
 import useSiteSettingsStore from '../../stores/siteSettingsStore'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { formatMoney } from '../../utils/currency'
+import { OPERATORS, buildFullPhone, detectOperator } from '../../utils/momo'
 import { getClipPath, getImageStyle } from '../../utils/imageShapes'
 import CurvedText, { hasArc } from '../../components/templates/CurvedText'
 import { textGradientStyle } from '../../utils/gradient'
@@ -32,7 +34,11 @@ import {
   QrCodeIcon,
   LinkIcon,
   GlobeAltIcon,
-  SpeakerWaveIcon
+  SpeakerWaveIcon,
+  GiftIcon,
+  XMarkIcon,
+  DevicePhoneMobileIcon,
+  ShieldCheckIcon
 } from '@heroicons/react/24/outline'
 
 const ChurchIcon = ({ className }) => (
@@ -243,6 +249,228 @@ function RsvpForm({
   )
 }
 
+// Gift registry (cagnotte): a self-contained widget — fetches its own data
+// (enabled? goal? total raised so far?) and manages its own modal, so it can
+// be dropped into any of this page's three render branches without lifting
+// state up (unlike RsvpForm, it needs no guest identity — any well-wisher can
+// send a gift, invited or not).
+function GiftSection({ weddingSlug, primaryColor = '#df6746', textColor, headingFont }) {
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+
+  const { data } = useQuery(
+    ['gift-info', weddingSlug],
+    () => publicAPI.getGiftInfo(weddingSlug),
+    { enabled: !!weddingSlug, staleTime: 15_000 }
+  )
+  const info = data?.data
+
+  if (!info?.enabled) return null
+
+  const goal = parseFloat(info.goal) || 0
+  const raised = parseFloat(info.totalRaised) || 0
+  const progressPct = goal > 0 ? Math.min(100, Math.round((raised / goal) * 100)) : null
+
+  return (
+    <>
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="w-full mt-4">
+        <div className="rounded-xl bg-white shadow-lg p-5 text-center">
+          <GiftIcon className="h-8 w-8 mx-auto mb-2" style={{ color: primaryColor }} />
+          <h3 className="font-bold mb-1" style={{ fontFamily: headingFont, color: textColor }}>Cagnotte</h3>
+          {info.message && <p className="text-sm text-gray-600 mb-3">{info.message}</p>}
+          {progressPct !== null && (
+            <div className="mb-3">
+              <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${progressPct}%`, backgroundColor: primaryColor }} />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">{formatMoney(raised)} sur {formatMoney(goal)} ({progressPct}%)</p>
+            </div>
+          )}
+          {progressPct === null && raised > 0 && (
+            <p className="text-xs text-gray-500 mb-3">{formatMoney(raised)} déjà reçus{info.contributorsCount ? ` de ${info.contributorsCount} personne${info.contributorsCount > 1 ? 's' : ''}` : ''}</p>
+          )}
+          <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90" style={{ backgroundColor: primaryColor }}>
+            <GiftIcon className="h-4 w-4" /> Faire un cadeau
+          </button>
+        </div>
+      </motion.div>
+      {open && (
+        <GiftModal
+          weddingSlug={weddingSlug}
+          primaryColor={primaryColor}
+          onClose={() => setOpen(false)}
+          onPaid={() => queryClient.invalidateQueries(['gift-info', weddingSlug])}
+        />
+      )}
+    </>
+  )
+}
+
+function GiftModal({ weddingSlug, primaryColor, onClose, onPaid }) {
+  const [donorName, setDonorName] = useState('')
+  const [amount, setAmount] = useState('')
+  const [message, setMessage] = useState('')
+  const [provider, setProvider] = useState('')
+  const [localPhone, setLocalPhone] = useState('')
+  const [paying, setPaying] = useState(false)
+  const [ussdMsg, setUssdMsg] = useState('')
+  const [done, setDone] = useState(false)
+
+  const fullPhone = useMemo(() => buildFullPhone(localPhone), [localPhone])
+  const phoneValid = /^243\d{9}$/.test(fullPhone)
+  const amountValid = parseFloat(amount) > 0
+
+  const onPhoneChange = (value) => {
+    setLocalPhone(value)
+    const guessed = detectOperator(value)
+    if (guessed) setProvider(guessed)
+  }
+
+  const pay = async () => {
+    if (!donorName.trim()) return toast.error('Votre nom est requis')
+    if (!amountValid) return toast.error('Montant invalide')
+    if (!provider) return toast.error('Choisissez votre opérateur Mobile Money')
+    if (!phoneValid) return toast.error('Numéro invalide. Saisissez votre numéro local (ex : 0970000000)')
+    setPaying(true)
+    setUssdMsg('')
+    try {
+      const res = await publicAPI.initGift(weddingSlug, {
+        donorName: donorName.trim(),
+        amount: parseFloat(amount),
+        message: message.trim(),
+        provider,
+        phoneNumber: fullPhone
+      })
+      const contributionId = res.data.contributionId
+      setUssdMsg('📲 Validez la demande sur votre téléphone (code PIN Mobile Money)…')
+
+      let attempts = 0
+      const poll = async () => {
+        attempts++
+        try {
+          const { data } = await publicAPI.giftStatus(contributionId)
+          if (data.status === 'APPROVED' || data.paymentStatus === 'COMPLETED') {
+            setPaying(false); setUssdMsg(''); setDone(true)
+            onPaid()
+            return
+          }
+          if (data.paymentStatus === 'FAILED' || data.paymentStatus === 'CANCELLED') {
+            toast.error('Paiement échoué ou annulé.')
+            setPaying(false); setUssdMsg('')
+            return
+          }
+        } catch { /* transient — keep polling */ }
+        if (attempts >= 30) {
+          setUssdMsg('Toujours en attente… La confirmation se fera automatiquement dès validation.')
+          setPaying(false)
+          return
+        }
+        setTimeout(poll, 3000)
+      }
+      setTimeout(poll, 3000)
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur lors du paiement Mobile Money')
+      setPaying(false); setUssdMsg('')
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full max-h-[92vh] overflow-y-auto">
+        <div className="relative px-6 pt-6 pb-5 text-white rounded-t-2xl" style={{ backgroundColor: primaryColor }}>
+          <button onClick={onClose} className="absolute top-4 right-4 text-white/80 hover:text-white">
+            <XMarkIcon className="h-6 w-6" />
+          </button>
+          <h3 className="text-lg font-bold flex items-center gap-2"><GiftIcon className="h-5 w-5" /> Faire un cadeau</h3>
+          <p className="text-white/80 text-sm mt-1">Paiement Mobile Money instantané</p>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {done ? (
+            <div className="text-center py-4">
+              <CheckCircleIcon className="h-12 w-12 mx-auto text-green-500 mb-2" />
+              <p className="font-semibold text-gray-900">Merci pour votre générosité !</p>
+              <p className="text-sm text-gray-500 mt-1">Votre cadeau a bien été reçu.</p>
+              <button onClick={onClose} className="btn-primary mt-4 w-full">Fermer</button>
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Votre nom</label>
+                <input type="text" className="input w-full" value={donorName} onChange={(e) => setDonorName(e.target.value)} placeholder="Ex : Famille Kalala" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Montant</label>
+                <input type="number" min="1" step="0.01" className="input w-full" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Ex : 20" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Message (optionnel)</label>
+                <textarea className="input w-full" rows={2} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Tous nos vœux de bonheur !" />
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">Opérateur Mobile Money</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {OPERATORS.map((op) => {
+                    const active = provider === op.code
+                    return (
+                      <button key={op.code} type="button" onClick={() => setProvider(op.code)}
+                        className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border-2 transition ${active ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200' : 'border-gray-200 bg-white hover:border-primary-300'}`}>
+                        <img src={op.logo} alt={op.label} className="h-9 w-9 object-contain" />
+                        <span className={`text-[11px] font-medium ${active ? 'text-primary-700' : 'text-gray-600'}`}>{op.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Numéro Mobile Money</label>
+                <div className={`flex items-stretch rounded-lg border overflow-hidden transition ${localPhone && !phoneValid ? 'border-red-300 ring-1 ring-red-200' : 'border-gray-300 focus-within:ring-2 focus-within:ring-primary-500'}`}>
+                  <span className="flex items-center gap-1.5 px-3 bg-gray-50 border-r border-gray-200 text-gray-700 font-medium select-none">
+                    <span className="text-lg leading-none">🇨🇩</span>
+                    <span className="text-sm">+243</span>
+                  </span>
+                  <input type="tel" inputMode="numeric" autoComplete="tel" value={localPhone} onChange={(e) => onPhoneChange(e.target.value)} placeholder="097 000 0000" className="flex-1 px-3 py-2.5 outline-none text-gray-900" />
+                </div>
+              </div>
+
+              <button onClick={pay} disabled={paying || !amountValid || !provider || !phoneValid}
+                className="w-full flex items-center justify-center gap-2 rounded-lg py-3 text-base font-semibold text-white disabled:opacity-50" style={{ backgroundColor: primaryColor }}>
+                {paying ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
+                    </svg>
+                    Paiement en cours…
+                  </>
+                ) : (
+                  <>
+                    <DevicePhoneMobileIcon className="h-5 w-5" />
+                    Envoyer {amountValid ? formatMoney(parseFloat(amount)) : ''}
+                  </>
+                )}
+              </button>
+
+              {ussdMsg && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-center text-sm text-amber-800">
+                  {ussdMsg}
+                </div>
+              )}
+
+              <p className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
+                <ShieldCheckIcon className="h-4 w-4" />
+                Paiement sécurisé — vous validez avec votre code PIN sur votre téléphone.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function InvitationView() {
   const { weddingSlug, invitationCode } = useParams()
   const { siteName } = useSiteSettingsStore()
@@ -429,7 +657,7 @@ export default function InvitationView() {
   // Public wedding landing page (no invitation code)
   if (!invitationCode && wedding && !invitationResponse) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-white to-gold-50 p-4">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-rose-50 via-white to-gold-50 p-4">
         <MusicToggle musicUrl={wedding.musicUrl} audioRef={audioRef} isPlaying={isMusicPlaying} onToggle={toggleMusic} accentColor="#f43f5e" />
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -477,7 +705,10 @@ export default function InvitationView() {
             </div>
           </div>
         </motion.div>
-        <div className="text-center mt-5 text-gray-400 text-sm absolute bottom-4">
+        <div className="max-w-lg w-full">
+          <GiftSection weddingSlug={weddingSlug} primaryColor="#f43f5e" />
+        </div>
+        <div className="text-center mt-5 text-gray-400 text-sm">
           <p>Créé avec ❤️ sur {siteName}</p>
         </div>
       </div>
@@ -852,6 +1083,7 @@ export default function InvitationView() {
             headingFont={headingFont}
             textColor={textColor}
           />
+          <GiftSection weddingSlug={weddingSlug} primaryColor={primaryColor} textColor={textColor} headingFont={headingFont} />
 
           <div className="text-center mt-4 text-gray-400 text-sm">
             <p>Créé avec ❤️ sur {siteName}</p>
@@ -1155,6 +1387,7 @@ export default function InvitationView() {
               headingFont={headingFont}
               textColor={textColor}
             />
+            <GiftSection weddingSlug={weddingSlug} primaryColor={primaryColor} textColor={textColor} headingFont={headingFont} />
 
             {/* QR Code - styled with wedding settings */}
             {invitationInfo?.qrCodeUrl && (

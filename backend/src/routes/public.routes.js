@@ -5,12 +5,176 @@ const logger = require('../utils/logger');
 const { createNotification, NotificationTemplates } = require('../utils/notifications');
 const { eventDisplayName } = require('../utils/helpers');
 const { uploadSingle, handleUploadError } = require('../middleware/upload.middleware');
+const kpay = require('../utils/kpay');
 
 const prisma = new PrismaClient();
 
-// NOTE: these two routes use a static 'guestbook' first segment and MUST stay
-// registered before the generic '/:weddingSlug' and '/:weddingSlug/:invitationCode'
-// routes below — otherwise Express would match "guestbook" as a weddingSlug.
+// NOTE: these routes use a static first segment ('guestbook', 'gift') and MUST
+// stay registered before the generic '/:weddingSlug' and
+// '/:weddingSlug/:invitationCode' routes below — otherwise Express would match
+// that segment as a weddingSlug.
+
+/**
+ * @route   GET /api/public/gift/:weddingSlug
+ * @desc    Gift registry (cagnotte) info for the invitation page: whether it's
+ *          enabled, the goal/message, and how much has been raised so far.
+ *          Also requires K-PAY to actually be configured — a wedding could
+ *          have the toggle on from before the admin ever set up K-PAY.
+ * @access  Public
+ */
+router.get('/gift/:weddingSlug', async (req, res) => {
+  try {
+    const wedding = await prisma.wedding.findUnique({
+      where: { slug: req.params.weddingSlug },
+      select: { id: true, giftRegistryEnabled: true, giftRegistryGoal: true, giftRegistryMessage: true }
+    });
+    if (!wedding || !wedding.giftRegistryEnabled || !(await kpay.isConfigured())) {
+      return res.json({ enabled: false });
+    }
+
+    const [approved, count] = await Promise.all([
+      prisma.giftContribution.aggregate({
+        where: { weddingId: wedding.id, status: 'APPROVED' },
+        _sum: { amount: true }
+      }),
+      prisma.giftContribution.count({ where: { weddingId: wedding.id, status: 'APPROVED' } })
+    ]);
+
+    res.json({
+      enabled: true,
+      goal: wedding.giftRegistryGoal,
+      message: wedding.giftRegistryMessage,
+      totalRaised: approved._sum.amount || 0,
+      contributorsCount: count
+    });
+  } catch (error) {
+    logger.error('Get gift registry info error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+/**
+ * @route   POST /api/public/gift/:weddingSlug/init
+ * @desc    Initiate a Mobile Money (K-PAY DIRECT/USSD) payment for a cash gift.
+ * @access  Public
+ */
+router.post('/gift/:weddingSlug/init', async (req, res) => {
+  try {
+    if (!(await kpay.isConfigured())) {
+      return res.status(503).json({ error: 'Paiement non configuré' });
+    }
+
+    const wedding = await prisma.wedding.findUnique({ where: { slug: req.params.weddingSlug } });
+    if (!wedding || !wedding.giftRegistryEnabled) {
+      return res.status(404).json({ error: 'Cagnotte non disponible' });
+    }
+
+    const { donorName, amount, message, provider, phoneNumber } = req.body || {};
+    const name = String(donorName || '').trim();
+    const value = parseFloat(amount);
+    if (!name) return res.status(400).json({ error: 'Votre nom est requis' });
+    if (!Number.isFinite(value) || value <= 0) return res.status(400).json({ error: 'Montant invalide' });
+    if (!provider || !phoneNumber) return res.status(400).json({ error: 'Opérateur et numéro requis' });
+
+    const phone = kpay.normalizeMomoPhone(phoneNumber, provider);
+    if (!/^243\d{9}$/.test(phone)) {
+      return res.status(400).json({ error: 'Numéro RDC invalide (format 243XXXXXXXXX)' });
+    }
+
+    const contribution = await prisma.giftContribution.create({
+      data: {
+        weddingId: wedding.id,
+        donorName: name,
+        amount: value,
+        message: (message || '').trim() || null,
+        paymentProvider: provider,
+        payerPhone: phone,
+        status: 'PENDING'
+      }
+    });
+
+    // K-PAY charges in the operator/account currency — convert our stored
+    // (site-currency) amount the same way invitation orders do.
+    const kpayAmount = await kpay.toAccountAmount(value);
+    try {
+      const result = await kpay.initPayment({
+        amount: kpayAmount,
+        provider,
+        phoneNumber: phone,
+        externalId: `gift_${contribution.id}`,
+        description: `Cadeau — ${eventDisplayName(wedding)}`,
+        metadata: { contributionId: contribution.id, weddingId: wedding.id }
+      });
+      await prisma.giftContribution.update({
+        where: { id: contribution.id },
+        data: { transactionId: result.id || result.reference }
+      });
+      res.status(201).json({ message: 'Paiement initié', contributionId: contribution.id });
+    } catch (err) {
+      logger.error('K-PAY gift init error:', JSON.stringify(err.data) || err.message);
+      res.status(502).json({ error: kpay.extractApiError(err) });
+    }
+  } catch (error) {
+    logger.error('Init gift payment error:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'initialisation du paiement' });
+  }
+});
+
+/**
+ * @route   GET /api/public/gift/status/:contributionId
+ * @desc    Poll the live K-PAY status for a gift payment; approves it the
+ *          moment K-PAY confirms completion (webhook is the other, faster
+ *          path — this is the guaranteed fallback the frontend polls).
+ * @access  Public
+ */
+router.get('/gift/status/:contributionId', async (req, res) => {
+  try {
+    const contribution = await prisma.giftContribution.findUnique({ where: { id: req.params.contributionId } });
+    if (!contribution) return res.status(404).json({ error: 'Contribution non trouvée' });
+
+    if (contribution.status === 'APPROVED') {
+      return res.json({ paymentStatus: 'COMPLETED', status: 'APPROVED' });
+    }
+    if (!contribution.transactionId) {
+      return res.json({ paymentStatus: 'UNKNOWN', status: contribution.status });
+    }
+
+    const payment = await kpay.getPayment(contribution.transactionId);
+    const paymentStatus = String(payment?.status || payment?.data?.status || 'UNKNOWN').toUpperCase();
+
+    if (paymentStatus === 'COMPLETED' || paymentStatus === 'SUCCESS') {
+      const paid = Number(payment?.amount ?? payment?.data?.amount ?? NaN);
+      const due = await kpay.toAccountAmount(parseFloat(contribution.amount));
+      const tolerance = Math.max(1, due * 0.01);
+      if (Number.isFinite(paid) && paid + tolerance < due) {
+        logger.warn(`K-PAY gift underpayment: contribution ${contribution.id} due ${due}, paid ${paid} — not approving`);
+        return res.status(409).json({ paymentStatus: 'UNDERPAID', status: contribution.status, error: 'Montant payé insuffisant' });
+      }
+      const updated = await prisma.giftContribution.updateMany({
+        where: { id: contribution.id, status: { not: 'APPROVED' } },
+        data: { status: 'APPROVED', paidAt: new Date() }
+      });
+      if (updated.count > 0) {
+        const wedding = await prisma.wedding.findUnique({ where: { id: contribution.weddingId } });
+        const notif = NotificationTemplates.giftReceived(
+          contribution.donorName, contribution.amount, contribution.currency, eventDisplayName(wedding)
+        );
+        createNotification({
+          userId: wedding.userId,
+          ...notif,
+          data: { link: `/weddings/${wedding.id}/gifts`, weddingId: wedding.id },
+          io: req.app.get('io')
+        }).catch((err) => logger.error('Gift notification failed:', err));
+      }
+      return res.json({ paymentStatus: 'COMPLETED', status: 'APPROVED' });
+    }
+
+    res.json({ paymentStatus, status: contribution.status });
+  } catch (error) {
+    logger.error('K-PAY gift status check error:', JSON.stringify(error.data) || error.message);
+    res.status(502).json({ error: kpay.extractApiError(error) });
+  }
+});
 
 /**
  * @route   GET /api/public/guestbook/:weddingSlug

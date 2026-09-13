@@ -15,7 +15,7 @@ import {
   CalendarDaysIcon, HeartIcon,
   SparklesIcon,
   SwatchIcon, ExclamationTriangleIcon,
-  EyeIcon, UserIcon, PhotoIcon, PaintBrushIcon, LockClosedIcon
+  EyeIcon, UserIcon, PhotoIcon, PaintBrushIcon, LockClosedIcon, GiftIcon
 } from '@heroicons/react/24/outline'
 
 const ChurchIcon = ({ className }) => (
@@ -68,6 +68,9 @@ export default function WeddingEdit() {
       honoreeName: wedding.honoreeName || '',
       tables: Array.isArray(wedding.tables) ? wedding.tables : [],
       drinkOptions: Array.isArray(wedding.drinkOptions) ? wedding.drinkOptions : [],
+      giftRegistryEnabled: wedding.giftRegistryEnabled || false,
+      giftRegistryGoal: wedding.giftRegistryGoal || '',
+      giftRegistryMessage: wedding.giftRegistryMessage || '',
       weddingDate: wedding.weddingDate?.split('T')[0],
       ceremonyTime: wedding.ceremonyTime || '',
       venueName: wedding.venueName || '',
@@ -244,6 +247,9 @@ export default function WeddingEdit() {
       ...(isFreeTitle ? { eventTitle: data.eventTitle } : {}),
       ...(eventUsesTables(wedding?.eventType) ? { tables: data.tables || [] } : {}),
       drinkOptions: data.drinkOptions || [],
+      giftRegistryEnabled: !!data.giftRegistryEnabled,
+      giftRegistryGoal: data.giftRegistryGoal === '' ? null : parseFloat(data.giftRegistryGoal),
+      giftRegistryMessage: cleanValue(data.giftRegistryMessage),
       // Programme — weddings only
       ...(isWedding ? {
         communeDate: data.communeDate ? new Date(data.communeDate).toISOString() : null,
@@ -631,6 +637,33 @@ export default function WeddingEdit() {
         {/* ==================== Liste de boissons ==================== */}
         <div className="rounded-2xl border border-border bg-surface p-8">
           <DrinkOptionsEditor value={watch('drinkOptions') || []} onChange={(v) => setValue('drinkOptions', v, { shouldDirty: true })} />
+        </div>
+
+        {/* ==================== Cagnotte en ligne ==================== */}
+        <div className="rounded-2xl border border-border bg-surface p-8 space-y-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" className="mt-1 h-4 w-4 rounded" {...register('giftRegistryEnabled')} />
+            <span>
+              <span className="font-medium text-content flex items-center gap-2">
+                <GiftIcon className="h-5 w-5 text-primary-500" /> Cagnotte en ligne
+              </span>
+              <span className="block text-sm text-muted mt-0.5">
+                Permet à vos invités d'envoyer un cadeau en argent (Mobile Money) directement depuis le lien d'invitation.
+              </span>
+            </span>
+          </label>
+          {watch('giftRegistryEnabled') && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-7">
+              <div>
+                <label className="label text-sm">Objectif (optionnel)</label>
+                <input type="number" min="0" step="0.01" className="input" placeholder="Ex : 500" {...register('giftRegistryGoal')} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="label text-sm">Message pour vos invités (optionnel)</label>
+                <textarea className="input" rows={2} placeholder="Ex : Aidez-nous à financer notre lune de miel !" {...register('giftRegistryMessage')} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ==================== Section 2: Programme (Mariage uniquement) ==================== */}

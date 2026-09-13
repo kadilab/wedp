@@ -337,6 +337,12 @@ model Wedding {
   customDomain      String?       @unique @map("custom_domain")
   subdomain         String?       @unique
 
+  // Online gift registry (cagnotte) — guests can send a cash gift via K-PAY
+  // straight from the invitation page.
+  giftRegistryEnabled  Boolean    @default(false) @map("gift_registry_enabled")
+  giftRegistryGoal     Decimal?   @db.Decimal(10, 2) @map("gift_registry_goal")
+  giftRegistryMessage  String?    @db.Text @map("gift_registry_message")
+
   // Digital guestbook / photo wall
   guestbookEnabled     Boolean    @default(true) @map("guestbook_enabled")
   guestbookAutoApprove Boolean    @default(true) @map("guestbook_auto_approve")
@@ -367,6 +373,7 @@ model Wedding {
   templateUsageTracks TemplateUsageTrack[]
   guestbookPosts    GuestbookPost[]
   collaborators     WeddingCollaborator[]
+  giftContributions GiftContribution[]
 
   @@index([userId])
   @@index([status])
@@ -580,6 +587,28 @@ model GuestbookPost {
   @@index([weddingId])
   @@index([status])
   @@map("guestbook_posts")
+}
+
+model GiftContribution {
+  id              String        @id @default(uuid())
+  weddingId       String        @map("wedding_id")
+  donorName       String        @map("donor_name")
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("USD")
+  message         String?       @db.Text
+  paymentProvider String?       @map("payment_provider")
+  payerPhone      String?       @map("payer_phone")
+  transactionId   String?       @map("transaction_id")
+  status          PaymentStatus @default(PENDING)
+  paidAt          DateTime?     @map("paid_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  wedding         Wedding       @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+
+  @@index([weddingId])
+  @@index([status])
+  @@map("gift_contributions")
 }
 
 model WeddingCollaborator {

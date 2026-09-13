@@ -29,7 +29,8 @@ import {
   TableCellsIcon,
   CameraIcon,
   TvIcon,
-  UsersIcon
+  UsersIcon,
+  GiftIcon
 } from '@heroicons/react/24/outline'
 
 // Custom Church Icon
@@ -197,6 +198,13 @@ export default function WeddingDetail() {
       href: `/weddings/${id}/live`,
       color: 'bg-violet-100 text-violet-600'
     },
+    ...(wedding?.giftRegistryEnabled ? [{
+      name: 'Cagnotte',
+      description: 'Suivre les cadeaux reçus des invités',
+      icon: GiftIcon,
+      href: `/weddings/${id}/gifts`,
+      color: 'bg-rose-100 text-rose-600'
+    }] : []),
     ...(wedding?.isOwner !== false ? [{
       name: 'Collaborateurs',
       description: 'Inviter un co-organisateur ou témoin',
