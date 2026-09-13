@@ -56,7 +56,8 @@ import {
   MapPinIcon,
   PlayIcon,
   StopIcon,
-  ComputerDesktopIcon
+  ComputerDesktopIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline'
 
 // ===================== CONSTANTS =====================
@@ -781,6 +782,10 @@ export default function TemplateDesigner({ clientMode = false }) {
   // (like the public invitation). previewKey bumps to replay the entrance.
   const [previewAnim, setPreviewAnim] = useState(false)
   const [previewKey, setPreviewKey] = useState(0)
+  // Full-screen "guest view" — distraction-free render (no panels/toolbar/handles)
+  // at a zoom that fits the viewport, animations always playing.
+  const [fullscreenPreview, setFullscreenPreview] = useState(false)
+  const [previewFitZoom, setPreviewFitZoom] = useState(1)
   const [saving, setSaving] = useState(false)
   const [fontSearch, setFontSearch] = useState('') // filters the font picker
   const [fontModal, setFontModal] = useState(null) // { file, family, weight, style }
@@ -1174,6 +1179,12 @@ export default function TemplateDesigner({ clientMode = false }) {
   // Keyboard shortcuts handler
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Full-screen guest preview intercepts everything except Escape (close it).
+      if (fullscreenPreview) {
+        if (e.key === 'Escape') { e.preventDefault(); setFullscreenPreview(false) }
+        return
+      }
+
       if (!canvasRef.current) return
 
       // Undo / Redo — allowed even while typing (standard editor behavior).
@@ -1241,7 +1252,22 @@ export default function TemplateDesigner({ clientMode = false }) {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedId, selectedIds, canvasWidth, canvasHeight, undo, redo])
+  }, [selectedId, selectedIds, canvasWidth, canvasHeight, undo, redo, fullscreenPreview])
+
+  // ---- Full-screen guest preview: fit the canvas to the viewport, replay
+  // entrance animations on open, and keep it fitted across window resizes. ----
+  useEffect(() => {
+    if (!fullscreenPreview) return
+    const fit = () => {
+      const availW = window.innerWidth - 64
+      const availH = window.innerHeight - 64
+      setPreviewFitZoom(Math.max(0.1, Math.min(availW / canvasWidth, availH / canvasHeight)))
+    }
+    fit()
+    setPreviewKey(k => k + 1)
+    window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  }, [fullscreenPreview, canvasWidth, canvasHeight])
 
   // ===================== ELEMENT OPERATIONS =====================
 
@@ -2152,6 +2178,31 @@ export default function TemplateDesigner({ clientMode = false }) {
     )
   }
 
+  // Renders one element playing its entrance + loop animation, with no drag
+  // handlers or selection chrome — shared by the inline "Aperçu anim." toggle
+  // and the full-screen guest preview.
+  const renderAnimatedElement = (el, key) => {
+    const entrance = getEntranceMotion(el.animation)
+    const loop = getLoopMotion(el.animation)
+    const inner = renderElementContent(el)
+    return (
+      <motion.div
+        key={key}
+        className="absolute"
+        style={{ left: el.x, top: el.y, width: el.width, height: el.height, pointerEvents: 'none', rotate: (el.type !== 'photo' && el.type !== 'image') ? (el.rotation || 0) : 0 }}
+        initial={isAnimated(el.animation) ? entrance?.initial : undefined}
+        animate={isAnimated(el.animation) ? entrance?.animate : undefined}
+        transition={isAnimated(el.animation) ? entrance?.transition : undefined}
+      >
+        {loop ? (
+          <motion.div style={{ width: '100%', height: '100%' }} animate={loop.animate} transition={loop.transition}>
+            {inner}
+          </motion.div>
+        ) : inner}
+      </motion.div>
+    )
+  }
+
   // ===================== LOADING STATE =====================
 
   if (isLoading) {
@@ -2310,6 +2361,16 @@ export default function TemplateDesigner({ clientMode = false }) {
               <ArrowPathIcon className="h-5 w-5" />
             </button>
           )}
+
+          {/* Full-screen guest preview — distraction-free, no panels/handles */}
+          <button
+            onClick={() => setFullscreenPreview(true)}
+            className="hidden sm:flex px-3 py-2 rounded-xl text-sm font-medium items-center gap-1.5 text-gray-500 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+            title="Aperçu plein écran, comme un invité"
+          >
+            <ArrowsPointingOutIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Aperçu</span>
+          </button>
 
           {/* Reset */}
           <button onClick={resetLayout} className="hidden sm:block p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors" title="Réinitialiser les éléments">
@@ -4486,25 +4547,7 @@ export default function TemplateDesigner({ clientMode = false }) {
                 // Preview mode: play this element's entrance + loop like the
                 // public invitation. No drag handlers / selection chrome.
                 if (previewAnim) {
-                  const entrance = getEntranceMotion(el.animation)
-                  const loop = getLoopMotion(el.animation)
-                  const inner = renderElementContent(el)
-                  return (
-                    <motion.div
-                      key={`${el.id}-${previewKey}`}
-                      className="absolute"
-                      style={{ left: el.x, top: el.y, width: el.width, height: el.height, pointerEvents: 'none', rotate: (el.type !== 'photo' && el.type !== 'image') ? (el.rotation || 0) : 0 }}
-                      initial={isAnimated(el.animation) ? entrance?.initial : undefined}
-                      animate={isAnimated(el.animation) ? entrance?.animate : undefined}
-                      transition={isAnimated(el.animation) ? entrance?.transition : undefined}
-                    >
-                      {loop ? (
-                        <motion.div style={{ width: '100%', height: '100%' }} animate={loop.animate} transition={loop.transition}>
-                          {inner}
-                        </motion.div>
-                      ) : inner}
-                    </motion.div>
-                  )
+                  return renderAnimatedElement(el, `${el.id}-${previewKey}`)
                 }
 
                 return (
@@ -4589,9 +4632,56 @@ export default function TemplateDesigner({ clientMode = false }) {
           </div>
 
           {/* Keyboard Shortcuts Help */}
-          
+
         </div>
       </div>
+
+      {/* Full-screen guest preview — no toolbar/panels/handles, fitted to the
+          viewport, animations always playing. Closes on Escape or the × button. */}
+      {fullscreenPreview && (
+        <div
+          className="fixed inset-0 z-[200] bg-gray-950 flex items-center justify-center"
+          onClick={() => setFullscreenPreview(false)}
+        >
+          <p className="absolute top-5 left-5 text-white/40 text-xs font-semibold tracking-widest uppercase">
+            Aperçu invité
+          </p>
+          <button
+            onClick={(e) => { e.stopPropagation(); setFullscreenPreview(false) }}
+            className="absolute top-4 right-4 p-2.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            title="Quitter l'aperçu (Échap)"
+          >
+            <XMarkIcon className="h-6 w-6" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setPreviewKey(k => k + 1) }}
+            className="absolute bottom-5 right-5 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"
+            title="Rejouer les animations"
+          >
+            <ArrowPathIcon className="h-4 w-4" />
+            Rejouer
+          </button>
+          <div
+            className="relative bg-white shadow-2xl overflow-hidden"
+            style={{ width: canvasWidth * previewFitZoom, height: canvasHeight * previewFitZoom }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ width: canvasWidth, height: canvasHeight, transform: `scale(${previewFitZoom})`, transformOrigin: 'top left' }}>
+              {backgroundUrl && (
+                <img
+                  src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || ''}${backgroundUrl}`}
+                  alt="Background"
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  style={{ objectFit: 'fill', opacity: backgroundOpacity / 100 }}
+                />
+              )}
+              {elements && elements.filter(el => el.visible && el.id).map((el) =>
+                renderAnimatedElement(el, `${el.id}-fs-${previewKey}`)
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
