@@ -30,7 +30,8 @@ import {
   CameraIcon,
   TvIcon,
   UsersIcon,
-  GiftIcon
+  GiftIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline'
 
 // Custom Church Icon
@@ -205,6 +206,13 @@ export default function WeddingDetail() {
       href: `/weddings/${id}/gifts`,
       color: 'bg-rose-100 text-rose-600'
     }] : []),
+    {
+      name: 'Budget',
+      description: 'Dépenses et prestataires, prévu vs payé',
+      icon: BanknotesIcon,
+      href: `/weddings/${id}/budget`,
+      color: 'bg-emerald-100 text-emerald-600'
+    },
     ...(wedding?.isOwner !== false ? [{
       name: 'Collaborateurs',
       description: 'Inviter un co-organisateur ou témoin',

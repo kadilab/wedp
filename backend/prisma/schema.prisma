@@ -49,6 +49,12 @@ enum PaymentStatus {
   REJECTED
 }
 
+enum BudgetItemStatus {
+  PLANNED
+  DEPOSIT_PAID
+  PAID
+}
+
 enum PrintOrderStatus {
   PENDING
   CONFIRMED
@@ -374,6 +380,7 @@ model Wedding {
   guestbookPosts    GuestbookPost[]
   collaborators     WeddingCollaborator[]
   giftContributions GiftContribution[]
+  budgetItems       WeddingBudgetItem[]
 
   @@index([userId])
   @@index([status])
@@ -609,6 +616,24 @@ model GiftContribution {
   @@index([weddingId])
   @@index([status])
   @@map("gift_contributions")
+}
+
+model WeddingBudgetItem {
+  id            String           @id @default(uuid())
+  weddingId     String           @map("wedding_id")
+  category      String
+  vendorName    String?          @map("vendor_name")
+  plannedAmount Decimal          @db.Decimal(12, 2) @map("planned_amount")
+  paidAmount    Decimal          @default(0) @db.Decimal(12, 2) @map("paid_amount")
+  status        BudgetItemStatus @default(PLANNED)
+  notes         String?          @db.Text
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  wedding       Wedding          @relation(fields: [weddingId], references: [id], onDelete: Cascade)
+
+  @@index([weddingId])
+  @@map("wedding_budget_items")
 }
 
 model WeddingCollaborator {

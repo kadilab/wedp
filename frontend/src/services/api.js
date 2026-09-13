@@ -347,6 +347,14 @@ export const giftAPI = {
   getContributions: (weddingId) => api.get(`/gifts/${weddingId}`)
 }
 
+// Budget tracker
+export const budgetAPI = {
+  getItems: (weddingId) => api.get(`/budget/${weddingId}`),
+  createItem: (weddingId, data) => api.post(`/budget/${weddingId}`, data),
+  updateItem: (weddingId, itemId, data) => api.put(`/budget/${weddingId}/${itemId}`, data),
+  deleteItem: (weddingId, itemId) => api.delete(`/budget/${weddingId}/${itemId}`)
+}
+
 // Admin API
 export const adminAPI = {
   getDashboard: () => api.get('/admin/dashboard'),
