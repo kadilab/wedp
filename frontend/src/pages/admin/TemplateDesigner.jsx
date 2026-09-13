@@ -642,6 +642,25 @@ const scaleElementsToCanvas = (els, targetW, targetH, refW = DEFAULT_CANVAS_WIDT
   }))
 }
 
+// ---- Rulers ----
+// Ticks are generated in canvas-coordinate space (real px of the invitation)
+// then positioned with `* zoomLevel` — the ruler bar itself is sized to
+// `canvasLength * zoomLevel` so it lines up with the (CSS-scaled) canvas
+// without needing any scroll-sync logic.
+const RULER_SIZE = 20
+const RULER_MAJOR_STEP = 100
+const RULER_MINOR_STEP = 20
+const buildRulerTicks = (canvasLength, zoomLevel) => {
+  const showMinor = RULER_MINOR_STEP * zoomLevel >= 6
+  const ticks = []
+  for (let value = 0; value <= canvasLength; value += RULER_MINOR_STEP) {
+    const isMajor = value % RULER_MAJOR_STEP === 0
+    if (!isMajor && !showMinor) continue
+    ticks.push({ value, pos: value * zoomLevel, major: isMajor })
+  }
+  return ticks
+}
+
 const CATEGORIES = [
   { value: 'ELEGANT', label: 'Élégant' },
   { value: 'MODERN', label: 'Moderne' },
@@ -2214,6 +2233,26 @@ export default function TemplateDesigner({ clientMode = false }) {
   }
 
   // ===================== RENDER =====================
+
+  // Bounding box of the current selection, highlighted on both rulers so it's
+  // easy to read off the exact position/extent of what's selected.
+  const rulerHighlight = (() => {
+    const ids = selectionGroupIds
+    if (ids.length === 0) return null
+    const group = elements.filter(e => ids.includes(e.id))
+    if (group.length === 0) return null
+    return {
+      minX: Math.min(...group.map(e => e.x)),
+      maxX: Math.max(...group.map(e => e.x + e.width)),
+      minY: Math.min(...group.map(e => e.y)),
+      maxY: Math.max(...group.map(e => e.y + e.height))
+    }
+  })()
+  const hRulerTicks = buildRulerTicks(canvasWidth, zoom)
+  const vRulerTicks = buildRulerTicks(canvasHeight, zoom)
+  // While dragging/resizing, the element being manipulated (for the live
+  // position/size readout badge on the canvas).
+  const liveEditEl = (isDragging || isResizing) ? elements.find(e => e.id === selectedId) : null
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
@@ -4438,6 +4477,45 @@ export default function TemplateDesigner({ clientMode = false }) {
             backgroundSize: '18px 18px'
           }}
         >
+          {/* Rulers — sit in the same scrolling flow as the canvas (not fixed),
+              so they scroll and zoom in lockstep with it without any manual
+              scroll-sync code. */}
+          <div
+            className="inline-grid"
+            style={{ gridTemplateColumns: `${RULER_SIZE}px ${canvasWidth * zoom}px`, gridTemplateRows: `${RULER_SIZE}px ${canvasHeight * zoom}px` }}
+          >
+            <div className="bg-gray-100 border-b border-r border-gray-200" />
+
+            <div className="relative bg-white border-b border-gray-200 overflow-hidden select-none" style={{ width: canvasWidth * zoom, height: RULER_SIZE }}>
+              {hRulerTicks.map(t => (
+                <div key={t.value} className="absolute bottom-0 border-l border-gray-400" style={{ left: t.pos, height: t.major ? 11 : 5 }}>
+                  {t.major && <span className="absolute -top-px left-1 text-[9px] leading-none text-gray-500">{t.value}</span>}
+                </div>
+              ))}
+              {rulerHighlight && (
+                <div
+                  className="absolute top-0 bottom-0 bg-primary-400/20 border-x border-primary-500 pointer-events-none"
+                  style={{ left: rulerHighlight.minX * zoom, width: (rulerHighlight.maxX - rulerHighlight.minX) * zoom }}
+                />
+              )}
+            </div>
+
+            <div className="relative bg-white border-r border-gray-200 overflow-hidden select-none" style={{ width: RULER_SIZE, height: canvasHeight * zoom }}>
+              {vRulerTicks.map(t => (
+                <div key={t.value} className="absolute right-0 border-t border-gray-400" style={{ top: t.pos, width: t.major ? 11 : 5 }}>
+                  {t.major && (
+                    <span className="absolute text-[9px] leading-none text-gray-500 origin-top-left -rotate-90" style={{ top: 11, left: 1 }}>{t.value}</span>
+                  )}
+                </div>
+              ))}
+              {rulerHighlight && (
+                <div
+                  className="absolute left-0 right-0 bg-primary-400/20 border-y border-primary-500 pointer-events-none"
+                  style={{ top: rulerHighlight.minY * zoom, height: (rulerHighlight.maxY - rulerHighlight.minY) * zoom }}
+                />
+              )}
+            </div>
+
           <div style={{ width: canvasWidth * zoom, height: canvasHeight * zoom, transformOrigin: 'top center' }}>
             <div
               ref={canvasRef}
@@ -4628,7 +4706,22 @@ export default function TemplateDesigner({ clientMode = false }) {
                 </div>
               )
               })}
+
+              {/* Live position/size readout while dragging or resizing — counter-scaled
+                  so the text stays readable regardless of zoom. */}
+              {liveEditEl && (
+                <div
+                  className="absolute bg-gray-900/95 text-white text-[11px] font-mono px-2 py-1 rounded-md pointer-events-none shadow-lg whitespace-nowrap"
+                  style={{
+                    left: liveEditEl.x, top: liveEditEl.y + liveEditEl.height + 8,
+                    transform: `scale(${1 / zoom})`, transformOrigin: 'top left', zIndex: 1001
+                  }}
+                >
+                  {isResizing ? `${Math.round(liveEditEl.width)} × ${Math.round(liveEditEl.height)}` : `${Math.round(liveEditEl.x)}, ${Math.round(liveEditEl.y)}`}
+                </div>
+              )}
             </div>
+          </div>
           </div>
 
           {/* Keyboard Shortcuts Help */}
