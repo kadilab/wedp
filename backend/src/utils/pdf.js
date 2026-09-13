@@ -504,8 +504,8 @@ function generateInvitationHTML(options) {
     <div class="card">
       <!-- Header -->
       <div class="header">
-        ${wedding.couplePhoto ? `<img src="${wedding.couplePhoto}" alt="Couple"/>` :
-          wedding.coverPhoto ? `<img src="${wedding.coverPhoto}" alt="Cover"/>` : ''}
+        ${wedding.couplePhoto ? `<img src="${resolveImageToDataUri(wedding.couplePhoto)}" alt="Couple"/>` :
+          wedding.coverPhoto ? `<img src="${resolveImageToDataUri(wedding.coverPhoto)}" alt="Cover"/>` : ''}
         <div class="header-overlay"></div>
         <div class="header-icon">${heartSVG}</div>
         ${wedding.eventTheme ? `<div class="event-theme-badge">✨ ${wedding.eventTheme}</div>` : ''}

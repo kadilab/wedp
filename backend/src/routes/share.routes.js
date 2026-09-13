@@ -3,8 +3,12 @@
 // WhatsApp / Facebook / etc., a rich card (couple, date, image) is shown.
 // Real browsers are instantly redirected to the SPA invitation view (/i/...).
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 const { eventName } = require('../utils/guestMessaging');
+const { generateInvitationImage } = require('../utils/pdf');
+const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -61,12 +65,49 @@ function ogPage({ title, description, image, canonical, redirectTo }) {
 </html>`;
 }
 
+// Resolves the richest possible preview image for a specific guest's invitation
+// link: the actual rendered invitation (names, date, QR, decorations — exactly
+// what the guest sees), not just the template's blank background. Generating
+// that render is a Puppeteer screenshot ("Générer Images" in the dashboard),
+// which most organizers never click manually before sending links, so this
+// generates it on demand the first time the link is shared and caches the
+// result on the invitation — every later share (WhatsApp re-scrape, another
+// guest's link, etc.) reuses the cached file instantly.
+async function resolveInvitationPreviewImage(wedding, code) {
+  if (!code) return null;
+  try {
+    const invitation = await prisma.invitation.findUnique({
+      where: { uniqueCode: code },
+      include: { guest: true }
+    });
+    if (!invitation || invitation.weddingId !== wedding.id || !invitation.guest) return null;
+
+    if (invitation.imageUrl) {
+      const existingPath = path.join(__dirname, '../../', invitation.imageUrl);
+      if (fs.existsSync(existingPath)) return invitation.imageUrl;
+    }
+
+    const imagePath = await generateInvitationImage({
+      wedding,
+      guest: invitation.guest,
+      invitation,
+      template: wedding.template,
+      qrCodeDataUrl: invitation.qrCodeData
+    });
+    await prisma.invitation.update({ where: { id: invitation.id }, data: { imageUrl: imagePath } });
+    return imagePath;
+  } catch (err) {
+    logger.error('On-demand invitation image generation for share preview failed:', err);
+    return null;
+  }
+}
+
 async function handleShare(req, res) {
   try {
     const { slug, code } = req.params;
     const wedding = await prisma.wedding.findUnique({
       where: { slug },
-      include: { template: { select: { previewImage: true } } }
+      include: { template: true }
     });
 
     const base = frontendBase();
@@ -81,7 +122,8 @@ async function handleShare(req, res) {
     const date = formatDate(wedding.weddingDate);
     const venue = wedding.venueName ? ` · ${wedding.venueName}` : '';
     const description = `Vous êtes convié(e)${date ? ` le ${date}` : ''}${venue}. Confirmez votre présence en un clic.`;
-    const image = absImage(wedding.template?.previewImage) || absImage(wedding.couplePhoto);
+    const invitationImage = await resolveInvitationPreviewImage(wedding, code);
+    const image = absImage(invitationImage) || absImage(wedding.template?.previewImage) || absImage(wedding.couplePhoto);
     const redirectTo = code ? `${base}/i/${slug}/${code}` : `${base}/i/${slug}`;
     const canonical = code ? `${base}/s/${slug}/${code}` : `${base}/s/${slug}`;
 
