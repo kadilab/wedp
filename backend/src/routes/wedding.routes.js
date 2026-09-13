@@ -504,6 +504,9 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
       giftRegistryEnabled,
       giftRegistryGoal,
       giftRegistryMessage,
+      // Recto-verso printing (simplified shared back side)
+      printBackEnabled,
+      printBackText,
       // Multi-image templates
       templateImages
     } = req.body;
@@ -623,6 +626,8 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
         ...(giftRegistryEnabled !== undefined && { giftRegistryEnabled: !!giftRegistryEnabled }),
         ...(giftRegistryGoal !== undefined && { giftRegistryGoal: giftRegistryGoal === '' || giftRegistryGoal === null ? null : parseFloat(giftRegistryGoal) }),
         ...(giftRegistryMessage !== undefined && { giftRegistryMessage: giftRegistryMessage || null }),
+        ...(printBackEnabled !== undefined && { printBackEnabled: !!printBackEnabled }),
+        ...(printBackText !== undefined && { printBackText: printBackText || null }),
         // Multi-image templates
         ...(templateImages !== undefined && { templateImages })
       },

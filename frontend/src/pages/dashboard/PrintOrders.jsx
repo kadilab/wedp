@@ -195,7 +195,7 @@ export default function PrintOrders() {
                 )}
 
                 {/* Order Details */}
-                <div className="p-6 grid grid-cols-4 gap-4 border-t">
+                <div className="p-6 grid grid-cols-2 sm:grid-cols-5 gap-4 border-t">
                   <div>
                     <p className="text-xs text-gray-500">Quantité</p>
                     <p className="font-semibold">{order.quantity} ex.</p>
@@ -207,6 +207,10 @@ export default function PrintOrders() {
                   <div>
                     <p className="text-xs text-gray-500">Papier</p>
                     <p className="font-semibold capitalize">{order.paperType || 'Premium'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Recto-verso</p>
+                    <p className="font-semibold">{order.doubleSided ? 'Oui' : 'Non'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Total</p>
@@ -255,6 +259,10 @@ export default function PrintOrders() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-500">Finition</span>
                 <span className="font-medium capitalize">{selectedOrder.finish || 'Mat'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Recto-verso</span>
+                <span className="font-medium">{selectedOrder.doubleSided ? 'Oui' : 'Non'}</span>
               </div>
               {selectedOrder.price && (
                 <div className="flex items-center justify-between pt-4 border-t">

@@ -59,6 +59,7 @@ export default function AdminPrintOrders() {
   const [estimatedDelivery, setEstimatedDelivery] = useState('')
   const [printLayoutResult, setPrintLayoutResult] = useState(null)
   const [printLayoutSize, setPrintLayoutSize] = useState('')
+  const [printLayoutDoubleSided, setPrintLayoutDoubleSided] = useState(false)
 
   const { data: ordersData, isLoading } = useQuery(
     ['admin-print-orders', statusFilter],
@@ -83,7 +84,7 @@ export default function AdminPrintOrders() {
   )
 
   const generatePrintLayoutMutation = useMutation(
-    ({ orderId, printSize }) => adminAPI.generatePrintLayoutPDF({ orderId, printSize }),
+    ({ orderId, printSize, doubleSided }) => adminAPI.generatePrintLayoutPDF({ orderId, printSize, doubleSided }),
     {
       onSuccess: (res) => {
         setPrintLayoutResult(res.data)
@@ -210,7 +211,7 @@ export default function AdminPrintOrders() {
                     </td>
                     <td data-label="Détails" className="px-4 py-4">
                       <div className="text-sm">
-                        <p><span className="font-medium">{order.quantity}</span> exemplaires</p>
+                        <p><span className="font-medium">{order.quantity}</span> exemplaires{order.doubleSided && <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">Recto-verso</span>}</p>
                         <p className="text-gray-500">{PAPER_TYPES[order.paperType]} • {FINISHES[order.finish]} • {PRINT_SIZES[order.size] || order.size}</p>
                       </div>
                     </td>
@@ -231,6 +232,7 @@ export default function AdminPrintOrders() {
                           setEstimatedDelivery(order.estimatedDelivery ? format(new Date(order.estimatedDelivery), 'yyyy-MM-dd') : '')
                           setPrintLayoutResult(null)
                           setPrintLayoutSize(order.size || 'A6')
+                          setPrintLayoutDoubleSided(!!order.doubleSided)
                           setShowViewModal(true)
                         }}
                         className="p-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
@@ -300,7 +302,7 @@ export default function AdminPrintOrders() {
               </div>
 
               {/* Print Details */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="bg-gray-50 rounded-xl p-4 text-center">
                   <p className="text-sm text-gray-500">Quantité</p>
                   <p className="text-2xl font-bold text-gray-900">{selectedOrder.quantity}</p>
@@ -316,6 +318,10 @@ export default function AdminPrintOrders() {
                 <div className="bg-gray-50 rounded-xl p-4 text-center">
                   <p className="text-sm text-gray-500">Format</p>
                   <p className="font-semibold text-gray-900">{selectedOrder.size}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4 text-center">
+                  <p className="text-sm text-gray-500">Recto-verso</p>
+                  <p className="font-semibold text-gray-900">{selectedOrder.doubleSided ? 'Oui' : 'Non'}</p>
                 </div>
               </div>
 
@@ -356,10 +362,24 @@ export default function AdminPrintOrders() {
                       })}
                     </select>
                   </div>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 pb-2.5">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded"
+                      checked={printLayoutDoubleSided}
+                      onChange={(e) => setPrintLayoutDoubleSided(e.target.checked)}
+                      disabled={!selectedOrder.wedding?.printBackEnabled}
+                    />
+                    Recto-verso
+                    {!selectedOrder.wedding?.printBackEnabled && (
+                      <span className="text-xs text-gray-400">(non configuré par le client)</span>
+                    )}
+                  </label>
                   <button
                     onClick={() => generatePrintLayoutMutation.mutate({
                       orderId: selectedOrder.id,
-                      printSize: printLayoutSize || selectedOrder.size || 'A6'
+                      printSize: printLayoutSize || selectedOrder.size || 'A6',
+                      doubleSided: printLayoutDoubleSided
                     })}
                     disabled={generatePrintLayoutMutation.isLoading}
                     className="btn-primary text-sm flex items-center"
@@ -381,7 +401,12 @@ export default function AdminPrintOrders() {
                 {printLayoutResult && (
                   <div className="bg-white rounded-lg p-4 border border-indigo-200 mt-3">
                     <div className="flex items-center justify-between mb-3">
-                      <h5 className="font-medium text-indigo-700">PDF généré avec succès</h5>
+                      <h5 className="font-medium text-indigo-700">
+                        PDF généré avec succès
+                        {printLayoutResult.imposition?.doubleSided && (
+                          <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded align-middle">Recto-verso</span>
+                        )}
+                      </h5>
                       <a
                         href={printLayoutResult.pdfUrl}
                         target="_blank"

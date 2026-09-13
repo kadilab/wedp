@@ -1502,6 +1502,7 @@ router.get('/print-orders', authenticate, isAdmin, async (req, res) => {
         wedding: {
           select: {
             id: true, brideName: true, groomName: true, slug: true, templateId: true,
+            printBackEnabled: true,
             template: { select: { id: true, name: true, category: true, config: true } }
           }
         },
@@ -1675,7 +1676,7 @@ router.get('/print-layout/info', authenticate, isAdmin, (req, res) => {
  */
 router.post('/print-layout/generate', authenticate, isAdmin, async (req, res) => {
   try {
-    const { orderId, printSize } = req.body;
+    const { orderId, printSize, doubleSided } = req.body;
 
     if (!orderId) {
       return res.status(400).json({ error: 'ID de commande requis' });
@@ -1711,17 +1712,24 @@ router.post('/print-layout/generate', authenticate, isAdmin, async (req, res) =>
       return res.status(400).json({ error: 'Aucun invité avec invitation trouvé' });
     }
 
+    // Recto-verso only actually applies if the wedding has a back configured
+    // (Wedding.printBackEnabled + printBackText) — mirrors the guard inside
+    // generatePrintLayoutPDF so this response's page count stays accurate.
+    const wantsDoubleSided = doubleSided !== undefined ? !!doubleSided : !!order.doubleSided;
+    const effectiveDoubleSided = wantsDoubleSided && !!wedding.printBackEnabled && !!wedding.printBackText;
+
     // Include template format info in logs
     const canvasInfo = hasDesignElements
       ? ` (canvas: ${templateConfig.canvasWidth || 800}×${templateConfig.canvasHeight || 1120}px)`
       : ' (legacy layout)';
-    logger.info(`Generating print layout PDF for order ${orderId}: ${size} (${imposition.perPage} per page)${canvasInfo}`);
+    logger.info(`Generating print layout PDF for order ${orderId}: ${size} (${imposition.perPage} per page)${canvasInfo}${effectiveDoubleSided ? ' [recto-verso]' : ''}`);
 
     const pdfPath = await generatePrintLayoutPDF({
       wedding,
       guests: wedding.guests,
       template,
-      printSize: size
+      printSize: size,
+      doubleSided: wantsDoubleSided
     });
 
     // Update order with print layout path
@@ -1740,8 +1748,9 @@ router.post('/print-layout/generate', authenticate, isAdmin, async (req, res) =>
         rows: imposition.rows,
         cardWidth: imposition.cardWidth,
         cardHeight: imposition.cardHeight,
-        totalPages: Math.ceil(wedding.guests.length / imposition.perPage),
+        totalPages: Math.ceil(wedding.guests.length / imposition.perPage) * (effectiveDoubleSided ? 2 : 1),
         totalInvitations: wedding.guests.length,
+        doubleSided: effectiveDoubleSided,
         templateFormat: hasDesignElements ? (templateConfig.selectedFormat || 'custom') : 'legacy',
         canvasWidth: templateConfig.canvasWidth || null,
         canvasHeight: templateConfig.canvasHeight || null

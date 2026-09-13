@@ -15,7 +15,7 @@ const apiBase = import.meta.env.VITE_API_URL?.replace('/api', '') || ''
 // a chosen subset of invitations — an A4 imposition PDF with crop marks — so the
 // client only prints the ones they want. Optional "order our printing" flow,
 // gated by the admin setting.
-export default function PrintSection({ weddingId }) {
+export default function PrintSection({ weddingId, wedding }) {
   const printServiceEnabled = useSiteSettingsStore((s) => s.printServiceEnabled)
   const [size, setSize] = useState('A6') // print card size for the imposition
   const [sheetSize, setSheetSize] = useState('A4') // paper sheet: A4 | A3
@@ -24,6 +24,9 @@ export default function PrintSection({ weddingId }) {
   const [selected, setSelected] = useState(null) // Set<guestId> | null (=> all)
   const [busy, setBusy] = useState('') // '' | 'bat' | 'zip'
   const [showOrder, setShowOrder] = useState(false)
+  // Recto-verso: only offerable once a back message is configured (WeddingEdit).
+  const backAvailable = !!(wedding?.printBackEnabled && wedding?.printBackText)
+  const [doubleSided, setDoubleSided] = useState(false)
 
   const { data, isLoading } = useQuery(
     ['print-invitations', weddingId],
@@ -59,7 +62,7 @@ export default function PrintSection({ weddingId }) {
     try {
       // Ensure the underlying invitation PDFs exist, then build the A4 layout.
       await invitationAPI.generatePDFs(weddingId, ids)
-      const res = await invitationAPI.printLayout(weddingId, { guestIds: ids, printSize: size, sheetSize, orientation })
+      const res = await invitationAPI.printLayout(weddingId, { guestIds: ids, printSize: size, sheetSize, orientation, doubleSided: backAvailable && doubleSided })
       const url = res.data?.pdfUrl
       if (!url) throw new Error('no url')
       const a = document.createElement('a')
@@ -149,6 +152,27 @@ export default function PrintSection({ weddingId }) {
             Les invitations {size} sont disposées sur une planche {sheetSize} {orientation === 'landscape' ? 'paysage' : 'portrait'}, avec traits de coupe — pour optimiser le papier.
           </p>
 
+          {/* Recto-verso */}
+          <div className="mb-4">
+            <label className={`flex items-start gap-2.5 rounded-xl border p-3 ${backAvailable ? 'border-border bg-surface cursor-pointer' : 'border-border bg-surface-2 opacity-60'}`}>
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded"
+                checked={backAvailable && doubleSided}
+                disabled={!backAvailable}
+                onChange={(e) => setDoubleSided(e.target.checked)}
+              />
+              <span>
+                <span className="block text-sm font-medium text-content">Impression recto-verso</span>
+                <span className="block text-xs text-muted mt-0.5">
+                  {backAvailable
+                    ? 'Ajoute une page verso partagée (votre message) après chaque planche recto, prête pour une impression duplex.'
+                    : (<>Configurez d'abord un verso dans <Link to={`/weddings/${weddingId}/edit`} className="underline font-medium">Modifier l'événement</Link> (section « Impression recto-verso »).</>)}
+                </span>
+              </span>
+            </label>
+          </div>
+
           {/* Selection + search */}
           <div className="mb-4">
             <div className="mb-1.5 flex items-center justify-between">
@@ -203,6 +227,7 @@ export default function PrintSection({ weddingId }) {
         <PrintOrderModal
           weddingId={weddingId}
           defaultQuantity={sel.size || 50}
+          backAvailable={backAvailable}
           onClose={() => setShowOrder(false)}
         />
       )}

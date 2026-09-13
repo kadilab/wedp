@@ -15,7 +15,7 @@ import {
   CalendarDaysIcon, HeartIcon,
   SparklesIcon,
   SwatchIcon, ExclamationTriangleIcon,
-  EyeIcon, UserIcon, PhotoIcon, PaintBrushIcon, LockClosedIcon, GiftIcon
+  EyeIcon, UserIcon, PhotoIcon, PaintBrushIcon, LockClosedIcon, GiftIcon, PrinterIcon
 } from '@heroicons/react/24/outline'
 
 const ChurchIcon = ({ className }) => (
@@ -71,6 +71,8 @@ export default function WeddingEdit() {
       giftRegistryEnabled: wedding.giftRegistryEnabled || false,
       giftRegistryGoal: wedding.giftRegistryGoal || '',
       giftRegistryMessage: wedding.giftRegistryMessage || '',
+      printBackEnabled: wedding.printBackEnabled || false,
+      printBackText: wedding.printBackText || '',
       weddingDate: wedding.weddingDate?.split('T')[0],
       ceremonyTime: wedding.ceremonyTime || '',
       venueName: wedding.venueName || '',
@@ -250,6 +252,8 @@ export default function WeddingEdit() {
       giftRegistryEnabled: !!data.giftRegistryEnabled,
       giftRegistryGoal: data.giftRegistryGoal === '' ? null : parseFloat(data.giftRegistryGoal),
       giftRegistryMessage: cleanValue(data.giftRegistryMessage),
+      printBackEnabled: !!data.printBackEnabled,
+      printBackText: cleanValue(data.printBackText),
       // Programme — weddings only
       ...(isWedding ? {
         communeDate: data.communeDate ? new Date(data.communeDate).toISOString() : null,
@@ -662,6 +666,35 @@ export default function WeddingEdit() {
                 <label className="label text-sm">Message pour vos invités (optionnel)</label>
                 <textarea className="input" rows={2} placeholder="Ex : Aidez-nous à financer notre lune de miel !" {...register('giftRegistryMessage')} />
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* ==================== Impression recto-verso ==================== */}
+        <div className="rounded-2xl border border-border bg-surface p-8 space-y-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" className="mt-1 h-4 w-4 rounded" {...register('printBackEnabled')} />
+            <span>
+              <span className="font-medium text-content flex items-center gap-2">
+                <PrinterIcon className="h-5 w-5 text-primary-500" /> Impression recto-verso
+              </span>
+              <span className="block text-sm text-muted mt-0.5">
+                Ajoute un verso partagé (même contenu sur chaque carte) à vos fichiers d'impression : un cadre élégant avec votre message, prêt pour une impression recto-verso.
+              </span>
+            </span>
+          </label>
+          {watch('printBackEnabled') && (
+            <div className="pl-7">
+              <label className="label text-sm">Message au verso</label>
+              <textarea
+                className="input"
+                rows={3}
+                placeholder="Ex : Merci de partager ce moment avec nous ❤️ #JeanEtMarie"
+                {...register('printBackText')}
+              />
+              <p className="text-xs text-muted mt-1">
+                Ce texte apparaîtra au dos de chaque carte imprimée (identique pour tous les invités).
+              </p>
             </div>
           )}
         </div>

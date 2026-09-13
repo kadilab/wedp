@@ -335,7 +335,7 @@ export default function WeddingDetail() {
       </div>
 
       {/* Print files + optional print service order */}
-      <PrintSection weddingId={id} />
+      <PrintSection weddingId={id} wedding={wedding} />
 
       {/* Details */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

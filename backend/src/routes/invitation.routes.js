@@ -418,7 +418,7 @@ router.get('/:weddingId/download-all', authenticate, async (req, res) => {
 router.post('/:weddingId/print-layout', authenticate, async (req, res) => {
   try {
     const { weddingId } = req.params;
-    const { guestIds, printSize = 'A6', sheetSize = 'A4', orientation = 'portrait' } = req.body;
+    const { guestIds, printSize = 'A6', sheetSize = 'A4', orientation = 'portrait', doubleSided } = req.body;
     const ids = Array.isArray(guestIds) ? guestIds.filter(Boolean) : [];
 
     const wedding = await findAccessibleWedding(req.user, weddingId, {
@@ -445,7 +445,8 @@ router.post('/:weddingId/print-layout', authenticate, async (req, res) => {
       template: wedding.template,
       printSize: size,
       sheetSize: sheet,
-      orientation: orient
+      orientation: orient,
+      doubleSided: !!doubleSided
     });
 
     res.json({ pdfUrl, count: wedding.guests.length, size, sheetSize: sheet, orientation: orient });

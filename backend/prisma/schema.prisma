@@ -349,6 +349,12 @@ model Wedding {
   giftRegistryGoal     Decimal?   @db.Decimal(10, 2) @map("gift_registry_goal")
   giftRegistryMessage  String?    @db.Text @map("gift_registry_message")
 
+  // Recto-verso printing: a simple, non-personalized back side (shared by
+  // every card) shown in the print imposition PDF (self-service BàT and paid
+  // PrintOrder fulfillment) when enabled and a message is set.
+  printBackEnabled     Boolean    @default(false) @map("print_back_enabled")
+  printBackText        String?    @db.Text @map("print_back_text")
+
   // Digital guestbook / photo wall
   guestbookEnabled     Boolean    @default(true) @map("guestbook_enabled")
   guestbookAutoApprove Boolean    @default(true) @map("guestbook_auto_approve")
@@ -713,6 +719,7 @@ model PrintOrder {
   paperType         String            @default("premium") @map("paper_type")
   finish            String            @default("mat")
   size              String            @default("A5")
+  doubleSided       Boolean           @default(false) @map("double_sided")
   notes             String?           @db.Text
   
   price             Decimal           @db.Decimal(10, 2)

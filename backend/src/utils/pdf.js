@@ -38,6 +38,16 @@ function applyAutoFitInPage() {
   });
 }
 
+// Minimal HTML-escape for free-text content coming from user input (e.g.
+// Wedding.printBackText) before it's interpolated into generated HTML.
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 // Convert a hex color + opacity (0-100) to an rgba() CSS string (used for photo element borders)
 function hexToRgba(hex, alphaPercent = 100) {
   let h = (hex || '#FFFFFF').replace('#', '');
@@ -1246,6 +1256,60 @@ function resolveSheet(sheetSize = 'A4', orientation = 'portrait') {
 }
 
 /**
+ * Builds the HTML for the "verso" (back side) shared by every card in a
+ * recto-verso print run. Unlike the front, this is NOT personalized per
+ * guest — same design for all — so it only needs the wedding/template, not
+ * a guest/invitation. Simple elegant frame: couple/event name, date, and the
+ * couple's own message (Wedding.printBackText).
+ */
+function generateBackSideHTML({ wedding, template, canvasW, canvasH }) {
+  const { getEventDisplayTitle } = require('./eventTypes');
+  const palette = Array.isArray(template?.config?.palette) ? template.config.palette : [];
+  const accent = palette[0] || '#B08968';
+  const title = getEventDisplayTitle(wedding);
+  const dateStr = wedding.weddingDate
+    ? new Date(wedding.weddingDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+  const message = escapeHtml(wedding.printBackText || '').replace(/\n/g, '<br/>');
+
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Montserrat:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: ${canvasW}px; height: ${canvasH}px; }
+  .canvas {
+    width: ${canvasW}px; height: ${canvasH}px;
+    background: #FFFBF5;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 9%;
+    font-family: 'Cormorant Garamond', serif;
+    position: relative;
+  }
+  .frame { position: absolute; inset: 5%; border: 1px solid ${accent}55; pointer-events: none; }
+  .ornament { width: 70px; height: 1px; background: ${accent}; margin: 0 auto 22px; }
+  .ornament.bottom { margin: 22px auto 0; }
+  .title { font-size: ${Math.round(canvasW * 0.045)}px; color: ${accent}; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px; }
+  .date { font-family: 'Montserrat', sans-serif; font-size: ${Math.round(canvasW * 0.02)}px; color: #999; letter-spacing: 1px; margin-bottom: 26px; }
+  .message { font-family: 'Montserrat', sans-serif; font-size: ${Math.round(canvasW * 0.024)}px; color: #555; line-height: 1.7; max-width: 78%; }
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <div class="frame"></div>
+    <div class="ornament"></div>
+    <p class="title">${escapeHtml(title)}</p>
+    ${dateStr ? `<p class="date">${escapeHtml(dateStr)}</p>` : ''}
+    <p class="message">${message}</p>
+    <div class="ornament bottom"></div>
+  </div>
+</body>
+</html>`;
+}
+
+/**
  * Calculate how many invitations fit on one sheet.
  * If template config provides canvas dimensions, uses its aspect ratio
  * to compute the best-fit card size within the requested print size.
@@ -1288,6 +1352,10 @@ function calculateImposition(printSize, templateConfig, sheet = SHEET_SIZE_MM) {
  */
 async function generatePrintLayoutPDF(options) {
   const { wedding, guests, template, printSize = 'A6', sheetSize = 'A4', orientation = 'portrait' } = options;
+  // Recto-verso: the back is a single shared design (not personalized), only
+  // rendered once and reused across every card slot — requires the couple to
+  // have set it up (Wedding.printBackEnabled + printBackText) via WeddingEdit.
+  const doubleSided = !!(options.doubleSided && wedding.printBackEnabled && wedding.printBackText);
 
   const templateConfig = template?.config || {};
   const hasDesignElements = Array.isArray(templateConfig.designElements) && templateConfig.designElements.length > 0;
@@ -1428,10 +1496,33 @@ ${pages.map((pageSnippets, pi) => `
       await page.close();
     }
 
-    // Build final grid PDF pages
+    // Render the shared back design once (same canvas size as the front, so it
+    // composes into the same card slot) — reused for every card on every page.
+    let backImage = null;
+    if (doubleSided) {
+      const backHtml = generateBackSideHTML({ wedding, template, canvasW, canvasH });
+      const backPage = await browser.newPage();
+      await backPage.setViewport({ width: canvasW, height: canvasH, deviceScaleFactor: 2 });
+      await backPage.setContent(backHtml, { waitUntil: 'networkidle0', timeout: 30000 });
+      await backPage.evaluateHandle('document.fonts.ready');
+      const backContainer = await backPage.$('.canvas');
+      const backBuffer = backContainer
+        ? await backContainer.screenshot({ type: 'png' })
+        : await backPage.screenshot({ type: 'png', fullPage: true });
+      backImage = `data:image/png;base64,${backBuffer.toString('base64')}`;
+      await backPage.close();
+    }
+
+    // Build final grid PDF pages. When double-sided, each front page is
+    // immediately followed by a back page with the SAME number of card slots —
+    // the standard page-pair convention duplex printers expect for front/back
+    // of the same physical sheet. Since every back slot holds the identical
+    // shared design, no per-card alignment/mirroring is needed.
     const gridPages = [];
     for (let i = 0; i < cardImages.length; i += perPage) {
-      gridPages.push(cardImages.slice(i, i + perPage));
+      const frontBatch = cardImages.slice(i, i + perPage);
+      gridPages.push(frontBatch);
+      if (backImage) gridPages.push(frontBatch.map(() => backImage));
     }
 
     const marginTop = Math.floor((sheet.height - rows * cardHeight) / 2);

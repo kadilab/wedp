@@ -25,14 +25,17 @@ const PRINT_PRICING = {
     A6: 2.00,
     A5: 3.00,
     custom: 4.50
-  }
+  },
+  // Recto-verso: printing the shared back side on every card, per unit.
+  doubleSided: 0.75
 };
 
-function calculatePrintPrice(quantity, paperType, finish, size) {
+function calculatePrintPrice(quantity, paperType, finish, size, doubleSided) {
   const basePrice = PRINT_PRICING.size[size] || PRINT_PRICING.size.A5;
   const paperExtra = PRINT_PRICING.paperType[paperType] || 0;
   const finishExtra = PRINT_PRICING.finish[finish] || 0;
-  const unitPrice = basePrice + paperExtra + finishExtra;
+  const doubleSidedExtra = doubleSided ? PRINT_PRICING.doubleSided : 0;
+  const unitPrice = basePrice + paperExtra + finishExtra + doubleSidedExtra;
   // Volume discount
   let discount = 0;
   if (quantity >= 200) discount = 0.20;
@@ -65,19 +68,20 @@ router.get('/pricing', authenticate, (req, res) => {
  * @access  Private
  */
 router.post('/calculate', authenticate, (req, res) => {
-  const { quantity, paperType, finish, size } = req.body;
-  
+  const { quantity, paperType, finish, size, doubleSided } = req.body;
+
   if (!quantity || quantity < 10) {
     return res.status(400).json({ error: 'Minimum 10 exemplaires' });
   }
 
-  const price = calculatePrintPrice(quantity, paperType || 'premium', finish || 'mat', size || 'A5');
-  
+  const price = calculatePrintPrice(quantity, paperType || 'premium', finish || 'mat', size || 'A5', !!doubleSided);
+
   res.json({
     quantity,
     paperType: paperType || 'premium',
     finish: finish || 'mat',
     size: size || 'A5',
+    doubleSided: !!doubleSided,
     unitPrice: Math.round((price / quantity) * 100) / 100,
     totalPrice: price
   });
@@ -90,8 +94,8 @@ router.post('/calculate', authenticate, (req, res) => {
  */
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { 
-      weddingId, quantity, paperType, finish, size, notes,
+    const {
+      weddingId, quantity, paperType, finish, size, notes, doubleSided,
       shippingAddress, shippingCity, shippingCountry, shippingPhone
     } = req.body;
 
@@ -110,11 +114,17 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Mariage introuvable' });
     }
 
+    // Only honor recto-verso if the couple actually configured a back side —
+    // prevents a stale/tampered request from billing for something that
+    // can't actually be printed.
+    const wantsDoubleSided = !!doubleSided && !!wedding.printBackEnabled && !!wedding.printBackText;
+
     const price = calculatePrintPrice(
-      quantity, 
-      paperType || 'premium', 
-      finish || 'mat', 
-      size || 'A5'
+      quantity,
+      paperType || 'premium',
+      finish || 'mat',
+      size || 'A5',
+      wantsDoubleSided
     );
 
     const order = await prisma.printOrder.create({
@@ -125,6 +135,7 @@ router.post('/', authenticate, async (req, res) => {
         paperType: paperType || 'premium',
         finish: finish || 'mat',
         size: size || 'A5',
+        doubleSided: wantsDoubleSided,
         notes,
         price,
         shippingAddress,

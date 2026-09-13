@@ -22,10 +22,10 @@ const SIZES = [
 
 // Order our printing service for an event. Collects quantity/paper/finish/size +
 // shipping, shows a live price estimate, and creates the order.
-export default function PrintOrderModal({ weddingId, defaultQuantity = 50, onClose }) {
+export default function PrintOrderModal({ weddingId, defaultQuantity = 50, backAvailable = false, onClose }) {
   const [form, setForm] = useState({
     quantity: Math.max(10, defaultQuantity || 50),
-    paperType: 'premium', finish: 'mat', size: 'A5',
+    paperType: 'premium', finish: 'mat', size: 'A5', doubleSided: false,
     shippingAddress: '', shippingCity: '', shippingPhone: '', notes: ''
   })
   const [estimate, setEstimate] = useState(null)
@@ -35,11 +35,11 @@ export default function PrintOrderModal({ weddingId, defaultQuantity = 50, onClo
   useEffect(() => {
     let cancel = false
     if (!form.quantity || form.quantity < 10) { setEstimate(null); return }
-    printOrderAPI.calculate({ quantity: Number(form.quantity), paperType: form.paperType, finish: form.finish, size: form.size })
+    printOrderAPI.calculate({ quantity: Number(form.quantity), paperType: form.paperType, finish: form.finish, size: form.size, doubleSided: backAvailable && form.doubleSided })
       .then((r) => { if (!cancel) setEstimate(r.data) })
       .catch(() => { if (!cancel) setEstimate(null) })
     return () => { cancel = true }
-  }, [form.quantity, form.paperType, form.finish, form.size])
+  }, [form.quantity, form.paperType, form.finish, form.size, form.doubleSided, backAvailable])
 
   const createMutation = useMutation((data) => printOrderAPI.create(data), {
     onSuccess: () => {
@@ -55,7 +55,7 @@ export default function PrintOrderModal({ weddingId, defaultQuantity = 50, onClo
     if (!form.shippingAddress.trim() || !form.shippingCity.trim() || !form.shippingPhone.trim()) {
       return toast.error('Renseignez l\'adresse de livraison (adresse, ville, téléphone)')
     }
-    createMutation.mutate({ weddingId, ...form, quantity: Number(form.quantity) })
+    createMutation.mutate({ weddingId, ...form, quantity: Number(form.quantity), doubleSided: backAvailable && form.doubleSided })
   }
 
   const fmt = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n || 0)
@@ -104,6 +104,16 @@ export default function PrintOrderModal({ weddingId, defaultQuantity = 50, onClo
               ))}
             </div>
           </div>
+
+          {backAvailable && (
+            <label className="flex items-start gap-2.5 rounded-lg border border-gray-200 p-3 cursor-pointer">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 rounded" checked={form.doubleSided} onChange={(e) => set('doubleSided', e.target.checked)} />
+              <span>
+                <span className="block text-sm font-medium text-gray-900">Impression recto-verso</span>
+                <span className="block text-xs text-gray-500 mt-0.5">Imprime votre message au dos de chaque carte.</span>
+              </span>
+            </label>
+          )}
 
           <div className="border-t pt-4 space-y-3">
             <p className="text-sm font-semibold text-gray-800">Livraison</p>
