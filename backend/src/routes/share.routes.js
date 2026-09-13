@@ -65,6 +65,26 @@ function ogPage({ title, description, image, canonical, redirectTo }) {
 </html>`;
 }
 
+// Renders the invitation image (Puppeteer) and caches its path on the
+// invitation. Runs standalone (not awaited by the request that triggered it,
+// see below) so a slow render never gets abandoned mid-way.
+async function generateAndCacheInvitationImage(wedding, invitation) {
+  try {
+    const imagePath = await generateInvitationImage({
+      wedding,
+      guest: invitation.guest,
+      invitation,
+      template: wedding.template,
+      qrCodeDataUrl: invitation.qrCodeData
+    });
+    await prisma.invitation.update({ where: { id: invitation.id }, data: { imageUrl: imagePath } });
+    return imagePath;
+  } catch (err) {
+    logger.error('Invitation image generation for share preview failed:', err);
+    return null;
+  }
+}
+
 // Resolves the richest possible preview image for a specific guest's invitation
 // link: the actual rendered invitation (names, date, QR, decorations — exactly
 // what the guest sees), not just the template's blank background. Generating
@@ -73,6 +93,17 @@ function ogPage({ title, description, image, canonical, redirectTo }) {
 // generates it on demand the first time the link is shared and caches the
 // result on the invitation — every later share (WhatsApp re-scrape, another
 // guest's link, etc.) reuses the cached file instantly.
+//
+// Puppeteer's cold start + font loading can take several seconds, well past
+// what WhatsApp/Facebook's own crawler waits for before giving up on the
+// whole page — if we just awaited it here, the FIRST share of every
+// invitation would risk timing out and showing NO preview at all (worse than
+// the old plain-background fallback). So generation is capped: if it isn't
+// done within IMAGE_GENERATION_BUDGET_MS, this returns null (the caller falls
+// back to the existing image) while the render keeps running in the
+// background and still gets cached for the next share/open.
+const IMAGE_GENERATION_BUDGET_MS = 2500;
+
 async function resolveInvitationPreviewImage(wedding, code) {
   if (!code) return null;
   try {
@@ -87,15 +118,9 @@ async function resolveInvitationPreviewImage(wedding, code) {
       if (fs.existsSync(existingPath)) return invitation.imageUrl;
     }
 
-    const imagePath = await generateInvitationImage({
-      wedding,
-      guest: invitation.guest,
-      invitation,
-      template: wedding.template,
-      qrCodeDataUrl: invitation.qrCodeData
-    });
-    await prisma.invitation.update({ where: { id: invitation.id }, data: { imageUrl: imagePath } });
-    return imagePath;
+    const generation = generateAndCacheInvitationImage(wedding, invitation);
+    const budget = new Promise((resolve) => setTimeout(() => resolve(null), IMAGE_GENERATION_BUDGET_MS));
+    return await Promise.race([generation, budget]);
   } catch (err) {
     logger.error('On-demand invitation image generation for share preview failed:', err);
     return null;
