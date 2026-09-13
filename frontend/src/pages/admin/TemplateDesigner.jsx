@@ -794,6 +794,10 @@ export default function TemplateDesigner({ clientMode = false }) {
   const [resizeDir, setResizeDir] = useState(null)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [elementStart, setElementStart] = useState({ x: 0, y: 0, w: 0, h: 0 })
+  // Set while resizing a group (persisted or ad-hoc multi-selection) via its
+  // bounding-box handles: the box + each member's starting rect, so every
+  // member can be scaled proportionally as the box changes.
+  const [groupResizeStart, setGroupResizeStart] = useState(null)
   const [showGrid, setShowGrid] = useState(true)
   const [zoom, setZoom] = useState(0.65)
   const [guides, setGuides] = useState({ v: [], h: [] }) // smart alignment guides shown during drag
@@ -990,11 +994,16 @@ export default function TemplateDesigner({ clientMode = false }) {
     const el = elements.find(item => item.id === elementId)
     if (!el || el.locked) return
 
+    // Clicking a member of a persisted group (see groupSelected/ungroupSelected)
+    // selects every member of that group as one unit.
+    const unitIds = el.groupId ? elements.filter(item => item.groupId === el.groupId).map(item => item.id) : [elementId]
+
     let groupIds
     if (e.ctrlKey || e.metaKey) {
       // Multi-select avec Ctrl/Cmd + Click — part de la sélection courante (simple ou multiple)
       const base = selectedIds.length > 0 ? selectedIds : (selectedId ? [selectedId] : [])
-      groupIds = base.includes(elementId) ? base.filter(id => id !== elementId) : [...base, elementId]
+      const allPresent = unitIds.every(id => base.includes(id))
+      groupIds = allPresent ? base.filter(id => !unitIds.includes(id)) : Array.from(new Set([...base, ...unitIds]))
       setSelectedIds(groupIds)
       setSelectedId(elementId)
     } else if (selectedIds.length > 1 && selectedIds.includes(elementId)) {
@@ -1002,9 +1011,9 @@ export default function TemplateDesigner({ clientMode = false }) {
       groupIds = selectedIds
       setSelectedId(elementId)
     } else {
-      // Sélection simple
-      groupIds = [elementId]
-      setSelectedIds([])
+      // Sélection simple — ou sélection du groupe entier si l'élément en fait partie
+      groupIds = unitIds
+      setSelectedIds(unitIds.length > 1 ? unitIds : [])
       setSelectedId(elementId)
     }
 
@@ -1037,6 +1046,28 @@ export default function TemplateDesigner({ clientMode = false }) {
     setResizeDir(direction)
     setIsResizing(true)
   }, [selectedElement, getCanvasCoords])
+
+  // Resizing a group's bounding box: snapshot the box and every member's
+  // starting rect so each one can be scaled proportionally as the box changes.
+  const handleGroupResizeMouseDown = useCallback((e, direction) => {
+    e.stopPropagation()
+    const ids = selectionGroupIds
+    const group = elements.filter(el => ids.includes(el.id))
+    if (group.length < 2) return
+    const bbox = {
+      minX: Math.min(...group.map(el => el.x)),
+      minY: Math.min(...group.map(el => el.y)),
+      maxX: Math.max(...group.map(el => el.x + el.width)),
+      maxY: Math.max(...group.map(el => el.y + el.height))
+    }
+    const members = {}
+    group.forEach(el => { members[el.id] = { x: el.x, y: el.y, width: el.width, height: el.height } })
+    const coords = getCanvasCoords(e)
+    setDragStart(coords)
+    setGroupResizeStart({ bbox, members })
+    setResizeDir(direction)
+    setIsResizing(true)
+  }, [elements, selectionGroupIds, getCanvasCoords])
 
   const handleMouseMove = useCallback((e) => {
     if (!isDragging && !isResizing) return
@@ -1103,6 +1134,37 @@ export default function TemplateDesigner({ clientMode = false }) {
       return
     }
 
+    // Resizing a group's bounding box: scale every member proportionally
+    // relative to the box, preserving each one's position/size within it.
+    if (isResizing && groupResizeStart) {
+      const { bbox, members } = groupResizeStart
+      let newMinX = bbox.minX, newMinY = bbox.minY, newMaxX = bbox.maxX, newMaxY = bbox.maxY
+      if (resizeDir.includes('e')) newMaxX = bbox.maxX + dx
+      if (resizeDir.includes('w')) newMinX = bbox.minX + dx
+      if (resizeDir.includes('s')) newMaxY = bbox.maxY + dy
+      if (resizeDir.includes('n')) newMinY = bbox.minY + dy
+
+      const MIN_BBOX = 40
+      if (newMaxX - newMinX < MIN_BBOX) { if (resizeDir.includes('w')) newMinX = newMaxX - MIN_BBOX; else newMaxX = newMinX + MIN_BBOX }
+      if (newMaxY - newMinY < MIN_BBOX) { if (resizeDir.includes('n')) newMinY = newMaxY - MIN_BBOX; else newMaxY = newMinY + MIN_BBOX }
+
+      const scaleX = (newMaxX - newMinX) / (bbox.maxX - bbox.minX)
+      const scaleY = (newMaxY - newMinY) / (bbox.maxY - bbox.minY)
+
+      setElements(prev => prev.map(el => {
+        const start = members[el.id]
+        if (!start) return el
+        return {
+          ...el,
+          x: Math.round(newMinX + (start.x - bbox.minX) * scaleX),
+          y: Math.round(newMinY + (start.y - bbox.minY) * scaleY),
+          width: Math.max(20, Math.round(start.width * scaleX)),
+          height: Math.max(15, Math.round(start.height * scaleY))
+        }
+      }))
+      return
+    }
+
     // Resize only the primary selected element.
     setElements(prev => prev.map(el => {
       if (isResizing && el.id === selectedId) {
@@ -1116,12 +1178,13 @@ export default function TemplateDesigner({ clientMode = false }) {
       }
       return el
     }))
-  }, [isDragging, isResizing, dragStart, elementStart, multiDragStart, selectedId, showGrid, resizeDir, canvasWidth, canvasHeight, getCanvasCoords])
+  }, [isDragging, isResizing, dragStart, elementStart, multiDragStart, selectedId, showGrid, resizeDir, groupResizeStart, canvasWidth, canvasHeight, getCanvasCoords])
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false)
     setIsResizing(false)
     setResizeDir(null)
+    setGroupResizeStart(null)
     setGuides(g => (g.v.length || g.h.length) ? { v: [], h: [] } : g)
   }, [])
 
@@ -1509,7 +1572,8 @@ export default function TemplateDesigner({ clientMode = false }) {
       ...el,
       id: newId,
       x: el.x + 10,
-      y: el.y + 10
+      y: el.y + 10,
+      groupId: null // Copies start ungrouped rather than silently joining the source's group
     }
     setElements(prev => [...prev, duplicate])
     setSelectedId(newId)
@@ -1560,15 +1624,23 @@ export default function TemplateDesigner({ clientMode = false }) {
     const toDuplicate = [selectedId, ...selectedIds].filter(Boolean)
     if (toDuplicate.length === 0) return
     
+    // If the duplicated set includes a whole persisted group, keep the copies
+    // grouped together under a fresh id rather than silently joining the
+    // source group (or, worse, losing the grouping entirely).
+    const newGroupIds = {}
     const newElements = []
     toDuplicate.forEach(id => {
       const original = elements.find(e => e.id === id)
       if (original) {
+        if (original.groupId && !newGroupIds[original.groupId]) {
+          newGroupIds[original.groupId] = `group-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+        }
         const duplicated = {
           ...JSON.parse(JSON.stringify(original)),
           id: `${original.id}_copy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           x: original.x + 20,
-          y: original.y + 20
+          y: original.y + 20,
+          groupId: original.groupId ? newGroupIds[original.groupId] : null
         }
         newElements.push(duplicated)
       }
@@ -1610,6 +1682,24 @@ export default function TemplateDesigner({ clientMode = false }) {
       return { ...el, x: newX, y: newY }
     }))
     toast.success('Éléments alignés')
+  }
+
+  // Groups the current selection into a persisted unit: clicking any member
+  // later re-selects the whole group, and its bounding box can be resized as
+  // one (scaling every member proportionally — see handleGroupResizeMouseDown).
+  const groupSelected = () => {
+    const ids = selectionGroupIds
+    if (ids.length < 2) return toast.error('Sélectionnez au moins 2 éléments')
+    const groupId = `group-${Date.now()}`
+    setElements(prev => prev.map(el => ids.includes(el.id) ? { ...el, groupId } : el))
+    setSelectedIds(ids)
+    toast.success('Éléments groupés')
+  }
+
+  const ungroupSelected = () => {
+    const ids = selectionGroupIds
+    setElements(prev => prev.map(el => ids.includes(el.id) ? { ...el, groupId: null } : el))
+    toast.success('Groupe dissocié')
   }
 
   const resetLayout = () => {
@@ -1843,6 +1933,7 @@ export default function TemplateDesigner({ clientMode = false }) {
         lineHeight: el.lineHeight ?? 1.2,
         textTransform: el.textTransform ?? 'none',
         locked: el.locked ?? false,
+        groupId: el.groupId || null, // Persisted group membership (see groupSelected)
         textShadow: el.textShadow ?? 'none',
         shadowColor: el.shadowColor ?? '#000000',
         zIndex: el.zIndex ?? 0,
@@ -2251,8 +2342,21 @@ export default function TemplateDesigner({ clientMode = false }) {
   const hRulerTicks = buildRulerTicks(canvasWidth, zoom)
   const vRulerTicks = buildRulerTicks(canvasHeight, zoom)
   // While dragging/resizing, the element being manipulated (for the live
-  // position/size readout badge on the canvas).
+  // position/size readout badge on the canvas). Group-resize shows the whole
+  // box's size instead of one member's, since that's what's being dragged.
   const liveEditEl = (isDragging || isResizing) ? elements.find(e => e.id === selectedId) : null
+  const liveBadge = (isResizing && groupResizeStart && rulerHighlight)
+    ? {
+        x: rulerHighlight.minX, y: rulerHighlight.maxY + 8,
+        text: `${Math.round(rulerHighlight.maxX - rulerHighlight.minX)} × ${Math.round(rulerHighlight.maxY - rulerHighlight.minY)}`
+      }
+    : liveEditEl
+      ? {
+          x: liveEditEl.x, y: liveEditEl.y + liveEditEl.height + 8,
+          text: isResizing ? `${Math.round(liveEditEl.width)} × ${Math.round(liveEditEl.height)}` : `${Math.round(liveEditEl.x)}, ${Math.round(liveEditEl.y)}`
+        }
+      : null
+  const hasGroupedSelection = selectionGroupIds.some(id => elements.find(e => e.id === id)?.groupId)
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
@@ -3007,6 +3111,27 @@ export default function TemplateDesigner({ clientMode = false }) {
                         <button onClick={() => alignSelected('centerV')} className="px-2 py-1 text-[11px] bg-white border border-blue-200 rounded hover:bg-blue-50 text-blue-700 font-medium" title="Centrer verticalement">↕ Centre</button>
                         <button onClick={() => alignSelected('bottom')} className="px-2 py-1 text-[11px] bg-white border border-blue-200 rounded hover:bg-blue-50 text-blue-700 font-medium" title="Aligner en bas">⤓ Bas</button>
                       </div>
+                    </div>
+                  )}
+
+                  {selectionGroupIds.length >= 2 && (
+                    <div className="mt-2 pt-2 border-t border-blue-200 flex gap-1">
+                      <button
+                        onClick={groupSelected}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-[11px] bg-white border border-blue-200 rounded hover:bg-blue-50 text-blue-700 font-medium"
+                        title="Grouper : déplacer et redimensionner ces éléments comme un seul bloc"
+                      >
+                        <RectangleGroupIcon className="h-3.5 w-3.5" /> Grouper
+                      </button>
+                      {hasGroupedSelection && (
+                        <button
+                          onClick={ungroupSelected}
+                          className="flex-1 flex items-center justify-center gap-1 px-2 py-1 text-[11px] bg-white border border-blue-200 rounded hover:bg-blue-50 text-blue-700 font-medium"
+                          title="Dissocier le groupe"
+                        >
+                          Dissocier
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -4669,8 +4794,10 @@ export default function TemplateDesigner({ clientMode = false }) {
                     </div>
                   )}
 
-                  {/* Resize Handles (only for single selected element) */}
-                  {isSelected && !el.locked && (
+                  {/* Resize Handles — only for a single selected element; a
+                      multi/group selection resizes via the group bounding box
+                      handles below instead. */}
+                  {isSelected && !el.locked && selectedIds.length <= 1 && (
                     <>
                       {['nw', 'ne', 'sw', 'se'].map(dir => (
                         <div
@@ -4707,17 +4834,48 @@ export default function TemplateDesigner({ clientMode = false }) {
               )
               })}
 
+              {/* Group bounding box — shown for any multi-selection (ad-hoc or
+                  persisted via groupSelected). The dashed box is click-through
+                  (pointer-events-none) so members underneath stay individually
+                  clickable/draggable; only its 4 corner handles are interactive
+                  and scale every member together (handleGroupResizeMouseDown). */}
+              {selectionGroupIds.length >= 2 && rulerHighlight && (
+                <div
+                  className="absolute pointer-events-none"
+                  style={{
+                    left: rulerHighlight.minX, top: rulerHighlight.minY,
+                    width: rulerHighlight.maxX - rulerHighlight.minX,
+                    height: rulerHighlight.maxY - rulerHighlight.minY,
+                    border: '1.5px dashed #3b82f6', zIndex: 999
+                  }}
+                >
+                  {['nw', 'ne', 'sw', 'se'].map(dir => (
+                    <div
+                      key={dir}
+                      onMouseDown={(e) => handleGroupResizeMouseDown(e, dir)}
+                      onTouchStart={(e) => handleGroupResizeMouseDown(e, dir)}
+                      className="absolute w-3 h-3 bg-blue-500 border border-white rounded-sm pointer-events-auto"
+                      style={{
+                        cursor: `${dir}-resize`,
+                        ...(dir.includes('n') ? { top: -5 } : { bottom: -5 }),
+                        ...(dir.includes('w') ? { left: -5 } : { right: -5 })
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+
               {/* Live position/size readout while dragging or resizing — counter-scaled
                   so the text stays readable regardless of zoom. */}
-              {liveEditEl && (
+              {liveBadge && (
                 <div
                   className="absolute bg-gray-900/95 text-white text-[11px] font-mono px-2 py-1 rounded-md pointer-events-none shadow-lg whitespace-nowrap"
                   style={{
-                    left: liveEditEl.x, top: liveEditEl.y + liveEditEl.height + 8,
+                    left: liveBadge.x, top: liveBadge.y,
                     transform: `scale(${1 / zoom})`, transformOrigin: 'top left', zIndex: 1001
                   }}
                 >
-                  {isResizing ? `${Math.round(liveEditEl.width)} × ${Math.round(liveEditEl.height)}` : `${Math.round(liveEditEl.x)}, ${Math.round(liveEditEl.y)}`}
+                  {liveBadge.text}
                 </div>
               )}
             </div>
