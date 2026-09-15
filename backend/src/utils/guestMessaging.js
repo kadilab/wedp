@@ -4,17 +4,51 @@
 // same link.
 const { PrismaClient } = require('@prisma/client');
 const { generateQRCode, generateUniqueCode } = require('./qrcode');
+const { eventUsesCouple, eventUsesHonoree, EVENT_TYPE_LABELS } = require('./eventTypes');
 
 const prisma = new PrismaClient();
 
-// Event display name: couple for weddings, event title otherwise.
+// Event display name: couple names, honoree name, or free title — whichever
+// applies to this event type. Falls back to the type label rather than a
+// generic "notre événement" so a birthday/ceremony without a name still
+// reads as "Anniversaire" / "Cérémonie" instead of nothing at all.
 function eventName(wedding) {
-  if (wedding.eventType === 'WEDDING' || !wedding.eventTitle) {
+  const type = wedding.eventType || 'WEDDING';
+  if (eventUsesCouple(type)) {
     const names = [wedding.brideName, wedding.groomName].filter(Boolean).join(' & ');
-    return names || wedding.eventTitle || 'notre événement';
+    if (names) return names;
+  } else if (eventUsesHonoree(type) && wedding.honoreeName) {
+    return wedding.honoreeName;
   }
-  return wedding.eventTitle;
+  return wedding.eventTitle || EVENT_TYPE_LABELS[type] || 'notre événement';
 }
+
+// The clause that follows "Vous êtes convié(e) ..." — spells out the event
+// TYPE (mariage / mariage coutumier / anniversaire / cérémonie / conférence /
+// autre) so the message never reads as a generic, unidentified invitation.
+function eventInvitePhrase(wedding) {
+  const type = wedding.eventType || 'WEDDING';
+  if (eventUsesCouple(type)) {
+    const names = [wedding.brideName, wedding.groomName].filter(Boolean).join(' & ');
+    const label = type === 'DOT' ? 'mariage coutumier' : 'mariage';
+    return names ? `au ${label} de ${names}` : `au ${label}`;
+  }
+  if (eventUsesHonoree(type)) {
+    if (wedding.honoreeName) {
+      return type === 'BIRTHDAY' ? `à l'anniversaire de ${wedding.honoreeName}` : `à la cérémonie de ${wedding.honoreeName}`;
+    }
+    return type === 'BIRTHDAY' ? `à un anniversaire` : `à une cérémonie`;
+  }
+  // CONFERENCE / OTHER — free title supplied by the organiser.
+  if (wedding.eventTitle) {
+    return type === 'CONFERENCE' ? `à la conférence « ${wedding.eventTitle} »` : `à « ${wedding.eventTitle} »`;
+  }
+  return type === 'CONFERENCE' ? `à une conférence` : `à notre événement`;
+}
+
+// A closing emoji that fits the event type (the wedding ring 💍 looked odd
+// signing off a birthday or conference invite).
+const SIGNOFF_EMOJI = { WEDDING: '💍', DOT: '💍', BIRTHDAY: '🎉', CEREMONY: '🙏', CONFERENCE: '📅', OTHER: '✨' };
 
 function formatDate(date) {
   if (!date) return '';
@@ -60,17 +94,18 @@ async function ensureInvitation(wedding, guest) {
 
 // Default personalized WhatsApp / message body.
 function buildMessage(wedding, guest, invitationUrl) {
-  const who = eventName(wedding);
+  const type = wedding.eventType || 'WEDDING';
+  const phrase = eventInvitePhrase(wedding);
   const date = formatDate(wedding.weddingDate);
   const venue = wedding.venueName ? ` à ${wedding.venueName}` : '';
   const lines = [
     `Bonjour ${guest.firstName} 👋`,
     '',
-    `Vous êtes convié(e) à ${who}${date ? ` le ${date}` : ''}${venue}.`,
+    `Vous êtes convié(e) ${phrase}${date ? ` le ${date}` : ''}${venue}.`,
     `Voici votre invitation personnalisée :`,
     invitationUrl,
     '',
-    `Merci de confirmer votre présence (RSVP) directement sur le lien. 💍`
+    `Merci de confirmer votre présence (RSVP) directement sur le lien. ${SIGNOFF_EMOJI[type] || '✨'}`
   ];
   return lines.join('\n');
 }
@@ -128,6 +163,7 @@ async function buildGuestShare(wedding, guest) {
 
 module.exports = {
   eventName,
+  eventInvitePhrase,
   buildInvitationUrl,
   buildShareUrl,
   ensureInvitation,

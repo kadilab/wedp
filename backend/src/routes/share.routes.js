@@ -6,7 +6,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { PrismaClient } = require('@prisma/client');
-const { eventName } = require('../utils/guestMessaging');
+const { eventName, eventInvitePhrase } = require('../utils/guestMessaging');
 const { generateInvitationImage } = require('../utils/pdf');
 const logger = require('../utils/logger');
 
@@ -146,7 +146,7 @@ async function handleShare(req, res) {
     const who = eventName(wedding);
     const date = formatDate(wedding.weddingDate);
     const venue = wedding.venueName ? ` · ${wedding.venueName}` : '';
-    const description = `Vous êtes convié(e)${date ? ` le ${date}` : ''}${venue}. Confirmez votre présence en un clic.`;
+    const description = `Vous êtes convié(e) ${eventInvitePhrase(wedding)}${date ? ` le ${date}` : ''}${venue}. Confirmez votre présence en un clic.`;
     const invitationImage = await resolveInvitationPreviewImage(wedding, code);
     const image = absImage(invitationImage) || absImage(wedding.template?.previewImage) || absImage(wedding.couplePhoto);
     const redirectTo = code ? `${base}/i/${slug}/${code}` : `${base}/i/${slug}`;
