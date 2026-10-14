@@ -25,8 +25,9 @@ import {
 // Live K-PAY wallet balance card (uses the K-PAY /payments/balance + /me utils).
 function KpayBalanceCard({ data, loading }) {
   const balances = data?.balances || []
-  const isLive = data?.environment === 'LIVE'
-  return ( 
+  // KPay /payments/me answers 'PRODUCTION' (older docs: 'LIVE') or 'TEST'.
+  const isLive = data?.environment === 'LIVE' || data?.environment === 'PRODUCTION'
+  return (
     <div className="relative overflow-hidden rounded-2xl p-6 text-white shadow-lg bg-gradient-to-br from-indigo-600 to-violet-700">
       <div className="absolute top-0 right-0 -mt-6 -mr-6 h-28 w-28 rounded-full bg-white/10" />
       <div className="relative">
@@ -42,7 +43,7 @@ function KpayBalanceCard({ data, loading }) {
           </div>
           {data?.environment && (
             <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isLive ? 'bg-emerald-400/30 text-emerald-50' : 'bg-amber-400/30 text-amber-50'}`}>
-              {isLive ? 'TESTs' : 'LIVE'}
+              {isLive ? 'PRODUCTION' : 'TEST'}
             </span>
           )}
         </div>
