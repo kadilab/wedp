@@ -35,6 +35,7 @@ export default function AdminTemplates() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [eventTypeFilter, setEventTypeFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('all') // all | published | draft
+  const [sourceFilter, setSourceFilter] = useState('all') // all | platform | marketplace
   const [page, setPage] = useState(1)
   const [formData, setFormData] = useState({
     name: '',
@@ -52,24 +53,25 @@ export default function AdminTemplates() {
   }, [search])
 
   // Any filter change → back to page 1.
-  useEffect(() => { setPage(1) }, [debouncedSearch, eventTypeFilter, statusFilter])
+  useEffect(() => { setPage(1) }, [debouncedSearch, eventTypeFilter, statusFilter, sourceFilter])
 
   // Server-side pagination: the list used to load only the API's default first
   // page (10 templates) so the rest were never visible.
   const { data: templatesData, isLoading, isFetching } = useQuery(
-    ['admin-templates', { page, eventTypeFilter, statusFilter, debouncedSearch }],
+    ['admin-templates', { page, eventTypeFilter, statusFilter, sourceFilter, debouncedSearch }],
     () => adminAPI.getTemplates({
       page,
       limit: PAGE_SIZE,
       ...(eventTypeFilter !== 'ALL' && { eventType: eventTypeFilter }),
       ...(statusFilter !== 'all' && { status: statusFilter }),
+      ...(sourceFilter !== 'all' && { source: sourceFilter }),
       ...(debouncedSearch && { search: debouncedSearch })
     }),
     { keepPreviousData: true }
   )
   const templates = templatesData?.data?.templates || []
   const pagination = templatesData?.data?.pagination || { page: 1, totalPages: 1, total: 0 }
-  const stats = templatesData?.data?.stats || { total: 0, published: 0, draft: 0, premium: 0, byEventType: {} }
+  const stats = templatesData?.data?.stats || { total: 0, published: 0, draft: 0, premium: 0, byEventType: {}, bySource: {} }
 
   // If a delete empties the last page, step back one page.
   useEffect(() => {
@@ -161,8 +163,8 @@ export default function AdminTemplates() {
     OTHER: 'bg-gray-100 text-gray-700'
   }
 
-  const hasFilters = Boolean(debouncedSearch) || eventTypeFilter !== 'ALL' || statusFilter !== 'all'
-  const selectedTypeEmpty = eventTypeFilter !== 'ALL' && !(stats.byEventType[eventTypeFilter] > 0)
+  const hasFilters = Boolean(debouncedSearch) || eventTypeFilter !== 'ALL' || statusFilter !== 'all' || sourceFilter !== 'all'
+  const selectedTypeEmpty = eventTypeFilter !== 'ALL' && !(stats.byEventType[eventTypeFilter] > 0) && sourceFilter === 'all'
 
   return (
     <div className="space-y-6">
@@ -222,6 +224,31 @@ export default function AdminTemplates() {
         ))}
       </div>
 
+      {/* Source: platform designs vs creator templates approved on the
+          marketplace (both are offered to clients). */}
+      {stats.total > 0 && (
+        <div className="inline-flex rounded-xl bg-white border border-gray-100 shadow-sm p-1" role="tablist" aria-label="Source des templates">
+          {[
+            { key: 'all', label: 'Tous', count: stats.total },
+            { key: 'platform', label: 'Plateforme', count: stats.bySource?.platform ?? 0 },
+            { key: 'marketplace', label: 'Créateurs (marketplace)', count: stats.bySource?.marketplace ?? 0 }
+          ].map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              role="tab"
+              aria-selected={sourceFilter === s.key}
+              onClick={() => setSourceFilter(s.key)}
+              className={`px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap ${
+                sourceFilter === s.key ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {s.label} <span className={sourceFilter === s.key ? 'text-white/80' : 'text-gray-400'}>· {s.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Event-type filter — counts come from the whole catalogue; a type
           with zero templates is flagged red (clients can't pick one). */}
       {stats.total > 0 && (
@@ -254,7 +281,7 @@ export default function AdminTemplates() {
           {hasFilters && (
             <button
               type="button"
-              onClick={() => { setSearch(''); setEventTypeFilter('ALL'); setStatusFilter('all') }}
+              onClick={() => { setSearch(''); setEventTypeFilter('ALL'); setStatusFilter('all'); setSourceFilter('all') }}
               className="ml-auto text-sm text-gray-500 hover:text-gray-800 underline"
             >
               Réinitialiser les filtres
@@ -324,9 +351,13 @@ export default function AdminTemplates() {
                       Premium
                     </div>
                   )}
-                  {!template.isActive && (
+                  {!template.isActive ? (
                     <div className="absolute top-3 left-3 bg-amber-500 text-white px-2.5 py-1 rounded-full text-xs font-semibold shadow-lg">
                       🚧 Brouillon — non visible
+                    </div>
+                  ) : template.isCustom && (
+                    <div className="absolute top-3 left-3 bg-violet-600 text-white px-2.5 py-1 rounded-full text-xs font-semibold shadow-lg max-w-[70%] truncate">
+                      Créateur{template.marketplace?.creator?.displayName ? ` · ${template.marketplace.creator.displayName}` : ''}
                     </div>
                   )}
 

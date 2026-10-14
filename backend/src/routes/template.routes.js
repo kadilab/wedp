@@ -22,7 +22,7 @@ const CANVAS_HEIGHT_DEFAULT = 1120;
 router.get('/', paginationValidation, async (req, res) => {
   try {
     const { skip, take, page, limit } = paginate(req.query.page, req.query.limit);
-    const { category, eventType, premium, all, search, status } = req.query;
+    const { category, eventType, premium, all, search, status, source } = req.query;
 
     // Common filters
     const where = {
@@ -31,10 +31,18 @@ router.get('/', paginationValidation, async (req, res) => {
       ...(premium !== undefined && { isPremium: premium === 'true' })
     };
 
+    // Admin catalogue = platform templates (incl. drafts) + creator templates
+    // approved on the marketplace — i.e. everything clients can be offered.
+    // Pending/rejected creator submissions stay in the marketplace approvals
+    // screen; private client forks (isCustom, no marketplace) are never listed.
+    const PLATFORM = { isCustom: false };
+    const MARKETPLACE = { isCustom: true, marketplace: { is: { status: 'APPROVED' } } };
+    const adminScope = source === 'platform' ? PLATFORM
+      : source === 'marketplace' ? MARKETPLACE
+        : { OR: [PLATFORM, MARKETPLACE] };
+
     if (all === 'true') {
-      // Admin view: base templates only (incl. inactive). Marketplace
-      // (creator) templates are managed from the marketplace screens.
-      where.isCustom = false;
+      Object.assign(where, adminScope);
       if (search && String(search).trim()) {
         where.name = { contains: String(search).trim() }; // MySQL collation is case-insensitive
       }
@@ -97,18 +105,21 @@ router.get('/', paginationValidation, async (req, res) => {
     // not from the current page.
     let stats;
     if (all === 'true') {
-      const scope = { isCustom: false };
-      const [totalAll, published, premiumCount, byType] = await Promise.all([
+      const scope = { OR: [PLATFORM, MARKETPLACE] };
+      const [totalAll, published, premiumCount, byType, platformCount, marketplaceCount] = await Promise.all([
         prisma.template.count({ where: scope }),
         prisma.template.count({ where: { ...scope, isActive: true } }),
         prisma.template.count({ where: { ...scope, isPremium: true } }),
-        prisma.template.groupBy({ by: ['eventType'], where: scope, _count: { _all: true } })
+        prisma.template.groupBy({ by: ['eventType'], where: scope, _count: { _all: true } }),
+        prisma.template.count({ where: PLATFORM }),
+        prisma.template.count({ where: MARKETPLACE })
       ]);
       stats = {
         total: totalAll,
         published,
         draft: totalAll - published,
         premium: premiumCount,
+        bySource: { platform: platformCount, marketplace: marketplaceCount },
         byEventType: Object.fromEntries(byType.map(r => [r.eventType || 'WEDDING', r._count._all]))
       };
     }
