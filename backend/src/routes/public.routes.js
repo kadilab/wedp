@@ -112,6 +112,13 @@ router.post('/gift/:weddingSlug/init', async (req, res) => {
       res.status(201).json({ message: 'Paiement initié', contributionId: contribution.id });
     } catch (err) {
       logger.error('K-PAY gift init error:', JSON.stringify(err.data) || err.message);
+      if (kpay.isProviderNotConfiguredError(err)) {
+        await kpay.blockProvider(provider, kpay.extractApiError(err)).catch(() => {});
+        return res.status(409).json({
+          code: 'PROVIDER_UNAVAILABLE',
+          error: 'Ce moyen de paiement n\'est pas disponible pour le moment. Choisissez un autre opérateur.'
+        });
+      }
       res.status(502).json({ error: kpay.extractApiError(err) });
     }
   } catch (error) {

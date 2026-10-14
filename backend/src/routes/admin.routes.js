@@ -235,8 +235,16 @@ router.get('/dashboard', authenticate, isAdmin, async (req, res) => {
  * @access  Private/Admin
  */
 router.get('/kpay/overview', authenticate, isAdmin, async (req, res) => {
+  const cfg = await kpay.getKpayConfig();
+  const base = {
+    mode: cfg.mode,
+    hasTestKeys: cfg.hasTestKeys,
+    hasLiveKeys: cfg.hasLiveKeys,
+    cardEnabled: cfg.cardEnabled,
+    blocklist: await kpay.getBlocklist()
+  };
   if (!(await kpay.isConfigured())) {
-    return res.json({ configured: false });
+    return res.json({ configured: false, ...base });
   }
   try {
     // Fetch in parallel; tolerate either one failing so a partial card still shows.
@@ -252,6 +260,7 @@ router.get('/kpay/overview', authenticate, isAdmin, async (req, res) => {
 
     res.json({
       configured: true,
+      ...base,
       balances: balances.map(b => ({
         currency: b.currency,
         balance: Number(b.balance) || 0,
@@ -264,7 +273,23 @@ router.get('/kpay/overview', authenticate, isAdmin, async (req, res) => {
     });
   } catch (error) {
     logger.error('Admin K-PAY overview error:', error?.data || error.message);
-    res.status(200).json({ configured: true, balances: [], error: kpay.extractApiError(error) });
+    res.status(200).json({ configured: true, ...base, balances: [], error: kpay.extractApiError(error) });
+  }
+});
+
+/**
+ * @route   DELETE /api/admin/kpay/blocklist/:provider
+ * @desc    Re-enable a Mobile Money operator that was auto-blocklisted after a
+ *          "has not been configured" error (e.g. once KPay fixed the account).
+ * @access  Private/Admin
+ */
+router.delete('/kpay/blocklist/:provider', authenticate, isAdmin, async (req, res) => {
+  try {
+    await kpay.unblockProvider(String(req.params.provider).toUpperCase());
+    res.json({ message: 'Opérateur réactivé' });
+  } catch (error) {
+    logger.error('K-PAY unblock error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 

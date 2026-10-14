@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { useNavigate } from 'react-router-dom'
 import { adminAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import TemplatePreview from '../../components/templates/TemplatePreview'
+import Pagination from '../../components/common/Pagination'
 import { EVENT_TYPES, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
 import {
   PencilIcon,
@@ -22,6 +23,8 @@ import {
 } from '@heroicons/react/24/outline'
 import { formatMoney } from '../../utils/currency'
 
+const PAGE_SIZE = 12
+
 export default function AdminTemplates() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -29,6 +32,10 @@ export default function AdminTemplates() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState(null)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [eventTypeFilter, setEventTypeFilter] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState('all') // all | published | draft
+  const [page, setPage] = useState(1)
   const [formData, setFormData] = useState({
     name: '',
     category: 'MODERN',
@@ -38,10 +45,41 @@ export default function AdminTemplates() {
     isActive: true
   })
 
-  const { data: templatesData, isLoading } = useQuery('admin-templates', () =>
-    adminAPI.getTemplates()
+  // Debounce the name search so typing doesn't fire one request per key.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  // Any filter change → back to page 1.
+  useEffect(() => { setPage(1) }, [debouncedSearch, eventTypeFilter, statusFilter])
+
+  // Server-side pagination: the list used to load only the API's default first
+  // page (10 templates) so the rest were never visible.
+  const { data: templatesData, isLoading, isFetching } = useQuery(
+    ['admin-templates', { page, eventTypeFilter, statusFilter, debouncedSearch }],
+    () => adminAPI.getTemplates({
+      page,
+      limit: PAGE_SIZE,
+      ...(eventTypeFilter !== 'ALL' && { eventType: eventTypeFilter }),
+      ...(statusFilter !== 'all' && { status: statusFilter }),
+      ...(debouncedSearch && { search: debouncedSearch })
+    }),
+    { keepPreviousData: true }
   )
   const templates = templatesData?.data?.templates || []
+  const pagination = templatesData?.data?.pagination || { page: 1, totalPages: 1, total: 0 }
+  const stats = templatesData?.data?.stats || { total: 0, published: 0, draft: 0, premium: 0, byEventType: {} }
+
+  // If a delete empties the last page, step back one page.
+  useEffect(() => {
+    if (pagination.totalPages && page > pagination.totalPages) setPage(pagination.totalPages)
+  }, [pagination.totalPages, page])
+
+  const changePage = (p) => {
+    setPage(p)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   const updateMutation = useMutation(
     ({ id, data }) => adminAPI.updateTemplate(id, data),
@@ -123,24 +161,8 @@ export default function AdminTemplates() {
     OTHER: 'bg-gray-100 text-gray-700'
   }
 
-  // Name search (client-side).
-  const q = search.trim().toLowerCase()
-  const visibleTemplates = q
-    ? templates.filter(t => (t.name || '').toLowerCase().includes(q))
-    : templates
-
-  // Group by event type so it's clear which templates are offered for which
-  // kind of invitation (mariage / anniversaire / dot / cérémonie / conférence / autre)
-  const eventTypeSections = EVENT_TYPES.map(type => ({
-    value: type,
-    label: EVENT_TYPE_LABELS[type],
-    color: eventTypeColors[type],
-    templates: visibleTemplates.filter(t => (t.eventType || 'WEDDING') === type)
-  }))
-
-  const publishedCount = templates.filter(t => t.isActive !== false).length
-  const draftCount = templates.filter(t => t.isActive === false).length
-  const premiumCount = templates.filter(t => t.isPremium).length
+  const hasFilters = Boolean(debouncedSearch) || eventTypeFilter !== 'ALL' || statusFilter !== 'all'
+  const selectedTypeEmpty = eventTypeFilter !== 'ALL' && !(stats.byEventType[eventTypeFilter] > 0)
 
   return (
     <div className="space-y-6">
@@ -175,12 +197,20 @@ export default function AdminTemplates() {
       {/* Stats Cards — compact */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total', value: templates.length, icon: Squares2X2Icon, tint: 'bg-gray-100 text-gray-600' },
-          { label: 'Publiés', value: publishedCount, icon: CheckCircleIcon, tint: 'bg-green-50 text-green-600' },
-          { label: 'Brouillons', value: draftCount, icon: EyeSlashIcon, tint: 'bg-amber-50 text-amber-600' },
-          { label: 'Premium', value: premiumCount, icon: StarIcon, tint: 'bg-gold-50 text-gold-600' }
+          { label: 'Total', value: stats.total, icon: Squares2X2Icon, tint: 'bg-gray-100 text-gray-600', status: 'all' },
+          { label: 'Publiés', value: stats.published, icon: CheckCircleIcon, tint: 'bg-green-50 text-green-600', status: 'published' },
+          { label: 'Brouillons', value: stats.draft, icon: EyeSlashIcon, tint: 'bg-amber-50 text-amber-600', status: 'draft' },
+          { label: 'Premium', value: stats.premium, icon: StarIcon, tint: 'bg-gold-50 text-gold-600' }
         ].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5 flex items-center gap-3">
+          <button
+            type="button"
+            key={s.label}
+            onClick={() => s.status && setStatusFilter(s.status)}
+            disabled={!s.status}
+            className={`text-left bg-white rounded-xl border shadow-sm p-3.5 flex items-center gap-3 transition-colors ${
+              s.status && statusFilter === s.status ? 'border-primary-300 ring-2 ring-primary-100' : 'border-gray-100'
+            } ${s.status ? 'hover:border-primary-200 cursor-pointer' : 'cursor-default'}`}
+          >
             <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${s.tint}`}>
               <s.icon className="h-5 w-5" />
             </div>
@@ -188,27 +218,48 @@ export default function AdminTemplates() {
               <p className="text-xl font-bold text-gray-900 leading-tight">{s.value}</p>
               <p className="text-xs text-gray-500 truncate">{s.label}</p>
             </div>
-          </div>
+          </button>
         ))}
       </div>
 
-      {/* Per-event-type breakdown - jump straight to a type, and spot at a
-          glance which ones still have zero templates available to clients */}
-      {templates.length > 0 && !q && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-wrap gap-2">
-          {eventTypeSections.map(section => (
-            <a
-              key={section.value}
-              href={`#section-${section.value}`}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                section.templates.length > 0
-                  ? `${section.color} hover:opacity-80`
-                  : 'bg-red-50 text-red-600 hover:bg-red-100'
-              }`}
+      {/* Event-type filter — counts come from the whole catalogue; a type
+          with zero templates is flagged red (clients can't pick one). */}
+      {stats.total > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setEventTypeFilter('ALL')}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              eventTypeFilter === 'ALL' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Tous · {stats.total}
+          </button>
+          {EVENT_TYPES.map(type => {
+            const count = stats.byEventType[type] || 0
+            const active = eventTypeFilter === type
+            return (
+              <button
+                type="button"
+                key={type}
+                onClick={() => setEventTypeFilter(type)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  count > 0 ? eventTypeColors[type] : 'bg-red-50 text-red-600'
+                } ${active ? 'ring-2 ring-offset-1 ring-gray-900/70' : 'hover:opacity-80'}`}
+              >
+                {EVENT_TYPE_LABELS[type]} · {count}
+              </button>
+            )
+          })}
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={() => { setSearch(''); setEventTypeFilter('ALL'); setStatusFilter('all') }}
+              className="ml-auto text-sm text-gray-500 hover:text-gray-800 underline"
             >
-              {section.label} · {section.templates.length}
-            </a>
-          ))}
+              Réinitialiser les filtres
+            </button>
+          )}
         </div>
       )}
 
@@ -217,7 +268,7 @@ export default function AdminTemplates() {
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
         </div>
-      ) : templates.length === 0 ? (
+      ) : stats.total === 0 ? (
         <div className="bg-white rounded-xl shadow-lg p-12 text-center">
           <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <PhotoIcon className="h-10 w-10 text-gray-400" />
@@ -229,146 +280,144 @@ export default function AdminTemplates() {
             Créer un template
           </button>
         </div>
-      ) : q && visibleTemplates.length === 0 ? (
+      ) : selectedTypeEmpty && !debouncedSearch && statusFilter === 'all' ? (
+        <button
+          onClick={() => navigate(`/admin/templates/new/design?eventType=${eventTypeFilter}`)}
+          className="w-full border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 hover:bg-primary-50/30 transition-colors group"
+        >
+          <div className="w-12 h-12 bg-gray-100 group-hover:bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors">
+            <PlusIcon className="h-6 w-6 text-gray-400 group-hover:text-primary-600" />
+          </div>
+          <p className="text-gray-500 group-hover:text-primary-700 font-medium">
+            Aucun template "{EVENT_TYPE_LABELS[eventTypeFilter]}" - les clients ne pourront pas en choisir un pour ce type
+          </p>
+          <p className="text-sm text-gray-400 mt-1">Cliquez pour en créer un</p>
+        </button>
+      ) : templates.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center">
           <MagnifyingGlassIcon className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">Aucun template ne correspond à « {search} ».</p>
+          <p className="text-gray-500">
+            {debouncedSearch ? <>Aucun template ne correspond à « {debouncedSearch} ».</> : 'Aucun template pour ces filtres.'}
+          </p>
         </div>
       ) : (
-        <div className="space-y-10">
-          {eventTypeSections
-            .filter(section => !q || section.templates.length > 0)
-            .map(section => {
-            return (
-              <div key={section.value} id={`section-${section.value}`}>
-                <div className="flex items-center gap-3 mb-5">
-                  <h2 className="text-xl font-serif font-bold text-gray-900">{section.label}</h2>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${section.color}`}>
-                    {section.templates.length}
-                  </span>
-                </div>
-                {section.templates.length === 0 ? (
-                  <button
-                    onClick={() => navigate(`/admin/templates/new/design?eventType=${section.value}`)}
-                    className="w-full border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 hover:bg-primary-50/30 transition-colors group"
-                  >
-                    <div className="w-12 h-12 bg-gray-100 group-hover:bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3 transition-colors">
-                      <PlusIcon className="h-6 w-6 text-gray-400 group-hover:text-primary-600" />
+        <div className={`space-y-6 transition-opacity ${isFetching ? 'opacity-60' : ''}`}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {templates.map((template) => (
+              <div
+                key={template.id}
+                className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-lg hover:border-primary-200 transition-all duration-300"
+              >
+                {/* Preview - same live-rendered canvas as the client-facing template gallery,
+                    instead of a flat snapshot image that can drift out of sync with the design */}
+                <div className="relative aspect-[3/4] bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
+                  <TemplatePreview
+                    template={template}
+                    fit="cover"
+                    className="group-hover:scale-105 transition-transform duration-500"
+                  />
+
+                  {/* Badges */}
+                  {template.isPremium && (
+                    <div className="absolute top-3 right-3 bg-gradient-to-r from-gold-400 to-gold-500 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-lg">
+                      <StarIcon className="h-3.5 w-3.5 mr-1" />
+                      Premium
                     </div>
-                    <p className="text-gray-500 group-hover:text-primary-700 font-medium">
-                      Aucun template "{section.label}" - les clients ne pourront pas en choisir un pour ce type
-                    </p>
-                    <p className="text-sm text-gray-400 mt-1">Cliquez pour en créer un</p>
-                  </button>
-                ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {section.templates.map((template) => (
-                    <div
-                      key={template.id}
-                      className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-lg hover:border-primary-200 transition-all duration-300"
-                    >
-                      {/* Preview - same live-rendered canvas as the client-facing template gallery,
-                          instead of a flat snapshot image that can drift out of sync with the design */}
-                      <div className="relative aspect-[3/4] bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
-                        <TemplatePreview
-                          template={template}
-                          fit="cover"
-                          className="group-hover:scale-105 transition-transform duration-500"
-                        />
-
-                        {/* Badges */}
-                        {template.isPremium && (
-                          <div className="absolute top-3 right-3 bg-gradient-to-r from-gold-400 to-gold-500 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center shadow-lg">
-                            <StarIcon className="h-3.5 w-3.5 mr-1" />
-                            Premium
-                          </div>
-                        )}
-                        {!template.isActive && (
-                          <div className="absolute top-3 left-3 bg-amber-500 text-white px-2.5 py-1 rounded-full text-xs font-semibold shadow-lg">
-                            🚧 Brouillon — non visible
-                          </div>
-                        )}
-
-                        {/* Hover Overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-6">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => navigate(`/admin/templates/${template.id}/design`)}
-                              className="p-2.5 bg-white rounded-full text-primary-600 hover:bg-primary-50 transition-colors shadow-lg"
-                              title="Modifier le design"
-                            >
-                              <PaintBrushIcon className="h-5 w-5" />
-                            </button>
-                            <button
-                              onClick={() => updateMutation.mutate({ id: template.id, data: { isActive: !template.isActive } })}
-                              className={`p-2.5 bg-white rounded-full transition-colors shadow-lg ${template.isActive ? 'text-amber-600 hover:bg-amber-50' : 'text-green-600 hover:bg-green-50'}`}
-                              title={template.isActive ? 'Dépublier (masquer aux clients)' : 'Publier (rendre visible)'}
-                            >
-                              {template.isActive ? <EyeSlashIcon className="h-5 w-5" /> : <CheckCircleIcon className="h-5 w-5" />}
-                            </button>
-                            <button
-                              onClick={() => handleEditInfo(template)}
-                              className="p-2.5 bg-white rounded-full text-gray-600 hover:bg-gray-50 transition-colors shadow-lg"
-                              title="Modifier les infos"
-                            >
-                              <PencilIcon className="h-5 w-5" />
-                            </button>
-                            <button
-                              onClick={() => duplicateMutation.mutate(template)}
-                              className="p-2.5 bg-white rounded-full text-blue-600 hover:bg-blue-50 transition-colors shadow-lg"
-                              title="Dupliquer"
-                            >
-                              <DocumentDuplicateIcon className="h-5 w-5" />
-                            </button>
-                            <button
-                              onClick={() => { setSelectedTemplate(template); setShowDeleteModal(true) }}
-                              className="p-2.5 bg-white rounded-full text-red-600 hover:bg-red-50 transition-colors shadow-lg"
-                              title="Supprimer"
-                            >
-                              <TrashIcon className="h-5 w-5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Info */}
-                      <div className="p-4">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="font-semibold text-gray-900 truncate">{template.name}</h3>
-                          <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-medium ${categories.find(c => c.value === template.category)?.color || 'bg-gray-100 text-gray-700'}`}>
-                            {categories.find(c => c.value === template.category)?.label || template.category}
-                          </span>
-                        </div>
-                        {template.description && (
-                          <p className="text-sm text-gray-500 mt-1 line-clamp-2">{template.description}</p>
-                        )}
-                        <div className="mt-2">
-                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
-                            parseFloat(template.pricePerInvitation) > 0
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : 'bg-gray-100 text-gray-500'
-                          }`}>
-                            {parseFloat(template.pricePerInvitation) > 0
-                              ? `${formatMoney(template.pricePerInvitation)} / invitation`
-                              : 'Gratuit'}
-                          </span>
-                        </div>
-                        <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
-                          <span>
-                            {template._count?.weddings || 0} utilisation{(template._count?.weddings || 0) > 1 ? 's' : ''}
-                          </span>
-                          <span>
-                            {new Date(template.createdAt).toLocaleDateString('fr-FR')}
-                          </span>
-                        </div>
-                      </div>
+                  )}
+                  {!template.isActive && (
+                    <div className="absolute top-3 left-3 bg-amber-500 text-white px-2.5 py-1 rounded-full text-xs font-semibold shadow-lg">
+                      🚧 Brouillon — non visible
                     </div>
-                  ))}
+                  )}
+
+                  {/* Hover Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-6">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => navigate(`/admin/templates/${template.id}/design`)}
+                        className="p-2.5 bg-white rounded-full text-primary-600 hover:bg-primary-50 transition-colors shadow-lg"
+                        title="Modifier le design"
+                      >
+                        <PaintBrushIcon className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => updateMutation.mutate({ id: template.id, data: { isActive: !template.isActive } })}
+                        className={`p-2.5 bg-white rounded-full transition-colors shadow-lg ${template.isActive ? 'text-amber-600 hover:bg-amber-50' : 'text-green-600 hover:bg-green-50'}`}
+                        title={template.isActive ? 'Dépublier (masquer aux clients)' : 'Publier (rendre visible)'}
+                      >
+                        {template.isActive ? <EyeSlashIcon className="h-5 w-5" /> : <CheckCircleIcon className="h-5 w-5" />}
+                      </button>
+                      <button
+                        onClick={() => handleEditInfo(template)}
+                        className="p-2.5 bg-white rounded-full text-gray-600 hover:bg-gray-50 transition-colors shadow-lg"
+                        title="Modifier les infos"
+                      >
+                        <PencilIcon className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => duplicateMutation.mutate(template)}
+                        className="p-2.5 bg-white rounded-full text-blue-600 hover:bg-blue-50 transition-colors shadow-lg"
+                        title="Dupliquer"
+                      >
+                        <DocumentDuplicateIcon className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => { setSelectedTemplate(template); setShowDeleteModal(true) }}
+                        className="p-2.5 bg-white rounded-full text-red-600 hover:bg-red-50 transition-colors shadow-lg"
+                        title="Supprimer"
+                      >
+                        <TrashIcon className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                )}
+
+                {/* Info */}
+                <div className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-semibold text-gray-900 truncate">{template.name}</h3>
+                    <span className={`shrink-0 px-2 py-0.5 rounded text-xs font-medium ${categories.find(c => c.value === template.category)?.color || 'bg-gray-100 text-gray-700'}`}>
+                      {categories.find(c => c.value === template.category)?.label || template.category}
+                    </span>
+                  </div>
+                  {template.description && (
+                    <p className="text-sm text-gray-500 mt-1 line-clamp-2">{template.description}</p>
+                  )}
+                  <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${eventTypeColors[template.eventType || 'WEDDING']}`}>
+                      {EVENT_TYPE_LABELS[template.eventType || 'WEDDING']}
+                    </span>
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                      parseFloat(template.pricePerInvitation) > 0
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {parseFloat(template.pricePerInvitation) > 0
+                        ? `${formatMoney(template.pricePerInvitation)} / invitation`
+                        : 'Gratuit'}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+                    <span>
+                      {template._count?.weddings || 0} utilisation{(template._count?.weddings || 0) > 1 ? 's' : ''}
+                    </span>
+                    <span>
+                      {new Date(template.createdAt).toLocaleDateString('fr-FR')}
+                    </span>
+                  </div>
+                </div>
               </div>
-            )
-          })}
+            ))}
+          </div>
+
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            pageSize={PAGE_SIZE}
+            onChange={changePage}
+            label="templates"
+          />
         </div>
       )}
 

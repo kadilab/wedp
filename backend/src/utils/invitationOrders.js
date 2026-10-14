@@ -32,14 +32,21 @@ async function approveInvitationOrder(orderId, { processedBy = null, io = null }
     return { order, alreadyApproved: true };
   }
 
-  const updatedOrder = await prisma.invitationOrder.update({
-    where: { id: orderId },
+  // Conditional update = atomic claim: when the webhook, the client polling and
+  // a webhook retry race on the same order, only one of them runs the side
+  // effects below (quota credit, commission, coupon usage, emails).
+  const { count } = await prisma.invitationOrder.updateMany({
+    where: { id: orderId, status: { not: 'APPROVED' } },
     data: {
       status: 'APPROVED',
       processedAt: new Date(),
       processedBy
     }
   });
+  if (count === 0) {
+    return { order: { ...order, status: 'APPROVED' }, alreadyApproved: true };
+  }
+  const updatedOrder = await prisma.invitationOrder.findUnique({ where: { id: orderId } });
 
   // Credit the creator commission for the wedding's marketplace template.
   await recordOrderCommission({ order }).catch(err =>

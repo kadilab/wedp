@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
-const { authenticate, isAdmin } = require('../middleware/auth.middleware');
+const { authenticate, optionalAuth, isAdmin } = require('../middleware/auth.middleware');
+const kpay = require('../utils/kpay');
+const { orderIdFromExternalId, confirmOrderPayment } = require('../utils/kpayOrders');
 const { requestPaymentValidation, paginationValidation } = require('../middleware/validation.middleware');
 const { uploadSingle, handleUploadError } = require('../middleware/upload.middleware');
 const { sendPaymentApprovedEmail } = require('../utils/email');
@@ -9,6 +11,89 @@ const { paginate, buildPaginationMeta } = require('../utils/helpers');
 const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
+
+/**
+ * @route   GET /api/payments/availability
+ * @desc    Which payment methods work right now (checked BEFORE the payment form
+ *          is shown). Proxies K-PAY /payments/availability — the browser never
+ *          talks to K-PAY (secret keys) — merged with the local blocklist and
+ *          KPAY_DISABLED_PROVIDERS, cached 60 s. Never fails: when K-PAY is
+ *          unreachable every operator comes back UNKNOWN.
+ * @access  Private
+ */
+router.get('/availability', authenticate, async (req, res) => {
+  try {
+    if (!(await kpay.isConfigured())) {
+      return res.json({
+        checkedAt: new Date().toISOString(),
+        configured: false,
+        mobileMoney: kpay.MOMO_PROVIDERS.map(p => ({ ...p, status: 'UNAVAILABLE' })),
+        anyMobileMoneyAvailable: false,
+        card: { status: 'UNAVAILABLE' }
+      });
+    }
+    const availability = await kpay.getPaymentAvailability();
+    res.json({ configured: true, ...availability });
+  } catch (error) {
+    logger.error('Payment availability error:', error);
+    res.json({
+      checkedAt: new Date().toISOString(),
+      configured: true,
+      mobileMoney: kpay.MOMO_PROVIDERS.map(p => ({ ...p, status: 'UNKNOWN' })),
+      anyMobileMoneyAvailable: true,
+      card: { status: 'UNKNOWN' }
+    });
+  }
+});
+
+/**
+ * @route   GET /api/payments/kpay/return
+ * @desc    Backs the /paiement/retour page (after the hosted card page). Checks
+ *          the HMAC KPay appends (display only), then asks K-PAY for the real
+ *          payment status — that, never the query string, approves the order.
+ * @access  Public (optional auth — only the order owner gets its weddingId)
+ */
+router.get('/kpay/return', optionalAuth, async (req, res) => {
+  try {
+    const { status, reference, externalId, ts, sig, annule } = req.query;
+    const signatureValid = await kpay.verifyGatewayReturn({ status, reference, externalId, ts, sig });
+
+    const orderId = orderIdFromExternalId(externalId);
+    const order = orderId ? await prisma.invitationOrder.findUnique({ where: { id: orderId } }) : null;
+    const isOwner = order && req.user && (order.userId === req.user.id || ['ADMIN', 'SUPER_ADMIN'].includes(req.user.role));
+
+    let orderStatus = order?.status || null;
+    let paymentStatus = String(status || '').toUpperCase() || null;
+    let failureReason = null;
+
+    if (order && order.status !== 'APPROVED' && order.transactionId) {
+      try {
+        const payment = await kpay.getPayment(order.transactionId);
+        paymentStatus = String(payment?.status || payment?.data?.status || paymentStatus || 'UNKNOWN').toUpperCase();
+        failureReason = payment?.failureReason || payment?.data?.failureReason || null;
+        const outcome = await confirmOrderPayment(order, payment, req.app.get('io'));
+        if (outcome === 'APPROVED') { orderStatus = 'APPROVED'; paymentStatus = 'COMPLETED'; }
+      } catch (err) {
+        logger.warn(`K-PAY return: status lookup failed for order ${order.id}: ${kpay.extractApiError(err)}`);
+      }
+    } else if (order?.status === 'APPROVED') {
+      paymentStatus = 'COMPLETED';
+    }
+
+    res.json({
+      signatureValid,
+      cancelled: annule === '1' || paymentStatus === 'CANCELLED',
+      paymentStatus,
+      orderStatus,
+      failureReason,
+      quantity: isOwner ? order.quantity : null,
+      weddingId: isOwner ? order.weddingId : null
+    });
+  } catch (error) {
+    logger.error('K-PAY return check error:', error);
+    res.status(500).json({ error: 'Erreur lors de la vérification du paiement' });
+  }
+});
 
 /**
  * @route   POST /api/payments/request

@@ -6,7 +6,7 @@ const { getWeddingQuota } = require('../utils/invitationQuota');
 const { sendTelegramNotification } = require('../utils/telegram');
 const { notifyAdmins, NotificationTemplates } = require('../utils/notifications');
 const kpay = require('../utils/kpay');
-const { approveInvitationOrder } = require('../utils/invitationOrders');
+const { buildOrderExternalId, confirmOrderPayment } = require('../utils/kpayOrders');
 const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
@@ -61,10 +61,18 @@ router.get('/pricing', authenticate, async (req, res) => {
       }
     }
 
+    // Lets the payment modal show the total in FC or USD. Mobile Money is
+    // charged in the operator currency (CDF), cards in USD.
+    const cfg = await kpay.getKpayConfig();
+    const fx = require('../utils/fx');
+    const usdRate = cfg.priceCurrency === 'USD' ? 1 : await fx.getUsdRate(cfg.priceCurrency);
+
     res.json({
       unitPrice,
       templateName,
-      currency: 'USD',
+      currency: cfg.priceCurrency,
+      usdRate, // units of `currency` per 1 USD
+      cardMinUsd: kpay.CARD_MIN_USD,
       paymentMethods: Array.isArray(paymentMethods) ? paymentMethods : []
     });
   } catch (error) {
@@ -241,16 +249,23 @@ router.post('/:weddingId', authenticate, async (req, res) => {
 
 /**
  * @route   POST /api/invitation-orders/:weddingId/orders/:orderId/kpay
- * @desc    Initiate automatic Mobile Money payment (K-PAY) for a pending order.
- *          GATEWAY mode by default (returns a gatewayUrl to redirect the client);
- *          pass { provider, phoneNumber } for direct USSD mode.
+ * @desc    Initiate an automatic K-PAY payment for a pending order.
+ *          { method: 'MOBILE_MONEY', provider, phoneNumber } → USSD push, charged
+ *            in the operator currency (CDF / FC).
+ *          { method: 'CARD' } → hosted Visa/Mastercard page, charged in USD;
+ *            returns a gatewayUrl to redirect the client to.
+ *          The same order can be retried (another operator, card…): every
+ *          attempt gets its own externalId.
  * @access  Private (owner)
  */
 router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) => {
+  const { provider, phoneNumber } = req.body || {};
+  const method = String(req.body?.method || (provider ? 'MOBILE_MONEY' : 'CARD')).toUpperCase();
   try {
     if (!(await kpay.isConfigured())) {
-      return res.status(503).json({ error: 'Paiement automatique non configuré' });
+      return res.status(503).json({ error: 'Le paiement en ligne est momentanément indisponible.' });
     }
+    const cfg = await kpay.getKpayConfig();
 
     const wedding = await findOwnedWedding(req.params.weddingId, req.user);
     if (!wedding) return res.status(404).json({ error: 'Mariage non trouvé' });
@@ -263,45 +278,71 @@ router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) =
       return res.status(400).json({ error: 'Cette commande a déjà été traitée' });
     }
 
-    // K-PAY charges in the operator/account currency (no `currency` field).
-    // Convert the USD order total to that currency (KPAY_ACCOUNT_CURRENCY,
-    // default XAF) and respect the minimum. See kpay.toAccountAmount.
-    const amount = await kpay.toAccountAmount(parseFloat(order.totalAmount));
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ error: 'Montant de la commande invalide' });
-    }
-
-    const { provider, phoneNumber } = req.body || {};
-    const frontendUrl = process.env.FRONTEND_URL || '';
+    const customerName = [req.user.firstName, req.user.lastName].filter(Boolean).join(' ') || undefined;
     const payload = {
-      amount,
-      externalId: `inv_${order.id}`,
-      description: `Invitations (${order.quantity}) — ${wedding.slug}`,
+      externalId: buildOrderExternalId(order.id),
+      description: `Invitations Winvite (${order.quantity})`,
+      customerEmail: req.user.email || undefined,
       metadata: { orderId: order.id, weddingId: wedding.id }
     };
+    let currency;
 
-    if (provider && phoneNumber) {
+    if (method === 'CARD') {
+      if (!cfg.cardEnabled) {
+        return res.status(400).json({ error: 'Le paiement par carte n\'est pas encore disponible.' });
+      }
+      // Cards: always the hosted page, always USD (min 1 USD).
+      payload.amount = await kpay.toUsdAmount(parseFloat(order.totalAmount));
+      payload.paymentMethod = 'CARD';
+      const frontendUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+      payload.returnUrl = `${frontendUrl}/paiement/retour`;
+      payload.cancelUrl = `${frontendUrl}/paiement/retour?annule=1`;
+      currency = 'USD';
+    } else {
+      const known = kpay.MOMO_PROVIDERS.some(p => p.provider === provider);
+      if (!known) return res.status(400).json({ error: 'Choisissez votre opérateur Mobile Money' });
+
+      // Refuse an operator we already know is down/not configured — saves the
+      // client a useless USSD wait.
+      const availability = await kpay.getPaymentAvailability();
+      const op = availability.mobileMoney.find(m => m.provider === provider);
+      if (op?.status === 'UNAVAILABLE') {
+        return res.status(409).json({
+          code: 'PROVIDER_UNAVAILABLE',
+          provider,
+          error: 'Ce moyen de paiement n\'est pas disponible pour le moment. Choisissez un autre opérateur.'
+        });
+      }
+
       // DIRECT (USSD) mode — currency follows the operator (RDC → CDF). The
       // phone must be international: 243 + 9 digits.
       const phone = kpay.normalizeMomoPhone(phoneNumber, provider);
       if (!/^243\d{9}$/.test(phone)) {
         return res.status(400).json({ error: 'Numéro RDC invalide (format 243XXXXXXXXX)' });
       }
+      payload.amount = await kpay.toAccountAmount(parseFloat(order.totalAmount));
       payload.provider = provider;
       payload.phoneNumber = phone;
-    } else {
-      // GATEWAY (hosted) mode
-      payload.returnUrl = `${frontendUrl}/weddings/${wedding.id}/invitations?kpay=return&order=${order.id}`;
-      payload.cancelUrl = `${frontendUrl}/weddings/${wedding.id}/invitations?kpay=cancel&order=${order.id}`;
+      payload.customerName = customerName;
+      currency = cfg.accountCurrency;
     }
 
-    logger.info(`K-PAY init: order ${order.id}, amount ${amount} ${process.env.KPAY_ACCOUNT_CURRENCY || 'XAF'}, mode ${provider ? 'USSD/' + provider : 'GATEWAY'}, phone ${payload.phoneNumber || '-'}`);
+    if (!payload.amount || payload.amount <= 0) {
+      return res.status(400).json({ error: 'Montant de la commande invalide' });
+    }
+
+    logger.info(`K-PAY init [${cfg.mode}]: order ${order.id}, ${payload.amount} ${currency}, ${method === 'CARD' ? 'CARD' : 'USSD/' + provider}`);
     const result = await kpay.initPayment(payload);
 
-    // Remember the K-PAY payment reference on the order.
+    // Remember the K-PAY payment on the order (latest attempt wins). Touching
+    // the row also restarts the 30-min expiry window.
     await prisma.invitationOrder.update({
       where: { id: order.id },
-      data: { paymentProvider: 'KPAY', transactionId: result.id || result.reference }
+      data: {
+        paymentProvider: method === 'CARD' ? 'KPAY_CARD' : 'KPAY',
+        transactionId: result.id || result.reference,
+        payerPhone: payload.phoneNumber || order.payerPhone
+      }
     });
 
     res.status(201).json({
@@ -309,20 +350,37 @@ router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) =
       paymentId: result.id,
       reference: result.reference,
       status: result.status,
+      amount: payload.amount,
+      currency,
       gatewayUrl: result.gatewayUrl || null
     });
   } catch (error) {
-    logger.error('K-PAY init payment error:', JSON.stringify(error.data) || error.message);
+    // Full error server-side (never the keys) so it can be forwarded to KPay support.
+    logger.error(`K-PAY init payment error (${method}/${provider || '-'}):`, JSON.stringify(error.data) || error.message);
+
+    if (method !== 'CARD' && provider && kpay.isProviderNotConfiguredError(error)) {
+      await kpay.blockProvider(provider, kpay.extractApiError(error)).catch(() => {});
+      return res.status(409).json({
+        code: 'PROVIDER_UNAVAILABLE',
+        provider,
+        error: 'Ce moyen de paiement n\'est pas disponible pour le moment. Choisissez un autre opérateur.'
+      });
+    }
+    if (error.status === 422) {
+      return res.status(422).json({ error: 'Le montant est hors des limites acceptées pour ce moyen de paiement.' });
+    }
+    if (error.status === 429 || error.status >= 500 || !error.status) {
+      return res.status(502).json({ error: 'Le service de paiement ne répond pas. Réessayez dans un instant.' });
+    }
     res.status(502).json({ error: kpay.extractApiError(error) });
   }
 });
 
 /**
  * @route   GET /api/invitation-orders/:weddingId/orders/:orderId/kpay/status
- * @desc    Automatic confirmation: ask K-PAY (the source of truth) for the live
- *          payment status via GET /payments/:id. When COMPLETED, approve the
- *          order right away — no admin action needed. Idempotent (also safe if
- *          the webhook already approved it). The frontend polls this after pay.
+ * @desc    Live payment status for the payment modal. Asks K-PAY (GET
+ *          /payments/:id) and approves the order right away when COMPLETED —
+ *          idempotent, the webhook remains the authoritative second path.
  * @access  Private (owner)
  */
 router.get('/:weddingId/orders/:orderId/kpay/status', authenticate, async (req, res) => {
@@ -343,25 +401,17 @@ router.get('/:weddingId/orders/:orderId/kpay/status', authenticate, async (req, 
       return res.json({ paymentStatus: 'UNKNOWN', orderStatus: order.status });
     }
 
-    // K-PAY is authoritative: confirm the real status before approving anything.
     const payment = await kpay.getPayment(order.transactionId);
     const paymentStatus = String(payment?.status || payment?.data?.status || 'UNKNOWN').toUpperCase();
+    const failureReason = payment?.failureReason || payment?.data?.failureReason || null;
 
-    if (paymentStatus === 'COMPLETED' || paymentStatus === 'SUCCESS') {
-      // Anti-fraud: never approve unless the amount actually paid covers what we
-      // asked K-PAY to collect (avoids "pay a tiny amount, unlock everything").
-      const paid = Number(payment?.amount ?? payment?.data?.amount ?? NaN);
-      const due = await kpay.toAccountAmount(parseFloat(order.totalAmount));
-      const tolerance = Math.max(1, due * 0.01); // 1 unit or 1%
-      if (Number.isFinite(paid) && paid + tolerance < due) {
-        logger.warn(`K-PAY underpayment: order ${order.id} due ${due}, paid ${paid} — not approving`);
-        return res.status(409).json({ paymentStatus: 'UNDERPAID', orderStatus: order.status, error: 'Montant payé insuffisant' });
-      }
-      await approveInvitationOrder(order.id, { processedBy: null, io: req.app.get('io') });
-      return res.json({ paymentStatus: 'COMPLETED', orderStatus: 'APPROVED' });
+    const outcome = await confirmOrderPayment(order, payment, req.app.get('io'));
+    if (outcome === 'APPROVED') return res.json({ paymentStatus: 'COMPLETED', orderStatus: 'APPROVED' });
+    if (outcome === 'UNDERPAID') {
+      return res.status(409).json({ paymentStatus: 'UNDERPAID', orderStatus: order.status, error: 'Montant payé insuffisant' });
     }
 
-    res.json({ paymentStatus, orderStatus: order.status });
+    res.json({ paymentStatus, orderStatus: order.status, failureReason });
   } catch (error) {
     logger.error('K-PAY status check error:', JSON.stringify(error.data) || error.message);
     res.status(502).json({ error: kpay.extractApiError(error) });

@@ -14,6 +14,7 @@ import { ConfirmRoot } from './components/common/confirm'
 // Every page is code-split so heavy deps (recharts, html5-qrcode, framer-motion,
 // @dnd-kit…) only load on the routes that actually use them.
 const Login = lazy(() => import('./pages/auth/Login'))
+const PaymentReturn = lazy(() => import('./pages/public/PaymentReturn'))
 const Register = lazy(() => import('./pages/auth/Register'))
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
 const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'))
@@ -115,6 +116,9 @@ function App() {
       {/* Public Invitation View */}
       <Route path="/i/:weddingSlug/:invitationCode" element={<InvitationView />} />
       <Route path="/i/:weddingSlug" element={<InvitationView />} />
+
+      {/* K-PAY hosted card page return (URL configured in the KPay dashboard) */}
+      <Route path="/paiement/retour" element={<PaymentReturn />} />
 
       {/* Public Guestbook (photo wall) */}
       <Route path="/gb/:slug" element={<GuestbookSubmit />} />

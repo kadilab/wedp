@@ -57,7 +57,7 @@ export function ConfirmRoot() {
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-              <p className="mt-1 text-sm text-gray-600 break-words">{message}</p>
+              <p className="mt-1 text-sm text-gray-600 break-words whitespace-pre-line">{message}</p>
             </div>
             <button onClick={() => close(false)} className="shrink-0 text-gray-400 hover:text-gray-600">
               <XMarkIcon className="h-5 w-5" />

@@ -180,6 +180,8 @@ app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/public', publicRoutes); // Public invitation routes
 app.use('/api/fonts', require('./routes/font.routes')); // Custom font upload/list
 app.use('/api/webhooks', require('./routes/webhook.routes')); // K-PAY callbacks
+// K-PAY card-payment notification URL (configured in the KPay dashboard).
+app.post('/api/kpay/cards', require('./routes/webhook.routes').webhookHandler);
 app.use('/s', require('./routes/share.routes')); // OG share links (rich WhatsApp/FB preview → redirects to /i)
 
 // Live online users registry (socketId -> userId), exposed for the admin
@@ -274,6 +276,8 @@ const PORT = process.env.PORT || 5000;
 // It never throws (errors are caught inside), so startup always proceeds.
 const { ensureSchema } = require('./utils/ensureSchema');
 ensureSchema(prisma).finally(() => {
+  // Expire K-PAY invitation orders left unpaid for 30 min.
+  require('./utils/kpayOrders').startOrderExpiryJob();
   httpServer.listen(PORT, () => {
     logger.info(`🚀 Server running on port ${PORT}`);
     logger.info(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);

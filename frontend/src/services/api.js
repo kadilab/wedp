@@ -207,7 +207,11 @@ export const invitationOrderAPI = {
   // K-PAY automatic Mobile Money payment (GATEWAY): returns { gatewayUrl }
   payKpay: (weddingId, orderId, data = {}) => api.post(`/invitation-orders/${weddingId}/orders/${orderId}/kpay`, data),
   // Poll the live K-PAY status; auto-approves the order when COMPLETED (no admin)
-  kpayStatus: (weddingId, orderId) => api.get(`/invitation-orders/${weddingId}/orders/${orderId}/kpay/status`)
+  kpayStatus: (weddingId, orderId) => api.get(`/invitation-orders/${weddingId}/orders/${orderId}/kpay/status`),
+  // Which Mobile Money operators / card work right now (checked before the form)
+  paymentAvailability: () => api.get('/payments/availability'),
+  // Hosted card page return (/paiement/retour) — verifies + confirms the order
+  kpayReturn: (params) => api.get('/payments/kpay/return', { params })
 }
 
 // Custom fonts API
@@ -361,6 +365,7 @@ export const adminAPI = {
   getStats: () => api.get('/admin/dashboard'),
   getSupervision: () => api.get('/admin/supervision'),
   getKpayOverview: () => api.get('/admin/kpay/overview'),
+  unblockKpayProvider: (provider) => api.delete(`/admin/kpay/blocklist/${provider}`),
   // Settings
   getSettings: () => api.get('/admin/settings'),
   updateSettings: (data) => api.put('/admin/settings', data),

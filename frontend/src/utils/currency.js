@@ -10,3 +10,9 @@ export function formatMoney(value, { withSuffix = true } = {}) {
   const formatted = n.toLocaleString('fr-FR')
   return withSuffix ? `${formatted} ${CURRENCY}` : formatted
 }
+
+// USD amounts (card payments are charged in USD): formatUsd(4.5) -> "4,50 $"
+export function formatUsd(value) {
+  const n = Number(value) || 0
+  return `${n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`
+}

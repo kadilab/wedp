@@ -39,6 +39,13 @@ services:
       KPAY_API_KEY: ${KPAY_API_KEY:-}
       KPAY_SECRET_KEY: ${KPAY_SECRET_KEY:-}
       KPAY_WEBHOOK_SECRET: ${KPAY_WEBHOOK_SECRET:-}
+      KPAY_TEST_API_KEY: ${KPAY_TEST_API_KEY:-}
+      KPAY_TEST_SECRET_KEY: ${KPAY_TEST_SECRET_KEY:-}
+      KPAY_TEST_WEBHOOK_SECRET: ${KPAY_TEST_WEBHOOK_SECRET:-}
+      KPAY_MODE: ${KPAY_MODE:-}
+      KPAY_GATEWAY_SECRET: ${KPAY_GATEWAY_SECRET:-}
+      KPAY_CARD_ENABLED: ${KPAY_CARD_ENABLED:-false}
+      KPAY_DISABLED_PROVIDERS: ${KPAY_DISABLED_PROVIDERS:-}
       # Devise des prix saisis (CDF) et devise débitée par K-PAY (suit l'opérateur).
       # Quand les deux sont identiques (cas RDC), aucune conversion FX n'est faite.
       KPAY_PRICE_CURRENCY: ${KPAY_PRICE_CURRENCY:-CDF}

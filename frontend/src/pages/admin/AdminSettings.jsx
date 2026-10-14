@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { adminAPI } from '../../services/api'
 import useSiteSettingsStore from '../../stores/siteSettingsStore'
+import { confirmDialog } from '../../components/common/confirm'
 import toast from 'react-hot-toast'
 import {
   Cog6ToothIcon,
@@ -11,8 +12,16 @@ import {
   PhotoIcon,
   TrashIcon,
   PlusIcon,
-  ShoppingBagIcon
+  ShoppingBagIcon,
+  BeakerIcon,
+  BoltIcon
 } from '@heroicons/react/24/outline'
+
+const KPAY_OPERATORS = [
+  { code: 'VODACOM_MPESA_COD', label: 'Vodacom M-Pesa' },
+  { code: 'AIRTEL_COD', label: 'Airtel Money' },
+  { code: 'ORANGE_COD', label: 'Orange Money' }
+]
 
 const DEFAULT_FORM = {
   siteName: 'WeddingInvite Pro',
@@ -33,9 +42,16 @@ const DEFAULT_FORM = {
   telegramChatId: '',
   telegramNotificationsEnabled: false,
   kpayEnabled: true,
+  kpayMode: 'LIVE',
   kpayApiKey: '',
   kpaySecretKey: '',
   kpayWebhookSecret: '',
+  kpayTestApiKey: '',
+  kpayTestSecretKey: '',
+  kpayTestWebhookSecret: '',
+  kpayGatewaySecret: '',
+  kpayCardEnabled: false,
+  kpayDisabledProviders: '',
   kpayBaseUrl: '',
   kpayPriceCurrency: 'CDF',
   kpayAccountCurrency: 'CDF',
@@ -89,9 +105,19 @@ export default function AdminSettings() {
       telegramChatId: s.telegramChatId || '',
       telegramNotificationsEnabled: s.telegramNotificationsEnabled === 'true' || s.telegramNotificationsEnabled === true,
       kpayEnabled: s.kpayEnabled !== 'false' && s.kpayEnabled !== false,
+      // Never saved yet → same inference as the backend (key prefix).
+      kpayMode: s.kpayMode === 'TEST' || s.kpayMode === 'LIVE'
+        ? s.kpayMode
+        : (String(s.kpayApiKey || '').startsWith('kpay_test_') ? 'TEST' : 'LIVE'),
       kpayApiKey: s.kpayApiKey || '',
       kpaySecretKey: s.kpaySecretKey || '',
       kpayWebhookSecret: s.kpayWebhookSecret || '',
+      kpayTestApiKey: s.kpayTestApiKey || '',
+      kpayTestSecretKey: s.kpayTestSecretKey || '',
+      kpayTestWebhookSecret: s.kpayTestWebhookSecret || '',
+      kpayGatewaySecret: s.kpayGatewaySecret || '',
+      kpayCardEnabled: s.kpayCardEnabled === 'true' || s.kpayCardEnabled === true,
+      kpayDisabledProviders: s.kpayDisabledProviders || '',
       kpayBaseUrl: s.kpayBaseUrl || '',
       kpayPriceCurrency: s.kpayPriceCurrency || DEFAULT_FORM.kpayPriceCurrency,
       kpayAccountCurrency: s.kpayAccountCurrency || DEFAULT_FORM.kpayAccountCurrency,
@@ -125,6 +151,56 @@ export default function AdminSettings() {
       onError: (err) => toast.error(err.response?.data?.error || 'Échec du test Telegram')
     }
   )
+
+  const { data: kpayOverviewData, refetch: refetchKpayOverview } = useQuery(
+    'admin-kpay-overview',
+    () => adminAPI.getKpayOverview(),
+    { enabled: activeTab === 'payment', retry: 0, refetchOnWindowFocus: false }
+  )
+  const kpayOverview = kpayOverviewData?.data
+
+  // TEST ⇄ PRODUCTION switch — saved immediately (only the kpayMode key), so
+  // the admin doesn't have to remember to hit "Enregistrer".
+  const kpayModeMutation = useMutation((mode) => adminAPI.updateSettings({ kpayMode: mode }), {
+    onSuccess: (_res, mode) => {
+      updateField('kpayMode', mode)
+      queryClient.invalidateQueries('admin-settings')
+      refetchKpayOverview()
+      toast.success(mode === 'LIVE' ? 'K-PAY est maintenant en PRODUCTION (argent réel)' : 'K-PAY est maintenant en mode TEST (sandbox)')
+    },
+    onError: (err) => toast.error(err.response?.data?.error || 'Impossible de changer d\'environnement')
+  })
+
+  const switchKpayMode = async (mode) => {
+    if (mode === formData.kpayMode || kpayModeMutation.isLoading) return
+    const toLive = mode === 'LIVE'
+    const hasKeys = toLive
+      ? formData.kpayApiKey && formData.kpaySecretKey
+      : formData.kpayTestApiKey && formData.kpayTestSecretKey
+    const ok = await confirmDialog({
+      title: toLive ? 'Passer en PRODUCTION ?' : 'Passer en mode TEST ?',
+      message: (toLive
+        ? 'Les clients paieront avec de l\'argent réel (clés kpay_live_).'
+        : 'Les paiements passeront par la sandbox K-PAY (clés kpay_test_) : aucun argent réel ne sera encaissé. À ne pas laisser actif en production.') +
+        (hasKeys ? '' : '\n\n⚠️ Aucune clé ' + (toLive ? 'de production' : 'de test') + ' enregistrée : les paiements échoueront tant que vous ne les aurez pas renseignées.'),
+      confirmText: toLive ? 'Passer en production' : 'Passer en test',
+      danger: toLive
+    })
+    if (ok) kpayModeMutation.mutate(mode)
+  }
+
+  const disabledProviders = formData.kpayDisabledProviders.split(',').map(p => p.trim()).filter(Boolean)
+  const toggleDisabledProvider = (code) => {
+    const next = disabledProviders.includes(code)
+      ? disabledProviders.filter(p => p !== code)
+      : [...disabledProviders, code]
+    updateField('kpayDisabledProviders', next.join(','))
+  }
+
+  const unblockMutation = useMutation((provider) => adminAPI.unblockKpayProvider(provider), {
+    onSuccess: () => { refetchKpayOverview(); toast.success('Opérateur réactivé') },
+    onError: () => toast.error('Impossible de réactiver l\'opérateur')
+  })
 
   const testKpayMutation = useMutation(() => adminAPI.getKpayOverview(), {
     onSuccess: (res) => {
@@ -765,49 +841,145 @@ export default function AdminSettings() {
                     </label>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label htmlFor="kpayApiKey" className="block text-sm font-medium text-gray-700 mb-1">
-                        Clé API
-                      </label>
-                      <input
-                        id="kpayApiKey"
-                        type="text"
-                        autoComplete="off"
-                        className="input font-mono"
-                        placeholder="kpay_live_..."
-                        value={formData.kpayApiKey}
-                        onChange={(e) => updateField('kpayApiKey', e.target.value)}
-                      />
+                  {/* Environment switch: TEST (sandbox) ⇄ PRODUCTION */}
+                  <div className={`rounded-xl p-4 mb-5 border-2 ${formData.kpayMode === 'LIVE' ? 'border-emerald-200 bg-emerald-50/60' : 'border-amber-200 bg-amber-50/70'}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-gray-900">Environnement K-PAY</p>
+                        <p className="text-sm text-gray-600 mt-0.5">
+                          {formData.kpayMode === 'LIVE'
+                            ? 'Production : les clients paient avec de l\'argent réel.'
+                            : 'Test (sandbox) : aucun argent réel n\'est encaissé.'}
+                          {kpayOverview?.environment && (
+                            <span className="text-gray-500"> · K-PAY répond : <strong>{kpayOverview.environment}</strong></span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="inline-flex rounded-xl bg-white p-1 shadow-sm border border-gray-200 shrink-0" role="radiogroup" aria-label="Environnement K-PAY">
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={formData.kpayMode === 'TEST'}
+                          onClick={() => switchKpayMode('TEST')}
+                          disabled={kpayModeMutation.isLoading}
+                          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition ${formData.kpayMode === 'TEST' ? 'bg-amber-500 text-white shadow' : 'text-gray-600 hover:bg-gray-50'}`}
+                        >
+                          <BeakerIcon className="h-4 w-4" /> Test (dev)
+                        </button>
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={formData.kpayMode === 'LIVE'}
+                          onClick={() => switchKpayMode('LIVE')}
+                          disabled={kpayModeMutation.isLoading}
+                          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition ${formData.kpayMode === 'LIVE' ? 'bg-emerald-600 text-white shadow' : 'text-gray-600 hover:bg-gray-50'}`}
+                        >
+                          <BoltIcon className="h-4 w-4" /> Production
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <label htmlFor="kpaySecretKey" className="block text-sm font-medium text-gray-700 mb-1">
-                        Clé secrète
-                      </label>
-                      <input
-                        id="kpaySecretKey"
-                        type="text"
-                        autoComplete="off"
-                        className="input font-mono"
-                        placeholder="Depuis le dashboard K-PAY"
-                        value={formData.kpaySecretKey}
-                        onChange={(e) => updateField('kpaySecretKey', e.target.value)}
-                      />
+                  </div>
+
+                  <div className={`rounded-xl border p-4 mb-4 ${formData.kpayMode === 'LIVE' ? 'border-emerald-300 bg-emerald-50/30' : 'border-gray-200'}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-gray-800">Clés de production (kpay_live_)</h4>
+                      {formData.kpayMode === 'LIVE' && (
+                        <span className="text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-white/80 text-gray-700 border">Actives</span>
+                      )}
                     </div>
-                    <div>
-                      <label htmlFor="kpayWebhookSecret" className="block text-sm font-medium text-gray-700 mb-1">
-                        Secret webhook
-                      </label>
-                      <input
-                        id="kpayWebhookSecret"
-                        type="text"
-                        autoComplete="off"
-                        className="input font-mono"
-                        placeholder="Depuis le dashboard K-PAY"
-                        value={formData.kpayWebhookSecret}
-                        onChange={(e) => updateField('kpayWebhookSecret', e.target.value)}
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label htmlFor="kpayApiKey" className="block text-sm font-medium text-gray-700 mb-1">Clé API</label>
+                        <input
+                          id="kpayApiKey"
+                          type="text"
+                          autoComplete="off"
+                          className="input font-mono"
+                          placeholder="kpay_live_..."
+                          value={formData.kpayApiKey}
+                          onChange={(e) => updateField('kpayApiKey', e.target.value)}
+                        />
+                        {formData.kpayApiKey && !formData.kpayApiKey.trim().startsWith('kpay_live_') && (
+                          <p className="text-xs text-amber-600 mt-1">Cette clé ne commence pas par « kpay_live_ ».</p>
+                        )}
+                      </div>
+                      <div>
+                        <label htmlFor="kpaySecretKey" className="block text-sm font-medium text-gray-700 mb-1">Clé secrète</label>
+                        <input
+                          id="kpaySecretKey"
+                          type="text"
+                          autoComplete="off"
+                          className="input font-mono"
+                          placeholder="Depuis le dashboard K-PAY"
+                          value={formData.kpaySecretKey}
+                          onChange={(e) => updateField('kpaySecretKey', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="kpayWebhookSecret" className="block text-sm font-medium text-gray-700 mb-1">Secret webhook</label>
+                        <input
+                          id="kpayWebhookSecret"
+                          type="text"
+                          autoComplete="off"
+                          className="input font-mono"
+                          placeholder="Signature X-KPAY-Signature"
+                          value={formData.kpayWebhookSecret}
+                          onChange={(e) => updateField('kpayWebhookSecret', e.target.value)}
+                        />
+                      </div>
                     </div>
+                  </div>
+                  <div className={`rounded-xl border p-4 mb-4 ${formData.kpayMode === 'TEST' ? 'border-amber-300 bg-amber-50/30' : 'border-gray-200'}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-gray-800">Clés de test (kpay_test_)</h4>
+                      {formData.kpayMode === 'TEST' && (
+                        <span className="text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-white/80 text-gray-700 border">Actives</span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label htmlFor="kpayTestApiKey" className="block text-sm font-medium text-gray-700 mb-1">Clé API</label>
+                        <input
+                          id="kpayTestApiKey"
+                          type="text"
+                          autoComplete="off"
+                          className="input font-mono"
+                          placeholder="kpay_test_..."
+                          value={formData.kpayTestApiKey}
+                          onChange={(e) => updateField('kpayTestApiKey', e.target.value)}
+                        />
+                        {formData.kpayTestApiKey && !formData.kpayTestApiKey.trim().startsWith('kpay_test_') && (
+                          <p className="text-xs text-amber-600 mt-1">Cette clé ne commence pas par « kpay_test_ ».</p>
+                        )}
+                      </div>
+                      <div>
+                        <label htmlFor="kpayTestSecretKey" className="block text-sm font-medium text-gray-700 mb-1">Clé secrète</label>
+                        <input
+                          id="kpayTestSecretKey"
+                          type="text"
+                          autoComplete="off"
+                          className="input font-mono"
+                          placeholder="Depuis le dashboard K-PAY"
+                          value={formData.kpayTestSecretKey}
+                          onChange={(e) => updateField('kpayTestSecretKey', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="kpayTestWebhookSecret" className="block text-sm font-medium text-gray-700 mb-1">Secret webhook</label>
+                        <input
+                          id="kpayTestWebhookSecret"
+                          type="text"
+                          autoComplete="off"
+                          className="input font-mono"
+                          placeholder="Signature X-KPAY-Signature"
+                          value={formData.kpayTestWebhookSecret}
+                          onChange={(e) => updateField('kpayTestWebhookSecret', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
                     <div>
                       <label htmlFor="kpayBaseUrl" className="block text-sm font-medium text-gray-700 mb-1">
                         URL de l'API
@@ -820,7 +992,84 @@ export default function AdminSettings() {
                         value={formData.kpayBaseUrl}
                         onChange={(e) => updateField('kpayBaseUrl', e.target.value)}
                       />
+                      <p className="text-xs text-gray-400 mt-1">Même URL en test et en production : c'est le préfixe de la clé qui choisit l'environnement.</p>
                     </div>
+                    <div>
+                      <label htmlFor="kpayGatewaySecret" className="block text-sm font-medium text-gray-700 mb-1">
+                        Secret de la page de paiement (optionnel)
+                      </label>
+                      <input
+                        id="kpayGatewaySecret"
+                        type="text"
+                        autoComplete="off"
+                        className="input font-mono"
+                        placeholder="Par défaut : le secret webhook"
+                        value={formData.kpayGatewaySecret}
+                        onChange={(e) => updateField('kpayGatewaySecret', e.target.value)}
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Vérifie la signature du retour client après un paiement par carte.</p>
+                    </div>
+                  </div>
+
+                  {/* Payment methods offered to clients */}
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Moyens de paiement proposés</h4>
+                  <div className="rounded-xl border border-gray-200 divide-y mb-5">
+                    <div className="flex items-center justify-between gap-4 p-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">Carte Visa / Mastercard (en USD)</p>
+                        <p className="text-xs text-gray-500">Page de paiement hébergée K-PAY. Faites un petit paiement réel avant de l'ouvrir au public.</p>
+                      </div>
+                      <label htmlFor="kpayCardToggle" className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          id="kpayCardToggle"
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={formData.kpayCardEnabled}
+                          onChange={(e) => updateField('kpayCardEnabled', e.target.checked)}
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                      </label>
+                    </div>
+                    {KPAY_OPERATORS.map((op) => {
+                      const off = disabledProviders.includes(op.code)
+                      const blocked = kpayOverview?.blocklist?.[op.code]
+                      return (
+                        <div key={op.code} className="flex items-center justify-between gap-4 p-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900">{op.label} <span className="text-xs text-gray-400 font-mono">({op.code})</span></p>
+                            {blocked ? (
+                              <p className="text-xs text-red-600 mt-0.5">
+                                Bloqué automatiquement jusqu'à {new Date(blocked.blockedUntil).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} — {blocked.reason}
+                              </p>
+                            ) : (
+                              <p className="text-xs text-gray-500">{off ? 'Désactivé manuellement — masqué aux clients.' : 'Proposé aux clients (Mobile Money, en FC).'}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {blocked && (
+                              <button
+                                type="button"
+                                onClick={() => unblockMutation.mutate(op.code)}
+                                disabled={unblockMutation.isLoading}
+                                className="text-xs text-primary-700 underline hover:text-primary-900"
+                              >
+                                Débloquer
+                              </button>
+                            )}
+                            <label className="relative inline-flex items-center cursor-pointer" title={off ? 'Réactiver' : 'Désactiver'}>
+                              <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={!off}
+                                onChange={() => toggleDisabledProvider(op.code)}
+                                aria-label={`Proposer ${op.label}`}
+                              />
+                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                            </label>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
 
                   <h4 className="text-sm font-semibold text-gray-700 mt-2 mb-3">Paramètres avancés</h4>
@@ -877,7 +1126,7 @@ export default function AdminSettings() {
                       disabled={testKpayMutation.isLoading}
                       className="btn-outline text-sm"
                     >
-                      {testKpayMutation.isLoading ? 'Test en cours...' : 'Tester la connexion'}
+                      {testKpayMutation.isLoading ? 'Test en cours...' : `Tester la connexion (${formData.kpayMode === 'LIVE' ? 'production' : 'test'})`}
                     </button>
                     <p className="text-xs text-gray-400">
                       Teste avec les clés actuellement enregistrées — enregistrez d'abord si vous venez d'en modifier une.

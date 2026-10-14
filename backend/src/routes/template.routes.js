@@ -22,7 +22,7 @@ const CANVAS_HEIGHT_DEFAULT = 1120;
 router.get('/', paginationValidation, async (req, res) => {
   try {
     const { skip, take, page, limit } = paginate(req.query.page, req.query.limit);
-    const { category, eventType, premium, all } = req.query;
+    const { category, eventType, premium, all, search, status } = req.query;
 
     // Common filters
     const where = {
@@ -35,6 +35,11 @@ router.get('/', paginationValidation, async (req, res) => {
       // Admin view: base templates only (incl. inactive). Marketplace
       // (creator) templates are managed from the marketplace screens.
       where.isCustom = false;
+      if (search && String(search).trim()) {
+        where.name = { contains: String(search).trim() }; // MySQL collation is case-insensitive
+      }
+      if (status === 'published') where.isActive = true;
+      if (status === 'draft') where.isActive = false;
     } else {
       // Client gallery: active base templates + APPROVED marketplace templates.
       where.isActive = true;
@@ -87,8 +92,30 @@ router.get('/', paginationValidation, async (req, res) => {
       prisma.template.count({ where })
     ]);
 
+    // Admin list is paginated server-side, so the header counters (total /
+    // published / drafts / premium, and per event type) must come from the DB,
+    // not from the current page.
+    let stats;
+    if (all === 'true') {
+      const scope = { isCustom: false };
+      const [totalAll, published, premiumCount, byType] = await Promise.all([
+        prisma.template.count({ where: scope }),
+        prisma.template.count({ where: { ...scope, isActive: true } }),
+        prisma.template.count({ where: { ...scope, isPremium: true } }),
+        prisma.template.groupBy({ by: ['eventType'], where: scope, _count: { _all: true } })
+      ]);
+      stats = {
+        total: totalAll,
+        published,
+        draft: totalAll - published,
+        premium: premiumCount,
+        byEventType: Object.fromEntries(byType.map(r => [r.eventType || 'WEDDING', r._count._all]))
+      };
+    }
+
     res.json({
       templates,
+      ...(stats && { stats }),
       pagination: buildPaginationMeta(total, page, limit)
     });
   } catch (error) {

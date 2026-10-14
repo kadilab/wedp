@@ -3,29 +3,36 @@ const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const logger = require('../utils/logger');
 const kpay = require('../utils/kpay');
-const { approveInvitationOrder } = require('../utils/invitationOrders');
+const { orderIdFromExternalId, confirmOrderPayment } = require('../utils/kpayOrders');
 const { markPayoutPaid, markPayoutFailed } = require('../utils/payouts');
 const { createNotification, NotificationTemplates } = require('../utils/notifications');
 const { eventDisplayName } = require('../utils/helpers');
 
 const prisma = new PrismaClient();
 
-// externalId conventions used when we initiate K-PAY operations.
-const ORDER_PREFIX = 'inv_';
+// externalId conventions used when we initiate K-PAY operations
+// (invitation orders: inv_<orderId>.<attempt> — see utils/kpayOrders.js).
 const PAYOUT_PREFIX = 'payout_';
 const GIFT_PREFIX = 'gift_';
 
 async function handlePaymentEvent(event, payload, io) {
   const externalId = payload.externalId || '';
-  if (!externalId.startsWith(ORDER_PREFIX)) {
+  const orderId = orderIdFromExternalId(externalId) || payload.metadata?.orderId;
+  if (!orderId) {
     logger.warn(`K-PAY payment webhook with unknown externalId: ${externalId}`);
     return;
   }
-  const orderId = externalId.slice(ORDER_PREFIX.length);
 
   if (event === 'payment.completed') {
-    await approveInvitationOrder(orderId, { processedBy: null, io });
-    logger.info(`K-PAY: invitation order ${orderId} approved via payment ${payload.paymentId}`);
+    const order = await prisma.invitationOrder.findUnique({ where: { id: orderId } });
+    if (!order) {
+      logger.warn(`K-PAY webhook: invitation order ${orderId} not found`);
+      return;
+    }
+    // Same amount check as the polling path; idempotent (replayed webhooks
+    // never deliver an order twice).
+    const outcome = await confirmOrderPayment(order, { ...payload, status: payload.status || 'COMPLETED' }, io);
+    logger.info(`K-PAY webhook: order ${orderId} → ${outcome} (payment ${payload.paymentId})`);
   } else if (event === 'payment.failed' || event === 'payment.cancelled') {
     // Keep the order PENDING so the client can retry; just record the reason.
     await prisma.invitationOrder.updateMany({
@@ -92,7 +99,7 @@ async function webhookHandler(req, res) {
 
   if (!(await kpay.verifyWebhookSignature(raw, signature))) {
     logger.warn('K-PAY webhook: invalid signature');
-    return res.status(401).json({ error: 'Invalid signature' });
+    return res.status(400).json({ error: 'Invalid signature' });
   }
 
   // Acknowledge fast, then process.
@@ -128,3 +135,4 @@ router.post('/payouts', webhookHandler);
 router.post('/refunds', webhookHandler);
 
 module.exports = router;
+module.exports.webhookHandler = webhookHandler;
