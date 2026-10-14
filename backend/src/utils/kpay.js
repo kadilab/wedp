@@ -334,7 +334,7 @@ function isProviderNotConfiguredError(error) {
 // unreachable every operator is reported UNKNOWN so the form stays usable.
 // ---------------------------------------------------------------------------
 const AVAILABILITY_TTL_MS = 60 * 1000;
-let availabilityCache = null; // { at, mode, value }
+let availabilityCache = null; // { at, key, value }
 
 function mapKpayStatus(status) {
   switch (String(status || '').toUpperCase()) {
@@ -346,7 +346,10 @@ function mapKpayStatus(status) {
 
 async function getPaymentAvailability() {
   const cfg = await getKpayConfig();
-  if (availabilityCache && availabilityCache.mode === cfg.mode &&
+  // Admin-side switches (mode, card, disabled operators) take effect at once:
+  // they're part of the cache key, only the KPay answer itself is cached.
+  const cacheKey = `${cfg.mode}|${cfg.cardEnabled}|${cfg.disabledProviders.join(',')}`;
+  if (availabilityCache && availabilityCache.key === cacheKey &&
       Date.now() - availabilityCache.at < AVAILABILITY_TTL_MS) {
     return availabilityCache.value;
   }
@@ -385,7 +388,7 @@ async function getPaymentAvailability() {
     card: { status: cfg.cardEnabled ? 'AVAILABLE' : 'UNAVAILABLE' }
   };
   // Only cache real answers — try KPay again on the next request after a failure.
-  if (cod) availabilityCache = { at: Date.now(), mode: cfg.mode, value };
+  if (cod) availabilityCache = { at: Date.now(), key: cacheKey, value };
   return value;
 }
 
