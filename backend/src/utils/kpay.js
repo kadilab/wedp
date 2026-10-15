@@ -352,10 +352,48 @@ let availabilityCache = null; // { at, key, value }
 
 function mapKpayStatus(status) {
   switch (String(status || '').toUpperCase()) {
-    case 'OPERATIONAL': return 'AVAILABLE';
-    case 'DELAYED': return 'DELAYED';
-    default: return 'UNAVAILABLE'; // CLOSED or anything unexpected
+    case 'OPERATIONAL':
+    case 'AVAILABLE':
+    case 'OK':
+    case 'UP':
+      return 'AVAILABLE';
+    case 'DELAYED':
+    case 'DEGRADED':
+    case 'SLOW':
+      return 'DELAYED';
+    case 'CLOSED':
+    case 'UNAVAILABLE':
+    case 'DOWN':
+    case 'DISABLED':
+      return 'UNAVAILABLE';
+    default:
+      return 'UNKNOWN'; // never block a payment on a status we don't understand
   }
+}
+
+const RDC_COUNTRY_CODES = ['COD', 'CD', 'DRC', 'RDC'];
+const up = (v) => String(v || '').trim().toUpperCase();
+
+// Extract the RDC operators list from the availability answer, tolerating
+// the shape variations seen across KPay/pawaPay versions. Returns null when
+// the RDC entry can't be found — the caller then reports UNKNOWN (form stays
+// usable) instead of wrongly greying out every operator.
+function extractRdcProviders(data) {
+  const countries = Array.isArray(data) ? data
+    : Array.isArray(data?.data) ? data.data
+      : Array.isArray(data?.countries) ? data.countries
+        : Array.isArray(data?.availability) ? data.availability
+          : null;
+  if (!countries) return null;
+  const rdc = countries.find(c => RDC_COUNTRY_CODES.includes(up(c?.country || c?.countryCode || c?.code)));
+  const providers = rdc?.providers || rdc?.correspondents || null;
+  return Array.isArray(providers) && providers.length > 0 ? providers : null;
+}
+
+function depositStatusOf(entry) {
+  const ops = entry?.operationTypes || entry?.operations || [];
+  const deposit = Array.isArray(ops) ? ops.find(o => up(o?.operationType || o?.type) === 'DEPOSIT') : null;
+  return deposit ? mapKpayStatus(deposit.status) : (entry?.status ? mapKpayStatus(entry.status) : 'UNKNOWN');
 }
 
 async function getPaymentAvailability() {
@@ -368,28 +406,34 @@ async function getPaymentAvailability() {
     return availabilityCache.value;
   }
 
-  let cod = null;
+  let rdcProviders = null;
+  let answered = false;
   try {
     const data = await getAvailability();
-    const countries = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : null;
-    if (!countries) throw new Error('unexpected availability payload');
-    cod = countries.find(c => c.country === 'COD')?.providers || [];
+    answered = true;
+    rdcProviders = extractRdcProviders(data);
+    if (!rdcProviders) {
+      logger.warn(`K-PAY availability: RDC operators not found in answer: ${JSON.stringify(data).slice(0, 500)}`);
+    }
   } catch (err) {
     logger.warn(`K-PAY availability check failed: ${extractApiError(err)}`);
   }
+
+  // Only trust "absent = not enabled on our account" when KPay listed at least
+  // one of OUR operator codes; otherwise the codes simply don't match ours.
+  const findEntry = (code) => rdcProviders?.find(p => up(p?.provider || p?.correspondent || p?.code) === code);
+  const namesMatch = rdcProviders ? MOMO_PROVIDERS.some(({ provider }) => findEntry(provider)) : false;
 
   const blocklist = await getBlocklist();
   const mobileMoney = MOMO_PROVIDERS.map(({ provider, label }) => {
     let status;
     if (cfg.disabledProviders.includes(provider) || blocklist[provider]) {
       status = 'UNAVAILABLE';
-    } else if (!cod) {
+    } else if (!rdcProviders || !namesMatch) {
       status = 'UNKNOWN';
     } else {
-      const entry = cod.find(p => p.provider === provider);
-      const deposit = entry?.operationTypes?.find(o => o.operationType === 'DEPOSIT');
-      // Absent from the answer = operator not enabled on our account.
-      status = deposit ? mapKpayStatus(deposit.status) : 'UNAVAILABLE';
+      const entry = findEntry(provider);
+      status = entry ? depositStatusOf(entry) : 'UNAVAILABLE';
     }
     return { provider, label, status };
   });
@@ -402,7 +446,7 @@ async function getPaymentAvailability() {
     card: { status: cfg.cardEnabled ? 'AVAILABLE' : 'UNAVAILABLE' }
   };
   // Only cache real answers — try KPay again on the next request after a failure.
-  if (cod) availabilityCache = { at: Date.now(), key: cacheKey, value };
+  if (answered && rdcProviders) availabilityCache = { at: Date.now(), key: cacheKey, value };
   return value;
 }
 

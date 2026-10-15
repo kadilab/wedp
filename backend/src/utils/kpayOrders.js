@@ -15,17 +15,25 @@ const ORDER_EXPIRY_MS = 30 * 60 * 1000;
 // Orders with no payment attempt at all are expired after 24 h.
 const MANUAL_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
-// K-PAY rejects a reused externalId (409), but a client may retry the same
-// order (other operator, card after Mobile Money…). Each attempt gets its own
-// suffix: inv_<orderId>.<attempt>. UUIDs never contain a dot.
-function buildOrderExternalId(orderId) {
-  return `${ORDER_PREFIX}${orderId}.${Date.now().toString(36)}`;
+// First attempt: inv_<orderId> — same short, dot-free shape as the gift
+// registry's gift_<id> (known to be accepted by KPay). K-PAY rejects a reused
+// externalId (409) and a client may retry the same order (other operator,
+// card…), so retries get a short suffix: inv_<orderId>_<6 chars>.
+function buildOrderExternalId(orderId, { retry = false } = {}) {
+  return retry
+    ? `${ORDER_PREFIX}${orderId}_${Date.now().toString(36).slice(-6)}`
+    : `${ORDER_PREFIX}${orderId}`;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+// Accepts inv_<uuid>, inv_<uuid>_<suffix> and the former inv_<uuid>.<suffix>.
 function orderIdFromExternalId(externalId) {
   const ext = String(externalId || '');
   if (!ext.startsWith(ORDER_PREFIX)) return null;
-  return ext.slice(ORDER_PREFIX.length).split('.')[0] || null;
+  const rest = ext.slice(ORDER_PREFIX.length);
+  const uuid = rest.match(UUID_RE);
+  return uuid ? uuid[0] : (rest.split(/[._]/)[0] || null);
 }
 
 // What we asked K-PAY to collect for this order, in the currency it was

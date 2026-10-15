@@ -302,11 +302,12 @@ router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) =
       return res.status(400).json({ error: 'Cette commande a déjà été traitée' });
     }
 
-    const customerName = [req.user.firstName, req.user.lastName].filter(Boolean).join(' ') || undefined;
+    // Same request shape as the gift registry (cagnotte), which is known to
+    // work with our KPay account: amount, provider, phone, externalId,
+    // description, metadata. Optional customer fields are only sent for cards.
     const payload = {
       externalId: buildOrderExternalId(order.id),
       description: `Invitations Winvite (${order.quantity})`,
-      customerEmail: req.user.email || undefined,
       metadata: { orderId: order.id, weddingId: wedding.id }
     };
     let currency;
@@ -318,6 +319,7 @@ router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) =
       // Cards: always the hosted page, always USD (min 1 USD).
       payload.amount = await kpay.toUsdAmount(parseFloat(order.totalAmount));
       payload.paymentMethod = 'CARD';
+      if (req.user.email) payload.customerEmail = req.user.email;
       const frontendUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
       payload.returnUrl = `${frontendUrl}/paiement/retour`;
       payload.cancelUrl = `${frontendUrl}/paiement/retour?annule=1`;
@@ -326,11 +328,12 @@ router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) =
       const known = kpay.MOMO_PROVIDERS.some(p => p.provider === provider);
       if (!known) return res.status(400).json({ error: 'Choisissez votre opérateur Mobile Money' });
 
-      // Refuse an operator we already know is down/not configured — saves the
-      // client a useless USSD wait.
-      const availability = await kpay.getPaymentAvailability();
-      const op = availability.mobileMoney.find(m => m.provider === provider);
-      if (op?.status === 'UNAVAILABLE') {
+      // Refuse only operators WE switched off (admin list) or auto-blocked after
+      // a "not configured" error. KPay's live status is advisory (it greys the
+      // button in the UI) — KPay itself is the judge at init time, exactly
+      // like for the gift registry.
+      const blocklist = await kpay.getBlocklist();
+      if (cfg.disabledProviders.includes(provider) || blocklist[provider]) {
         return res.status(409).json({
           code: 'PROVIDER_UNAVAILABLE',
           provider,
@@ -347,7 +350,6 @@ router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) =
       payload.amount = await kpay.toAccountAmount(parseFloat(order.totalAmount));
       payload.provider = provider;
       payload.phoneNumber = phone;
-      payload.customerName = customerName;
       currency = cfg.accountCurrency;
     }
 
@@ -356,7 +358,16 @@ router.post('/:weddingId/orders/:orderId/kpay', authenticate, async (req, res) =
     }
 
     logger.info(`K-PAY init [${cfg.mode}]: order ${order.id}, ${payload.amount} ${currency}, ${method === 'CARD' ? 'CARD' : 'USSD/' + provider}`);
-    const result = await kpay.initPayment(payload);
+    let result;
+    try {
+      result = await kpay.initPayment(payload);
+    } catch (err) {
+      // 409 = this externalId was already used by a previous attempt on the
+      // same order (other operator, card…): retry once with a suffixed id.
+      if (err.status !== 409) throw err;
+      payload.externalId = buildOrderExternalId(order.id, { retry: true });
+      result = await kpay.initPayment(payload);
+    }
 
     // Remember the K-PAY payment on the order (latest attempt wins). Touching
     // the row also restarts the 30-min expiry window.
