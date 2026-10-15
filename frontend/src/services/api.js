@@ -204,6 +204,14 @@ export const invitationOrderAPI = {
   getMyOrders: (weddingId) => api.get(`/invitation-orders/${weddingId}/orders`),
   createOrder: (weddingId, quantity, couponCode) => api.post(`/invitation-orders/${weddingId}`, { quantity, couponCode }),
   submitTransaction: (weddingId, orderId, data) => api.put(`/invitation-orders/${weddingId}/orders/${orderId}/submit`, data),
+  // Optional screenshot of a manual transfer
+  uploadProof: (weddingId, orderId, file) => {
+    const formData = new FormData()
+    formData.append('proof', file)
+    return api.post(`/invitation-orders/${weddingId}/orders/${orderId}/proof`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
   // K-PAY automatic Mobile Money payment (GATEWAY): returns { gatewayUrl }
   payKpay: (weddingId, orderId, data = {}) => api.post(`/invitation-orders/${weddingId}/orders/${orderId}/kpay`, data),
   // Poll the live K-PAY status; auto-approves the order when COMPLETED (no admin)

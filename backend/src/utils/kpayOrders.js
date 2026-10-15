@@ -12,6 +12,8 @@ const ORDER_PREFIX = 'inv_';
 // Unpaid K-PAY orders are expired after this delay (client closed the tab,
 // never validated the USSD push…).
 const ORDER_EXPIRY_MS = 30 * 60 * 1000;
+// Orders with no payment attempt at all are expired after 24 h.
+const MANUAL_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
 // K-PAY rejects a reused externalId (409), but a client may retry the same
 // order (other operator, card after Mobile Money…). Each attempt gets its own
@@ -67,12 +69,26 @@ async function expireStaleKpayOrders() {
   const { count } = await prisma.invitationOrder.updateMany({
     where: {
       status: 'PENDING',
+      submittedAt: null, // a manual proof sent afterwards keeps it for review
       paymentProvider: { in: ['KPAY', 'KPAY_CARD'] },
       updatedAt: { lt: cutoff }
     },
     data: { status: 'REJECTED', adminNote: 'Expirée : paiement K-PAY non confirmé après 30 min' }
   });
   if (count) logger.info(`K-PAY: expired ${count} unpaid invitation order(s)`);
+
+  // Orders never paid at all (no K-PAY attempt, no manual reference) are
+  // abandoned carts: expire them after 24 h so the admin queue stays clean.
+  const manual = await prisma.invitationOrder.updateMany({
+    where: {
+      status: 'PENDING',
+      submittedAt: null,
+      transactionId: null,
+      createdAt: { lt: new Date(Date.now() - MANUAL_EXPIRY_MS) }
+    },
+    data: { status: 'REJECTED', adminNote: 'Expirée : aucun paiement reçu sous 24 h' }
+  });
+  if (manual.count) logger.info(`Expired ${manual.count} unpaid invitation order(s) older than 24h`);
 }
 
 function startOrderExpiryJob() {

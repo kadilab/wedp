@@ -19,7 +19,10 @@ import {
   MinusIcon,
   PlusIcon,
   BeakerIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  BanknotesIcon,
+  ClipboardDocumentIcon,
+  PaperClipIcon
 } from '@heroicons/react/24/outline'
 
 const QUICK_QUANTITIES = [25, 50, 100, 200]
@@ -31,12 +34,15 @@ const POLL_FIRST_DELAY_MS = 3000
 const POLL_MAX_DELAY_MS = 8000
 const POLL_TIMEOUT_MS = 3 * 60 * 1000
 
-function getStatusBadge(status) {
+function getStatusBadge(status, order) {
+  if (status === 'PENDING' && order?.submittedAt) {
+    return <span className="badge-warning flex items-center"><ClockIcon className="h-4 w-4 mr-1" />En vérification</span>
+  }
   switch (status) {
     case 'APPROVED':
       return <span className="badge-success flex items-center"><CheckCircleIcon className="h-4 w-4 mr-1" />Payée</span>
     case 'PENDING':
-      return <span className="badge-warning flex items-center"><ClockIcon className="h-4 w-4 mr-1" />En attente</span>
+      return <span className="badge flex items-center"><ClockIcon className="h-4 w-4 mr-1" />Non payée</span>
     case 'REJECTED':
       return <span className="badge-danger flex items-center"><XCircleIcon className="h-4 w-4 mr-1" />Annulée</span>
     default:
@@ -65,13 +71,19 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
   const [appliedCoupon, setAppliedCoupon] = useState(null) // { code, discount, finalAmount }
   const [couponError, setCouponError] = useState('')
   const [showCoupon, setShowCoupon] = useState(false)
-  // 'CDF' → Mobile Money (charged in FC, operator currency)
-  // 'USD' → Visa/Mastercard (charged in USD, hosted K-PAY page)
-  const [payCurrency, setPayCurrency] = useState('CDF')
+  // 'MOMO'   → Mobile Money via K-PAY (charged in FC, operator currency)
+  // 'CARD'   → Visa/Mastercard via K-PAY (charged in USD, hosted page)
+  // 'MANUAL' → transfer to a number configured by the admin, then the client
+  //            submits the transaction reference for validation
+  const [method, setMethod] = useState('MOMO')
+  const [manualIdx, setManualIdx] = useState(0)
+  const [manualRef, setManualRef] = useState('')
+  const [manualPhone, setManualPhone] = useState('')
+  const [proofFile, setProofFile] = useState(null)
   const [provider, setProvider] = useState('')
   const [localPhone, setLocalPhone] = useState('')
   const [providerError, setProviderError] = useState('')
-  // 'form' | 'submitting' | 'waiting' | 'success' | 'failed' | 'timeout' | 'redirecting'
+  // 'form' | 'submitting' | 'waiting' | 'success' | 'failed' | 'timeout' | 'redirecting' | 'submitted'
   const [phase, setPhase] = useState('form')
   const [payStatus, setPayStatus] = useState('PENDING')
   const [failureReason, setFailureReason] = useState('')
@@ -119,8 +131,12 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
       status: byCode[op.code]?.status || 'UNKNOWN'
     }))
   }, [availability])
-  const anyMomo = availability ? availability.anyMobileMoneyAvailable !== false : true
-  const cardAvailable = availability?.card?.status === 'AVAILABLE'
+  const kpayConfigured = availability ? availability.configured !== false : true
+  const anyMomo = kpayConfigured && (availability ? availability.anyMobileMoneyAvailable !== false : true)
+  const cardAvailable = kpayConfigured && availability?.card?.status === 'AVAILABLE'
+  const manualMethods = (pricing.paymentMethods || []).filter(m => m?.provider && m?.number)
+  const manualAvailable = manualMethods.length > 0
+  const selectedManual = manualMethods[Math.min(manualIdx, manualMethods.length - 1)]
   const availabilityUnknown = operators.every(op => op.status === 'UNKNOWN')
   const selectedOp = operators.find(op => op.code === provider)
   const providerUsable = selectedOp && selectedOp.status !== 'UNAVAILABLE'
@@ -136,10 +152,12 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
   const fullPhone = useMemo(() => buildFullPhone(localPhone), [localPhone])
   const phoneValid = /^243\d{9}$/.test(fullPhone)
 
-  // No Mobile Money at all → steer towards the card when it's open.
+  // No Mobile Money at all → steer towards the next method that works.
   useEffect(() => {
-    if (availability && !anyMomo && cardAvailable) setPayCurrency('USD')
-  }, [availability, anyMomo, cardAvailable])
+    if (!availability || method !== 'MOMO' || anyMomo) return
+    if (cardAvailable) setMethod('CARD')
+    else if (manualAvailable) setMethod('MANUAL')
+  }, [availability, anyMomo, cardAvailable, manualAvailable, method])
 
   // An operator that just became unavailable can't stay selected.
   useEffect(() => {
@@ -203,6 +221,9 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
     setProviderError('')
     setPhase('form')
     setFailureReason('')
+    setManualRef('')
+    setManualPhone('')
+    setProofFile(null)
     pendingOrderRef.current = null
     onClose()
   }
@@ -321,6 +342,39 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
     }
   }
 
+  const payManual = async () => {
+    if (!selectedManual) return
+    if (!manualRef.trim()) return toast.error('Indiquez la référence de la transaction')
+    setPhase('submitting')
+    try {
+      const orderId = await ensureOrder()
+      if (proofFile) {
+        await invitationOrderAPI.uploadProof(weddingId, orderId, proofFile).catch(() => {
+          toast.error('La capture n\'a pas pu être envoyée — la référence suffit.')
+        })
+      }
+      await invitationOrderAPI.submitTransaction(weddingId, orderId, {
+        transactionId: manualRef.trim(),
+        paymentProvider: selectedManual.provider,
+        payerPhone: manualPhone.trim() || undefined
+      })
+      pendingOrderRef.current = null
+      setPhase('submitted')
+      queryClient.invalidateQueries(['invitation-orders', weddingId])
+      queryClient.invalidateQueries('my-invitation-orders')
+    } catch (err) {
+      setPhase('form')
+      toast.error(err.response?.data?.error || 'Impossible d\'envoyer la référence de paiement')
+    }
+  }
+
+  const copyNumber = async (value) => {
+    try {
+      await navigator.clipboard.writeText(value)
+      toast.success('Numéro copié')
+    } catch { /* clipboard unavailable — the number is visible anyway */ }
+  }
+
   const backToForm = () => {
     stopPolling()
     setPhase('form')
@@ -363,10 +417,10 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
             <div>
               <p className="text-primary-100 text-xs uppercase tracking-wide">Total à payer</p>
               <p className="text-3xl font-bold leading-tight">
-                {payCurrency === 'USD' && usdTotal != null ? formatUsd(usdTotal) : formatMoney(finalTotal)}
+                {method === 'CARD' && usdTotal != null ? formatUsd(usdTotal) : formatMoney(finalTotal)}
               </p>
               <p className="text-primary-100 text-xs mt-0.5">
-                {payCurrency === 'USD'
+                {method === 'CARD'
                   ? <>soit {formatMoney(finalTotal)}</>
                   : usdTotal != null && <>≈ {formatUsd(finalTotal / usdRate)}</>}
                 {appliedCoupon && <> · coupon {appliedCoupon.code} appliqué</>}
@@ -426,6 +480,22 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
                 {quantity} invitation{quantity > 1 ? 's ont été ajoutées' : ' a été ajoutée'} à votre quota. Un reçu vous a été envoyé par email.
               </p>
               <button onClick={close} className="btn-primary mt-6 w-full py-3">Continuer</button>
+            </div>
+          )}
+
+          {/* ---------- Manual payment submitted ---------- */}
+          {phase === 'submitted' && (
+            <div className="p-8 text-center">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary-50">
+                <ClockIcon className="h-12 w-12 text-primary-600" />
+              </div>
+              <h4 className="mt-5 text-lg font-semibold text-gray-900">Paiement envoyé pour vérification</h4>
+              <p className="mt-2 text-sm text-gray-600">
+                Nous vérifions votre transfert (réf. <strong className="font-mono">{manualRef}</strong>).
+                Vos {quantity} invitation{quantity > 1 ? 's seront débloquées' : ' sera débloquée'} dès validation —
+                vous recevrez une notification.
+              </p>
+              <button onClick={close} className="btn-primary mt-6 w-full py-3">Compris</button>
             </div>
           )}
 
@@ -551,7 +621,7 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
 
               {/* Payment — only usable once availability has been checked */}
               <section>
-                <p className="text-sm font-semibold text-gray-800 mb-2">Payer en</p>
+                <p className="text-sm font-semibold text-gray-800 mb-2">Moyen de paiement</p>
 
                 {availabilityLoading ? (
                   <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-gray-200 py-10 text-sm text-gray-500">
@@ -561,7 +631,7 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
                 ) : (
                   <>
                     {/* No Mobile Money at all → banner first */}
-                    {!anyMomo && (
+                    {!anyMomo && kpayConfigured && (
                       <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4">
                         <div className="flex gap-3">
                           <ExclamationTriangleIcon className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
@@ -570,13 +640,15 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
                             <p className="mt-0.5">
                               {cardAvailable
                                 ? 'Vous pouvez payer par carte Visa/Mastercard ou réessayer plus tard.'
-                                : 'Merci de réessayer un peu plus tard.'}
+                                : manualAvailable
+                                  ? 'Vous pouvez payer par transfert manuel ou réessayer plus tard.'
+                                  : 'Merci de réessayer un peu plus tard.'}
                             </p>
                           </div>
                         </div>
                         <div className="mt-3 flex gap-2">
                           {cardAvailable && (
-                            <button type="button" onClick={() => setPayCurrency('USD')} className="btn-primary flex-1 flex items-center justify-center gap-2 text-sm">
+                            <button type="button" onClick={() => setMethod('CARD')} className="btn-primary flex-1 flex items-center justify-center gap-2 text-sm">
                               <CreditCardIcon className="h-4 w-4" /> Payer par carte
                             </button>
                           )}
@@ -592,38 +664,27 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
                       </div>
                     )}
 
-                    {/* Currency / method switch */}
-                    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Devise de paiement">
-                      <button
-                        type="button"
-                        role="radio"
-                        aria-checked={payCurrency === 'CDF'}
-                        disabled={busy || !anyMomo}
-                        onClick={() => setPayCurrency('CDF')}
-                        className={`rounded-xl border-2 p-3 text-left transition disabled:opacity-50 disabled:cursor-not-allowed ${payCurrency === 'CDF' ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-primary-300'}`}
-                      >
-                        <span className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                          <DevicePhoneMobileIcon className="h-5 w-5 text-primary-600" /> Francs (FC)
-                        </span>
-                        <span className="block text-xs text-gray-500 mt-0.5">Mobile Money · {formatMoney(finalTotal)}</span>
-                      </button>
-                      <button
-                        type="button"
-                        role="radio"
-                        aria-checked={payCurrency === 'USD'}
-                        disabled={busy || !cardAvailable}
-                        onClick={() => setPayCurrency('USD')}
-                        className={`rounded-xl border-2 p-3 text-left transition disabled:opacity-50 disabled:cursor-not-allowed ${payCurrency === 'USD' ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-primary-300'}`}
-                      >
-                        <span className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                          <CreditCardIcon className="h-5 w-5 text-primary-600" /> Dollars (USD)
-                        </span>
-                        <span className="block text-xs text-gray-500 mt-0.5">
-                          {cardAvailable
-                            ? <>Carte Visa / Mastercard{usdTotal != null && <> · {formatUsd(usdTotal)}</>}</>
-                            : 'Carte bancaire bientôt disponible'}
-                        </span>
-                      </button>
+                    {/* Payment method — the currency follows the method */}
+                    <div className={`grid gap-2 ${manualAvailable ? 'grid-cols-3' : 'grid-cols-2'}`} role="radiogroup" aria-label="Moyen de paiement">
+                      {[
+                        { key: 'MOMO', icon: DevicePhoneMobileIcon, title: 'Mobile Money', sub: anyMomo ? `En FC · ${formatMoney(finalTotal)}` : 'Indisponible', enabled: anyMomo },
+                        { key: 'CARD', icon: CreditCardIcon, title: 'Carte', sub: cardAvailable ? `En USD${usdTotal != null ? ` · ${formatUsd(usdTotal)}` : ''}` : 'Bientôt disponible', enabled: cardAvailable },
+                        ...(manualAvailable ? [{ key: 'MANUAL', icon: BanknotesIcon, title: 'Transfert', sub: 'Manuel, vérifié', enabled: true }] : [])
+                      ].map((m) => (
+                        <button
+                          key={m.key}
+                          type="button"
+                          role="radio"
+                          aria-checked={method === m.key}
+                          disabled={busy || !m.enabled}
+                          onClick={() => setMethod(m.key)}
+                          className={`rounded-xl border-2 p-2.5 sm:p-3 text-left transition disabled:opacity-50 disabled:cursor-not-allowed ${method === m.key ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-primary-300'}`}
+                        >
+                          <m.icon className="h-5 w-5 text-primary-600" />
+                          <span className="mt-1 block text-sm font-semibold text-gray-900">{m.title}</span>
+                          <span className="block text-[11px] leading-tight text-gray-500 mt-0.5">{m.sub}</span>
+                        </button>
+                      ))}
                     </div>
 
                     {availabilityUnknown && anyMomo && (
@@ -634,7 +695,7 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
                     )}
 
                     {/* ---- Mobile Money (FC) ---- */}
-                    {payCurrency === 'CDF' && anyMomo && (
+                    {method === 'MOMO' && anyMomo && (
                       <div className="mt-4 space-y-4">
                         <div>
                           <p className="text-sm font-medium text-gray-700 mb-2">Choisissez votre opérateur</p>
@@ -727,7 +788,7 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
                     )}
 
                     {/* ---- Card (USD) ---- */}
-                    {payCurrency === 'USD' && cardAvailable && (
+                    {method === 'CARD' && cardAvailable && (
                       <div className="mt-4 space-y-3">
                         <div className="rounded-xl bg-gray-50 border border-gray-100 p-4 text-sm text-gray-600">
                           <p>
@@ -750,14 +811,103 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
                         </button>
                       </div>
                     )}
+                    {/* ---- Manual transfer ---- */}
+                    {method === 'MANUAL' && selectedManual && (
+                      <div className="mt-4 space-y-4">
+                        {manualMethods.length > 1 && (
+                          <div className="flex flex-wrap gap-2">
+                            {manualMethods.map((m, i) => (
+                              <button
+                                key={`${m.provider}-${i}`}
+                                type="button"
+                                onClick={() => setManualIdx(i)}
+                                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition ${i === manualIdx ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-primary-300'}`}
+                              >
+                                {m.logo && <img src={m.logo} alt="" className="h-5 w-5 object-contain" />}
+                                {m.provider}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        <ol className="space-y-3 text-sm">
+                          <li className="rounded-xl border border-gray-200 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">1. Envoyez le paiement</p>
+                            <div className="mt-2 flex items-center gap-3">
+                              {selectedManual.logo && <img src={selectedManual.logo} alt="" className="h-10 w-10 object-contain" />}
+                              <div className="min-w-0 flex-1">
+                                <p className="text-gray-600">Envoyez <strong className="text-gray-900">{formatMoney(finalTotal)}</strong> via {selectedManual.provider} au</p>
+                                <p className="font-mono text-lg font-semibold text-gray-900 truncate">{selectedManual.number}</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => copyNumber(selectedManual.number)}
+                                className="shrink-0 rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50"
+                                aria-label="Copier le numéro"
+                                title="Copier le numéro"
+                              >
+                                <ClipboardDocumentIcon className="h-5 w-5" />
+                              </button>
+                            </div>
+                            {selectedManual.instructions && (
+                              <p className="mt-2 text-xs text-gray-500">{selectedManual.instructions}</p>
+                            )}
+                          </li>
+                          <li className="rounded-xl border border-gray-200 p-4 space-y-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">2. Indiquez la référence reçue par SMS</p>
+                            <input
+                              type="text"
+                              className="input font-mono"
+                              placeholder="Ex : PP231015.1234.A12345"
+                              aria-label="Référence de la transaction"
+                              value={manualRef}
+                              disabled={busy}
+                              onChange={(e) => setManualRef(e.target.value)}
+                            />
+                            <input
+                              type="tel"
+                              inputMode="tel"
+                              className="input"
+                              placeholder="Numéro utilisé pour payer (facultatif)"
+                              aria-label="Numéro utilisé pour payer"
+                              value={manualPhone}
+                              disabled={busy}
+                              onChange={(e) => setManualPhone(e.target.value)}
+                            />
+                            <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer hover:text-gray-700">
+                              <PaperClipIcon className="h-4 w-4" />
+                              {proofFile ? <span className="truncate">{proofFile.name}</span> : 'Joindre une capture du paiement (facultatif)'}
+                              <input type="file" accept="image/*" className="hidden" disabled={busy} onChange={(e) => setProofFile(e.target.files?.[0] || null)} />
+                            </label>
+                          </li>
+                        </ol>
+
+                        <button
+                          onClick={payManual}
+                          disabled={busy || quantity < 1 || !manualRef.trim()}
+                          className="btn-primary w-full flex items-center justify-center gap-2 py-3 text-base"
+                        >
+                          {busy ? <><Spinner /> Envoi…</> : <><CheckCircleIcon className="h-5 w-5" /> J'ai payé — envoyer la référence</>}
+                        </button>
+                        <p className="text-center text-xs text-gray-400">Validation manuelle, généralement sous quelques heures.</p>
+                      </div>
+                    )}
+
+                    {!kpayConfigured && !manualAvailable && (
+                      <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                        Le paiement en ligne est momentanément indisponible. Merci de réessayer plus tard.
+                      </div>
+                    )}
                   </>
                 )}
 
                 <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
                   <ShieldCheckIcon className="h-4 w-4" />
-                  {payCurrency === 'USD'
+                  {method === 'CARD'
                     ? 'Paiement sécurisé — vos données de carte ne transitent jamais par Winvite.'
-                    : 'Paiement sécurisé — vous validez avec votre code PIN sur votre téléphone.'}
+                    : method === 'MANUAL'
+                      ? 'Vos invitations sont débloquées dès que nous avons vérifié le transfert.'
+                      : 'Paiement sécurisé — vous validez avec votre code PIN sur votre téléphone.'}
                 </p>
               </section>
 
@@ -774,7 +924,7 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
                             {format(new Date(order.createdAt), 'd MMM yyyy, HH:mm', { locale: fr })}
                           </p>
                         </div>
-                        {getStatusBadge(order.status)}
+                        {getStatusBadge(order.status, order)}
                       </div>
                     ))}
                   </div>

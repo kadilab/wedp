@@ -22,14 +22,18 @@ const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: '
 const eventDisplayName = (w) =>
   (!w.eventType || w.eventType === 'WEDDING') ? `${w.brideName} & ${w.groomName}` : (w.eventTitle || EVENT_TYPE_LABELS[w.eventType])
 
-function getStatusBadge(status) {
+function getStatusBadge(status, order) {
+  // PENDING covers two very different situations for the client.
+  if (status === 'PENDING' && order?.submittedAt) {
+    return <span className="badge-warning flex items-center"><ClockIcon className="h-4 w-4 mr-1" />En vérification</span>
+  }
   switch (status) {
     case 'APPROVED':
-      return <span className="badge-success flex items-center"><CheckCircleIcon className="h-4 w-4 mr-1" />Approuvée</span>
+      return <span className="badge-success flex items-center"><CheckCircleIcon className="h-4 w-4 mr-1" />Payée</span>
     case 'PENDING':
-      return <span className="badge-warning flex items-center"><ClockIcon className="h-4 w-4 mr-1" />En attente</span>
+      return <span className="badge flex items-center"><ClockIcon className="h-4 w-4 mr-1" />Non payée</span>
     case 'REJECTED':
-      return <span className="badge-danger flex items-center"><XCircleIcon className="h-4 w-4 mr-1" />Rejetée</span>
+      return <span className="badge-danger flex items-center"><XCircleIcon className="h-4 w-4 mr-1" />{order?.adminNote?.startsWith('Expirée') ? 'Expirée' : 'Rejetée'}</span>
     default:
       return <span className="badge">{status}</span>
   }
@@ -42,7 +46,7 @@ function WeddingQuotaRow({ wedding, onBuy }) {
   )
   const quota = quotaData?.data?.quota
   const pct = quota?.totalAllowed ? Math.min(100, Math.round((quota.used / quota.totalAllowed) * 100)) : 0
-  const isLow = quota && quota.remaining === 0
+  const isLow = quota && !quota.unlimited && quota.remaining === 0
 
   return (
     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl gap-4">
@@ -57,7 +61,11 @@ function WeddingQuotaRow({ wedding, onBuy }) {
               {EVENT_TYPE_LABELS[wedding.eventType] || 'Mariage'}
             </span>
           </div>
-          {quota && (
+          {quota?.unlimited ? (
+            <p className="text-sm text-gray-500 mt-0.5">
+              {quota.used} générée{quota.used > 1 ? 's' : ''} · <span className="text-primary-700 font-medium">génération illimitée (compte admin)</span>
+            </p>
+          ) : quota && (
             <>
               <p className="text-sm text-gray-500 mt-0.5">
                 {quota.used} générée{quota.used > 1 ? 's' : ''} / {quota.totalAllowed} achetée{quota.totalAllowed > 1 ? 's' : ''}
@@ -74,7 +82,7 @@ function WeddingQuotaRow({ wedding, onBuy }) {
         </div>
       </div>
       <div className="text-right shrink-0">
-        {quota && (
+        {quota && !quota.unlimited && (
           <p className={`text-sm font-semibold mb-1 ${isLow ? 'text-amber-600' : 'text-gray-900'}`}>
             {quota.remaining} restante{quota.remaining > 1 ? 's' : ''}
           </p>
@@ -101,7 +109,7 @@ export default function Payments() {
   const pricing = pricingData?.data || { unitPrice: 0, paymentMethods: [] }
 
   const approvedOrders = orders.filter(o => o.status === 'APPROVED')
-  const pendingOrders = orders.filter(o => o.status === 'PENDING')
+  const pendingOrders = orders.filter(o => o.status === 'PENDING' && o.submittedAt)
   const totalSpent = approvedOrders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0)
 
   return (
@@ -109,7 +117,7 @@ export default function Payments() {
       <div>
         <h1 className="text-3xl font-serif font-bold text-gray-900">Paiements</h1>
         <p className="text-gray-600 mt-1">
-          Achetez le quota d'invitations de vos événements via Mobile Money (paiement en FC).
+          Achetez le quota d'invitations de vos événements.
         </p>
       </div>
 
@@ -126,7 +134,7 @@ export default function Payments() {
           <div className="p-2.5 bg-amber-50 rounded-lg"><ClockIcon className="h-5 w-5 text-amber-600" /></div>
           <div>
             <p className="text-xl font-bold text-gray-900">{pendingOrders.length}</p>
-            <p className="text-xs text-gray-500">Commande{pendingOrders.length > 1 ? 's' : ''} en attente</p>
+            <p className="text-xs text-gray-500">En vérification</p>
           </div>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center gap-3">
@@ -147,8 +155,9 @@ export default function Payments() {
             Achetez votre quota, puis générez vos invitations.
           </p>
           <p className="mt-2 text-primary-700">
-            Paiement <strong>Mobile Money</strong> instantané en <strong>FC</strong>
-            {' '}(Airtel Money, Orange Money, M-Pesa) — cliquez sur « Acheter » pour payer.
+            Payez par <strong>Mobile Money</strong> (M-Pesa, Orange, Airtel — en FC, instantané),
+            par <strong>carte Visa/Mastercard</strong> (en USD) ou par <strong>transfert manuel</strong>
+            {' '}vérifié par notre équipe. Cliquez sur « Acheter ».
           </p>
         </div>
       </div>
@@ -212,7 +221,16 @@ export default function Payments() {
                     <td data-label="Référence" className="font-mono text-sm text-gray-600">
                       {order.transactionId || <span className="text-gray-400 italic">non soumise</span>}
                     </td>
-                    <td data-label="Statut">{getStatusBadge(order.status)}</td>
+                    <td data-label="Statut">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {getStatusBadge(order.status, order)}
+                        {order.status === 'PENDING' && !order.submittedAt && order.wedding && (
+                          <button onClick={() => setBuyModalWeddingId(order.wedding.id)} className="text-xs font-medium text-primary-700 underline hover:text-primary-900">
+                            Payer
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

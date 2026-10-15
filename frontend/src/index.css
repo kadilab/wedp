@@ -504,3 +504,18 @@
   content: '';
   @apply absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full;
 }
+
+/* ------------------------------------------------------------------ */
+/* Wide tables (tablet / small laptop, sidebar open): keep the actions */
+/* column pinned on the right so it is never cut off by the scroll.   */
+/* ------------------------------------------------------------------ */
+@media (min-width: 768px) {
+  table.table-responsive > tbody > tr > td.cell-actions,
+  table.table-responsive:has(td.cell-actions) > thead > tr > th:last-child {
+    position: sticky;
+    right: 0;
+    background-color: rgb(var(--surface));
+    box-shadow: -8px 0 8px -8px rgb(0 0 0 / 0.12);
+    white-space: nowrap;
+  }
+}

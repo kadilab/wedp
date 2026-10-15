@@ -23,6 +23,15 @@ import {
 } from '@heroicons/react/24/outline'
 
 // Live K-PAY wallet balance card (uses the K-PAY /payments/balance + /me utils).
+const EVENT_LABELS = { BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
+// Weddings show the couple; other events their title ("& " otherwise).
+const eventName = (w) => {
+  if (!w) return '—'
+  if (!w.eventType || w.eventType === 'WEDDING') return `${w.brideName} & ${w.groomName}`
+  return w.eventTitle || EVENT_LABELS[w.eventType] || 'Événement'
+}
+const WEDDING_STATUS_LABELS = { DRAFT: 'Brouillon', PENDING_PAYMENT: 'Paiement en attente', PENDING_ACTIVATION: 'Activation en attente', ACTIVE: 'Actif', COMPLETED: 'Terminé', CANCELLED: 'Annulé' }
+
 function KpayBalanceCard({ data, loading }) {
   const balances = data?.balances || []
   // KPay /payments/me answers 'PRODUCTION' (older docs: 'LIVE') or 'TEST'.
@@ -536,7 +545,7 @@ export default function AdminDashboard() {
                       {order.user?.firstName} {order.user?.lastName}
                     </p>
                     <p className="text-xs text-gray-400">
-                      {order.wedding ? `${order.wedding.brideName} & ${order.wedding.groomName}` : '—'} · {order.quantity} invitation{order.quantity > 1 ? 's' : ''}
+                      {eventName(order.wedding)} · {order.quantity} invitation{order.quantity > 1 ? 's' : ''}
                     </p>
                   </div>
                 </div>
@@ -591,7 +600,7 @@ export default function AdminDashboard() {
                     <td data-label="Couple" className="px-6 py-3.5">
                       <div className="flex items-center gap-2">
                         <HeartIcon className="h-4 w-4 text-rose-400" />
-                        <span className="font-semibold text-gray-900">{w.brideName} & {w.groomName}</span>
+                        <span className="font-semibold text-gray-900">{eventName(w)}</span>
                       </div>
                     </td>
                     <td data-label="Date" className="px-6 py-3.5 text-gray-500">
@@ -615,7 +624,7 @@ export default function AdminDashboard() {
                           ? 'bg-blue-50 text-blue-600'
                           : 'bg-gray-100 text-gray-500'
                       }`}>
-                        {w.status === 'ACTIVE' ? 'Actif' : w.status === 'COMPLETED' ? 'Terminé' : w.status}
+                        {WEDDING_STATUS_LABELS[w.status] || w.status}
                       </span>
                     </td>
                   </tr>

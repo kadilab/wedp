@@ -19,6 +19,24 @@ const { markPayoutPaid, markPayoutFailed } = require('../utils/payouts');
 
 const prisma = new PrismaClient();
 
+// Midnight "today" in an IANA timezone, as a UTC Date.
+function startOfToday(timeZone) {
+  try {
+    const now = new Date();
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+      timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+    }).formatToParts(now).map(p => [p.type, p.value]));
+    const localAsUtc = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second);
+    const offsetMs = localAsUtc - Math.floor(now.getTime() / 1000) * 1000;
+    return new Date(Date.UTC(+parts.year, +parts.month - 1, +parts.day) - offsetMs);
+  } catch {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+}
+
 /**
  * @route   GET /api/admin/supervision
  * @desc    Supervision dashboard: live online users, visits, security events.
@@ -85,7 +103,9 @@ router.get('/dashboard', authenticate, isAdmin, async (req, res) => {
       prisma.user.count({ where: { role: 'CLIENT' } }),
       prisma.wedding.count(),
       prisma.wedding.count({ where: { status: 'ACTIVE' } }),
-      prisma.invitationOrder.count({ where: { status: 'PENDING' } }),
+      // "À valider" = the client submitted a manual payment reference. Same
+      // rule as the stage=review filter of GET /admin/invitation-orders.
+      prisma.invitationOrder.count({ where: { status: 'PENDING', submittedAt: { not: null } } }),
       prisma.templateMarketplace.count({ where: { status: 'PENDING_REVIEW' } }),
       prisma.creatorPayout.count({ where: { status: 'PENDING' } }),
       prisma.invitation.count(),
@@ -97,7 +117,7 @@ router.get('/dashboard', authenticate, isAdmin, async (req, res) => {
         orderBy: { createdAt: 'desc' },
         include: {
           user: { select: { firstName: true, lastName: true, email: true } },
-          wedding: { select: { brideName: true, groomName: true } }
+          wedding: { select: { brideName: true, groomName: true, eventType: true, eventTitle: true } }
         }
       }),
       prisma.user.findMany({
@@ -110,7 +130,7 @@ router.get('/dashboard', authenticate, isAdmin, async (req, res) => {
         take: 5,
         orderBy: { createdAt: 'desc' },
         select: {
-          id: true, brideName: true, groomName: true, weddingDate: true, status: true, createdAt: true,
+          id: true, brideName: true, groomName: true, eventType: true, eventTitle: true, weddingDate: true, status: true, createdAt: true,
           _count: { select: { guests: true, invitations: true } }
         }
       })
@@ -184,9 +204,9 @@ router.get('/dashboard', authenticate, isAdmin, async (req, res) => {
       _count: true
     });
 
-    // Today stats
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    // Today stats — "today" in the business timezone, not the container's
+    // (Docker runs in UTC, which shifted the day by 2 h for Lubumbashi).
+    const todayStart = startOfToday(process.env.APP_TIMEZONE || 'Africa/Lubumbashi');
     const [todayUsers, todayWeddings, todayOrders] = await Promise.all([
       prisma.user.count({ where: { role: 'CLIENT', createdAt: { gte: todayStart } } }),
       prisma.wedding.count({ where: { createdAt: { gte: todayStart } } }),
@@ -755,10 +775,15 @@ router.delete('/users/:id', authenticate, isAdmin, async (req, res) => {
 router.get('/weddings', authenticate, isAdmin, paginationValidation, async (req, res) => {
   try {
     const { skip, take, page, limit } = paginate(req.query.page, req.query.limit);
-    const { status, search } = req.query;
+    const { status, search, stage } = req.query;
 
+    // stage=review   → PENDING with a manual payment reference (admin action)
+    // stage=awaiting → PENDING, nothing submitted yet (online payment in
+    //                  progress or abandoned — expires automatically)
     const where = {
       ...(status && { status }),
+      ...(stage === 'review' && { status: 'PENDING', submittedAt: { not: null } }),
+      ...(stage === 'awaiting' && { status: 'PENDING', submittedAt: null }),
       ...(search && {
         OR: [
           { brideName: { contains: search } },
@@ -1256,15 +1281,21 @@ router.get('/invitation-orders', authenticate, isAdmin, paginationValidation, as
             select: { id: true, firstName: true, lastName: true, email: true }
           },
           wedding: {
-            select: { id: true, brideName: true, groomName: true, slug: true }
+            select: { id: true, brideName: true, groomName: true, eventType: true, eventTitle: true, slug: true }
           }
         }
       }),
       prisma.invitationOrder.count({ where })
     ]);
 
+    const [review, awaiting] = await Promise.all([
+      prisma.invitationOrder.count({ where: { status: 'PENDING', submittedAt: { not: null } } }),
+      prisma.invitationOrder.count({ where: { status: 'PENDING', submittedAt: null } })
+    ]);
+
     res.json({
       orders,
+      counts: { review, awaiting },
       pagination: buildPaginationMeta(total, page, limit)
     });
   } catch (error) {

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const { authenticate } = require('../middleware/auth.middleware');
+const { uploadSingle, handleUploadError } = require('../middleware/upload.middleware');
 const { getWeddingQuota } = require('../utils/invitationQuota');
 const { sendTelegramNotification } = require('../utils/telegram');
 const { notifyAdmins, NotificationTemplates } = require('../utils/notifications');
@@ -118,7 +119,10 @@ router.get('/:weddingId/quota', authenticate, async (req, res) => {
     }
 
     const quota = await getWeddingQuota(wedding.id);
-    res.json({ quota });
+    // Staff accounts generate without quota (see invitation.routes.js) — say
+    // so, otherwise the UI shows a confusing "1 générée / 0 achetée".
+    const unlimited = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
+    res.json({ quota: { ...quota, unlimited } });
   } catch (error) {
     logger.error('Get invitation quota error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -222,6 +226,26 @@ router.post('/:weddingId', authenticate, async (req, res) => {
       discountAmount = Math.min(discountAmount, totalAmount);
       totalAmount = Math.round((totalAmount - discountAmount) * 100) / 100;
       couponId = coupon.id;
+    }
+
+    // Anti-duplicate: reuse the client's own unpaid order for the same event,
+    // quantity, coupon and amount (double click, modal reopened, second tab…)
+    // instead of piling up identical PENDING orders.
+    const existing = await prisma.invitationOrder.findFirst({
+      where: {
+        userId: req.user.id,
+        weddingId: wedding.id,
+        status: 'PENDING',
+        submittedAt: null,
+        quantity: qty,
+        couponId,
+        totalAmount,
+        createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    if (existing) {
+      return res.status(200).json({ message: 'Commande en attente réutilisée', order: existing, reused: true });
     }
 
     const order = await prisma.invitationOrder.create({
@@ -419,6 +443,30 @@ router.get('/:weddingId/orders/:orderId/kpay/status', authenticate, async (req, 
 });
 
 /**
+ * @route   POST /api/invitation-orders/:weddingId/orders/:orderId/proof
+ * @desc    Upload a screenshot of the manual transfer (optional, helps the
+ *          admin validate). Stored on the order right away.
+ * @access  Private (owner)
+ */
+router.post('/:weddingId/orders/:orderId/proof', authenticate, uploadSingle('proof'), handleUploadError, async (req, res) => {
+  try {
+    const wedding = await findOwnedWedding(req.params.weddingId, req.user);
+    if (!wedding) return res.status(404).json({ error: 'Mariage non trouvé' });
+    const order = await prisma.invitationOrder.findFirst({ where: { id: req.params.orderId, weddingId: wedding.id } });
+    if (!order) return res.status(404).json({ error: 'Commande non trouvée' });
+    if (order.status !== 'PENDING') return res.status(400).json({ error: 'Cette commande a déjà été traitée' });
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier envoyé' });
+
+    const proofUrl = `/uploads/images/${req.file.filename}`;
+    await prisma.invitationOrder.update({ where: { id: order.id }, data: { proofUrl } });
+    res.json({ proofUrl });
+  } catch (error) {
+    logger.error('Upload invitation order proof error:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'envoi de la preuve' });
+  }
+});
+
+/**
  * @route   PUT /api/invitation-orders/:weddingId/orders/:orderId/submit
  * @desc    Submit the mobile-money transaction id for a pending order
  * @access  Private
@@ -454,7 +502,7 @@ router.put('/:weddingId/orders/:orderId/submit', authenticate, async (req, res) 
         transactionId: transactionId.trim(),
         paymentProvider: paymentProvider || null,
         payerPhone: payerPhone || null,
-        proofUrl: proofUrl || null,
+        proofUrl: proofUrl || order.proofUrl || null,
         submittedAt: new Date()
       }
     });
@@ -465,7 +513,7 @@ router.put('/:weddingId/orders/:orderId/submit', authenticate, async (req, res) 
       `🔔 <b>Nouvelle commande d'invitations</b>\n` +
       `👤 ${req.user.firstName} ${req.user.lastName} (${req.user.email})\n` +
       `💍 ${weddingLabel}\n` +
-      `🔢 ${updated.quantity} invitation(s) — ${updated.totalAmount}$\n` +
+      `🔢 ${updated.quantity} invitation(s) — ${updated.totalAmount} FC\n` +
       `📱 ${updated.paymentProvider || '-'} — Réf: ${updated.transactionId}`
     );
 

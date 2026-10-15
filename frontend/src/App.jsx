@@ -80,6 +80,7 @@ function RouteFallback() {
 
 function App() {
   const { isAuthenticated, user } = useAuthStore()
+  const homePath = (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') ? '/admin' : '/dashboard'
   const { fetchSettings } = useSiteSettingsStore()
 
   useEffect(() => {
@@ -103,10 +104,10 @@ function App() {
       {/* Auth Routes */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={
-          isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
+          isAuthenticated ? <Navigate to={homePath} replace /> : <Login />
         } />
         <Route path="/register" element={
-          isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register />
+          isAuthenticated ? <Navigate to={homePath} replace /> : <Register />
         } />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
@@ -126,11 +127,9 @@ function App() {
 
       {/* Client Dashboard Routes */}
       <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-        <Route path="/dashboard" element={
-          (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') 
-            ? <Navigate to="/admin" replace /> 
-            : <Dashboard />
-        } />
+        {/* Staff land on /admin after login (see homePath), but can still
+            open their client dashboard from the client space menu. */}
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/weddings" element={<Weddings />} />
         <Route path="/weddings/new" element={<WeddingCreate />} />
         <Route path="/weddings/:id" element={<WeddingDetail />} />

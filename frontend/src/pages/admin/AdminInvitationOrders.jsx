@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { resolveAssetUrl as assetUrl } from '../../utils/assets'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { adminAPI } from '../../services/api'
 import { formatMoney } from '../../utils/currency'
@@ -13,16 +14,36 @@ import {
   ClockIcon,
   XMarkIcon,
   CalendarDaysIcon,
+  CreditCardIcon,
+  PhotoIcon,
 } from '@heroicons/react/24/outline'
 
 const STATUS_META = {
   APPROVED: { label: 'Approuvée', cls: 'bg-green-100 text-green-700', Icon: CheckCircleIcon },
-  PENDING: { label: 'En attente', cls: 'bg-amber-100 text-amber-700', Icon: ClockIcon },
+  REVIEW: { label: 'À valider', cls: 'bg-amber-100 text-amber-800', Icon: ClockIcon },
+  ONLINE: { label: 'Paiement en ligne en cours', cls: 'bg-blue-100 text-blue-700', Icon: CreditCardIcon },
+  AWAITING: { label: 'En attente de paiement', cls: 'bg-gray-100 text-gray-600', Icon: ClockIcon },
+  EXPIRED: { label: 'Expirée', cls: 'bg-gray-100 text-gray-500', Icon: XCircleIcon },
   REJECTED: { label: 'Rejetée', cls: 'bg-red-100 text-red-700', Icon: XCircleIcon },
 }
 
-function StatusBadge({ status }) {
-  const m = STATUS_META[status] || { label: status, cls: 'bg-gray-100 text-gray-600', Icon: ClockIcon }
+// PENDING hides 3 situations: a manual reference to check (admin action),
+// a K-PAY payment in progress, or an unpaid cart.
+function orderStage(order) {
+  if (order.status === 'PENDING') {
+    if (order.submittedAt) return 'REVIEW'
+    if (order.paymentProvider === 'KPAY' || order.paymentProvider === 'KPAY_CARD') return 'ONLINE'
+    return 'AWAITING'
+  }
+  if (order.status === 'REJECTED' && order.adminNote?.startsWith('Expirée')) return 'EXPIRED'
+  return order.status
+}
+
+const PROVIDER_LABELS = { KPAY: 'K-PAY Mobile Money', KPAY_CARD: 'K-PAY Carte (USD)' }
+
+function StatusBadge({ order }) {
+  const stage = orderStage(order)
+  const m = STATUS_META[stage] || { label: stage, cls: 'bg-gray-100 text-gray-600', Icon: ClockIcon }
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${m.cls}`}>
       <m.Icon className="h-3.5 w-3.5" /> {m.label}
@@ -31,25 +52,38 @@ function StatusBadge({ status }) {
 }
 
 const initials = (u) => `${(u?.firstName || '')[0] || ''}${(u?.lastName || '')[0] || ''}`.toUpperCase() || '?'
-const weddingName = (o) => (o.wedding ? `${o.wedding.brideName} & ${o.wedding.groomName}` : '—')
+const EVENT_TYPE_LABELS = { BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
+const weddingName = (o) => {
+  const w = o.wedding
+  if (!w) return '—'
+  if (!w.eventType || w.eventType === 'WEDDING') return `${w.brideName} & ${w.groomName}`
+  return w.eventTitle || EVENT_TYPE_LABELS[w.eventType] || 'Événement'
+}
 
 export default function AdminInvitationOrders() {
   const queryClient = useQueryClient()
-  const [statusFilter, setStatusFilter] = useState('PENDING')
+  const [statusFilter, setStatusFilter] = useState('review')
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [showViewModal, setShowViewModal] = useState(false)
 
   const { data: ordersData, isLoading } = useQuery(
     ['admin-invitation-orders', statusFilter],
-    () => adminAPI.getInvitationOrders({ status: statusFilter })
+    () => adminAPI.getInvitationOrders(
+      statusFilter === 'review' || statusFilter === 'awaiting'
+        ? { stage: statusFilter, limit: 100 }
+        : { ...(statusFilter && { status: statusFilter }), limit: 100 }
+    ),
+    { keepPreviousData: true }
   )
   const orders = ordersData?.data?.orders || []
+  const counts = ordersData?.data?.counts || { review: 0, awaiting: 0 }
 
   const updateOrderMutation = useMutation(
     ({ id, status }) => adminAPI.updateInvitationOrder(id, { status }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('admin-invitation-orders')
+        queryClient.invalidateQueries('admin-stats')
         toast.success('Commande mise à jour')
         setShowViewModal(false)
       },
@@ -57,13 +91,14 @@ export default function AdminInvitationOrders() {
     }
   )
 
-  const pendingCount = orders.filter(o => o.status === 'PENDING').length
+  const pendingCount = counts.review
 
   const FILTERS = [
-    { value: '', label: 'Toutes' },
-    { value: 'PENDING', label: 'En attente' },
+    { value: 'review', label: 'À valider', count: counts.review },
+    { value: 'awaiting', label: 'En attente de paiement', count: counts.awaiting },
     { value: 'APPROVED', label: 'Approuvées' },
-    { value: 'REJECTED', label: 'Rejetées' },
+    { value: 'REJECTED', label: 'Rejetées / expirées' },
+    { value: '', label: 'Toutes' },
   ]
 
   return (
@@ -79,13 +114,13 @@ export default function AdminInvitationOrders() {
             </div>
             <div>
               <h1 className="font-serif text-3xl font-bold sm:text-4xl">Achats d'invitations</h1>
-              <p className="mt-1 text-white/80">Validez les commandes de quota payées par mobile money</p>
+              <p className="mt-1 text-white/80">Validez les paiements manuels — les paiements K-PAY sont confirmés automatiquement</p>
             </div>
           </div>
           {pendingCount > 0 && (
             <div className="flex items-center gap-3 rounded-2xl bg-white/15 px-5 py-3 backdrop-blur">
               <span className="text-3xl font-bold leading-none">{pendingCount}</span>
-              <span className="text-sm leading-tight text-white/80">commande(s)<br />en attente</span>
+              <span className="text-sm leading-tight text-white/80">paiement(s)<br />à valider</span>
             </div>
           )}
         </div>
@@ -102,6 +137,9 @@ export default function AdminInvitationOrders() {
             }`}
           >
             {f.label}
+            {f.count > 0 && (
+              <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${statusFilter === f.value ? 'bg-white/25' : 'bg-gray-100 text-gray-600'}`}>{f.count}</span>
+            )}
           </button>
         ))}
       </div>
@@ -117,12 +155,14 @@ export default function AdminInvitationOrders() {
             <TicketIcon className="h-8 w-8" />
           </div>
           <p className="font-serif text-xl font-bold text-gray-900">Aucune commande</p>
-          <p className="mt-1 text-gray-500">Rien à afficher pour ce filtre.</p>
+          <p className="mt-1 text-gray-500">
+            {statusFilter === 'review' ? 'Aucun paiement manuel à valider pour le moment.' : 'Rien à afficher pour ce filtre.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
           {orders.map((order) => {
-            const pending = order.status === 'PENDING'
+            const pending = orderStage(order) === 'REVIEW'
             return (
               <div
                 key={order.id}
@@ -143,7 +183,7 @@ export default function AdminInvitationOrders() {
                   {/* Wedding */}
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Événement</p>
-                    <p className="truncate text-sm font-medium text-gray-700">{weddingName(order)}</p>
+                    <p className="text-sm font-medium text-gray-700 break-words" title={weddingName(order)}>{weddingName(order)}</p>
                   </div>
 
                   {/* Quantity + amount */}
@@ -160,8 +200,10 @@ export default function AdminInvitationOrders() {
 
                   {/* Reference + date */}
                   <div className="lg:w-44">
-                    <p className="truncate font-mono text-xs text-gray-600">
-                      {order.transactionId || <span className="italic text-gray-400">non soumise</span>}
+                    <p className="truncate font-mono text-xs text-gray-600" title={order.transactionId || ''}>
+                      {order.submittedAt
+                        ? order.transactionId
+                        : PROVIDER_LABELS[order.paymentProvider] || <span className="italic text-gray-400">aucun paiement</span>}
                     </p>
                     <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-gray-400">
                       <CalendarDaysIcon className="h-3.5 w-3.5" />
@@ -171,7 +213,7 @@ export default function AdminInvitationOrders() {
 
                   {/* Status + action */}
                   <div className="flex items-center justify-between gap-2 lg:justify-end">
-                    <StatusBadge status={order.status} />
+                    <StatusBadge order={order} />
                     <button
                       onClick={() => { setSelectedOrder(order); setShowViewModal(true) }}
                       className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700"
@@ -233,8 +275,8 @@ export default function AdminInvitationOrders() {
                 <div className="grid grid-cols-2 gap-3">
                   {selectedOrder.paymentProvider && (
                     <div className="rounded-2xl bg-gray-50 p-4">
-                      <p className="text-xs text-gray-500">Méthode déclarée</p>
-                      <p className="mt-0.5 font-semibold text-gray-900">{selectedOrder.paymentProvider}</p>
+                      <p className="text-xs text-gray-500">Moyen de paiement</p>
+                      <p className="mt-0.5 font-semibold text-gray-900">{PROVIDER_LABELS[selectedOrder.paymentProvider] || selectedOrder.paymentProvider}</p>
                     </div>
                   )}
                   {selectedOrder.payerPhone && (
@@ -248,16 +290,32 @@ export default function AdminInvitationOrders() {
 
               {/* Transaction reference */}
               <div className="rounded-2xl bg-gray-50 p-4">
-                <p className="text-xs text-gray-500">Numéro de transaction</p>
-                <p className="mt-0.5 font-mono font-semibold text-gray-900">
-                  {selectedOrder.transactionId || <span className="italic text-gray-400">Pas encore soumis</span>}
+                <p className="text-xs text-gray-500">{selectedOrder.submittedAt ? 'Référence déclarée par le client' : 'Référence K-PAY'}</p>
+                <p className="mt-0.5 font-mono font-semibold text-gray-900 break-all">
+                  {selectedOrder.transactionId || <span className="italic text-gray-400">Aucun paiement</span>}
                 </p>
               </div>
+
+              {selectedOrder.proofUrl && (
+                <a
+                  href={assetUrl(selectedOrder.proofUrl)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block rounded-2xl border border-gray-200 p-2 hover:border-primary-300"
+                >
+                  <p className="flex items-center gap-1.5 px-2 pb-2 text-xs text-gray-500"><PhotoIcon className="h-4 w-4" /> Capture envoyée par le client (cliquer pour agrandir)</p>
+                  <img src={assetUrl(selectedOrder.proofUrl)} alt="Preuve de paiement" className="max-h-64 w-full rounded-xl object-contain bg-gray-50" />
+                </a>
+              )}
+
+              {selectedOrder.adminNote && (
+                <p className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-600">{selectedOrder.adminNote}</p>
+              )}
 
               {/* Current status */}
               <div className="flex items-center justify-between rounded-2xl bg-gray-50 p-4">
                 <span className="text-gray-600">Statut actuel</span>
-                <StatusBadge status={selectedOrder.status} />
+                <StatusBadge order={selectedOrder} />
               </div>
 
               {/* Actions */}
@@ -273,7 +331,7 @@ export default function AdminInvitationOrders() {
                   <button
                     onClick={() => updateOrderMutation.mutate({ id: selectedOrder.id, status: 'APPROVED' })}
                     disabled={updateOrderMutation.isLoading || !selectedOrder.transactionId}
-                    title={!selectedOrder.transactionId ? "Le client n'a pas encore soumis de numéro de transaction" : ''}
+                    title={!selectedOrder.transactionId ? "Aucun paiement déclaré pour cette commande" : ''}
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-50"
                   >
                     <CheckCircleIcon className="h-5 w-5" /> Approuver

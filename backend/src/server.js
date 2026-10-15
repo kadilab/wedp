@@ -124,7 +124,6 @@ app.use('/uploads/images', express.static(path.join(__dirname, '../uploads/image
 // re-downloading the same avatar/background/etc. on every page load.
 const UPLOADS_CACHE_OPTIONS = { maxAge: '7d', immutable: true };
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), UPLOADS_CACHE_OPTIONS));
-app.use('/templates', express.static(path.join(__dirname, '../templates')));
 
 // Health check
 app.get('/health', (req, res) => {

@@ -339,7 +339,11 @@ export default function Guests() {
       </div>
 
       {/* Quota Banner */}
-      {quota && (
+      {quota?.unlimited ? (
+        <div className="rounded-xl p-4 border bg-emerald-50 border-emerald-200 text-sm font-medium text-emerald-800">
+          Compte admin — génération d'invitations illimitée.
+        </div>
+      ) : quota && (
         <div className={`flex items-center justify-between rounded-xl p-4 border ${
           quota.remaining > 0 ? 'bg-blue-50 border-blue-200' : 'bg-amber-50 border-amber-200'
         }`}>
@@ -348,7 +352,7 @@ export default function Guests() {
               {quota.remaining} invitation{quota.remaining > 1 ? 's' : ''} restante{quota.remaining > 1 ? 's' : ''} sur {quota.totalAllowed}
             </p>
             <p className="text-xs text-gray-500">
-              {quota.freeQuota} gratuite{quota.freeQuota > 1 ? 's' : ''} + {quota.purchased} achetée{quota.purchased > 1 ? 's' : ''} — générez vos invitations depuis la page Invitations
+              {quota.freeQuota > 0 && `${quota.freeQuota} gratuite${quota.freeQuota > 1 ? 's' : ''} + `}{quota.purchased} achetée{quota.purchased > 1 ? 's' : ''} — générez vos invitations depuis la page Invitations
             </p>
           </div>
           <button onClick={() => setShowBuyModal(true)} className="btn-secondary btn-sm">

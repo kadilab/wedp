@@ -20,7 +20,7 @@
 	}
 
 	# Everything else: the main dashboard, which itself proxies /api,
-	# /uploads, /templates and /socket.io to the backend container.
+	# /uploads and /socket.io to the backend container.
 	handle {
 		reverse_proxy frontend:80
 	}

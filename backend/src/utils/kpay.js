@@ -217,8 +217,22 @@ async function kpayFetch(path, { method = 'GET', body, retries = 2, timeoutMs } 
  * DIRECT/USSD mode: pass provider + phoneNumber (currency follows the operator).
  * GATEWAY mode: pass returnUrl (+ optional cancelUrl), omit phoneNumber.
  */
-function initPayment(payload) {
-  return kpayFetch('/payments/init', { method: 'POST', body: payload });
+async function initPayment(payload) {
+  try {
+    return await kpayFetch('/payments/init', { method: 'POST', body: payload });
+  } catch (err) {
+    // K-PAY validates strictly ("property X should not exist") and the accepted
+    // fields differ between USSD and CARD. Drop the optional fields it rejects
+    // and retry once instead of failing the whole payment.
+    const rejected = [...String(extractApiError(err)).matchAll(/property (\w+) should not exist/g)].map(m => m[1]);
+    const REQUIRED = ['amount', 'externalId', 'provider', 'phoneNumber', 'paymentMethod', 'returnUrl'];
+    const droppable = rejected.filter(k => k in payload && !REQUIRED.includes(k));
+    if (err.status !== 400 || droppable.length === 0) throw err;
+    logger.warn(`K-PAY init: retrying without rejected field(s) ${droppable.join(', ')}`);
+    const retry = { ...payload };
+    droppable.forEach(k => { delete retry[k]; });
+    return kpayFetch('/payments/init', { method: 'POST', body: retry });
+  }
 }
 
 function getPayment(id) {
