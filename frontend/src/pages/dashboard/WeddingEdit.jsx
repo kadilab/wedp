@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { weddingAPI, templateAPI } from '../../services/api'
@@ -45,6 +45,7 @@ const toDateInput = (v) => (v ? String(v).split('T')[0] : '')
 export default function WeddingEdit() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const [previewOpen, setPreviewOpen] = useState(false)
   const [templateSearch, setTemplateSearch] = useState('')
@@ -146,6 +147,19 @@ export default function WeddingEdit() {
     receptionDate: values.receptionDate
   }
 
+  // Deep link (e.g. /edit#photos from the "photo manquante" warning): scroll
+  // once the section exists (it depends on the template being loaded).
+  const scrolledToHash = useRef(false)
+  useEffect(() => {
+    const target = location.hash?.slice(1)
+    if (!target || scrolledToHash.current || !wedding || !templatesData) return
+    const el = document.getElementById(target)
+    if (el) {
+      scrolledToHash.current = true
+      setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+    }
+  })
+
   // Warn before leaving with unsaved changes.
   useEffect(() => {
     if (!isDirty) return
@@ -237,7 +251,12 @@ export default function WeddingEdit() {
   const makeTemplateImageUpload = (placeholderId) => async (file, filename, onProgress) => {
     const res = await weddingAPI.uploadTemplateImage(id, placeholderId, file, onProgress)
     queryClient.invalidateQueries(['wedding', id])
-    toast.success('Image mise à jour')
+    if ((wedding?._count?.invitations || 0) > 0) {
+      // Files already generated don't contain the new photo yet.
+      toast.success('Photo enregistrée. Régénérez vos invitations (page Invitations › Générer) pour l’y inclure.', { duration: 7000 })
+    } else {
+      toast.success('Photo enregistrée')
+    }
     return res
   }
 

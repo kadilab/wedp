@@ -32,7 +32,10 @@ const DEFAULT_VALIDATION = {
   maxSizeMB: 10,
   minWidth: 0,
   minHeight: 0,
-  acceptedTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+  // HEIC/HEIF = iPhone photos. Accepted when the browser can decode them
+  // (Safari); they are re-encoded to WebP/JPEG below, so the server only
+  // ever receives a standard format.
+  acceptedTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 }
 
 let webpSupportPromise = null
@@ -96,7 +99,7 @@ export function validateImage(file, overrides = {}) {
   const opts = { ...DEFAULT_VALIDATION, ...overrides }
 
   if (!opts.acceptedTypes.includes(file.type)) {
-    return { valid: false, error: 'Format non supporté (JPG, PNG ou WebP uniquement)' }
+    return { valid: false, error: 'Format non supporté (JPG, PNG, WebP ou photo iPhone)' }
   }
   if (file.size > opts.maxSizeMB * 1024 * 1024) {
     return { valid: false, error: `Image trop volumineuse (max ${opts.maxSizeMB} Mo)` }
@@ -131,7 +134,14 @@ export async function processImage(file, presetName = 'background', validationOv
   if (!validation.valid) throw new Error(validation.error)
 
   const preset = IMAGE_PRESETS[presetName] || IMAGE_PRESETS.background
-  const bitmap = await loadBitmap(file)
+  let bitmap
+  try {
+    bitmap = await loadBitmap(file)
+  } catch {
+    throw new Error(/hei[cf]/i.test(file.type)
+      ? 'Ce navigateur ne lit pas les photos iPhone (HEIC). Envoyez-la en JPG, ou depuis Safari.'
+      : 'Image illisible — essayez une autre photo (JPG ou PNG).')
+  }
 
   const dimCheck = checkDimensions(bitmap, validationOverrides)
   if (!dimCheck.valid) throw new Error(dimCheck.error)

@@ -13,6 +13,7 @@ import {
 } from '../../components/events/EventFields'
 import { eventUsesCouple, eventUsesHonoree, eventUsesFreeTitle, eventUsesTables } from '../../utils/eventTypes'
 import { getVisibleFields, templateUsesProgramme } from '../../utils/templateVariables'
+import { processImage } from '../../utils/imageProcessor'
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -197,14 +198,24 @@ export default function WeddingCreate() {
     receptionDate: values.receptionDate
   } : null // before anything is typed, previews use the template's rich sample
 
-  const handleTemplateImageChange = (placeholderId, e) => {
+  // Same client-side pipeline as the edit page (ImageUpload): validate,
+  // resize and re-encode to WebP/JPEG before upload, so phone photos (large,
+  // HEIC…) never get rejected by the server after the event is created.
+  const [processingPhoto, setProcessingPhoto] = useState(null)
+  const handleTemplateImageChange = async (placeholderId, e) => {
     const file = e.target.files[0]
-    if (!file) return
-    if (!file.type.startsWith('image/')) { toast.error('Veuillez sélectionner une image'); return }
-    if (file.size > 5 * 1024 * 1024) { toast.error('Image trop volumineuse (max 5 Mo)'); return }
-    setTemplateImageFiles(prev => ({ ...prev, [placeholderId]: file }))
-    setTemplateImagePreviews(prev => ({ ...prev, [placeholderId]: URL.createObjectURL(file) }))
     e.target.value = ''
+    if (!file) return
+    setProcessingPhoto(placeholderId)
+    try {
+      const result = await processImage(file, 'couplePhoto', { maxSizeMB: 15 })
+      setTemplateImageFiles(prev => ({ ...prev, [placeholderId]: result.upload }))
+      setTemplateImagePreviews(prev => ({ ...prev, [placeholderId]: URL.createObjectURL(result.preview) }))
+    } catch (err) {
+      toast.error(err.message || 'Image non valide')
+    } finally {
+      setProcessingPhoto(null)
+    }
   }
 
   const goTo = (index) => {
@@ -236,17 +247,25 @@ export default function WeddingCreate() {
         setServerErrors([])
         const newWeddingId = response.data.wedding.id
 
-        const placeholderEntries = Object.entries(templateImageFiles)
-        if (placeholderEntries.length > 0) {
+        // Sequential: each upload merges into the wedding's templateImages
+        // map server-side — parallel requests could overwrite each other.
+        let failed = 0
+        for (const [placeholderId, file] of Object.entries(templateImageFiles)) {
           try {
-            await Promise.all(
-              placeholderEntries.map(([placeholderId, file]) =>
-                weddingAPI.uploadTemplateImage(newWeddingId, placeholderId, file)
-              )
-            )
+            await weddingAPI.uploadTemplateImage(newWeddingId, placeholderId, file)
           } catch {
-            toast.error("Événement créé, mais l'envoi d'une ou plusieurs photos a échoué. Vous pourrez les rajouter depuis la page de modification.")
+            failed++
           }
+        }
+        if (failed > 0) {
+          toast.error(
+            failed > 1
+              ? `Événement créé, mais ${failed} photos n’ont pas pu être envoyées. Ajoutez-les ici.`
+              : 'Événement créé, mais une photo n’a pas pu être envoyée. Ajoutez-la ici.',
+            { duration: 8000 }
+          )
+          navigate(`/weddings/${newWeddingId}/edit#photos`)
+          return
         }
         toast.success('Événement créé avec succès !')
         navigate(`/weddings/${newWeddingId}`)
@@ -587,7 +606,9 @@ export default function WeddingCreate() {
                         <div key={ph.id} className="space-y-1">
                           <label className="block cursor-pointer">
                             <div className={`aspect-square rounded-xl border-2 ${preview ? 'border-primary-300' : 'border-dashed border-border'} overflow-hidden bg-surface-2 flex items-center justify-center hover:border-primary-400 transition-colors`}>
-                              {preview ? (
+                              {processingPhoto === ph.id ? (
+                                <span className="h-7 w-7 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" aria-label="Préparation" />
+                              ) : preview ? (
                                 <img src={preview} alt={ph.label || `Photo ${i + 1}`} className="w-full h-full object-cover" />
                               ) : (
                                 <div className="text-center text-muted p-2">
@@ -596,7 +617,7 @@ export default function WeddingCreate() {
                                 </div>
                               )}
                             </div>
-                            <input type="file" accept="image/*" className="sr-only" onChange={(e) => handleTemplateImageChange(ph.id, e)} />
+                            <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" className="sr-only" disabled={!!processingPhoto} onChange={(e) => handleTemplateImageChange(ph.id, e)} />
                           </label>
                           <p className="text-xs text-center text-muted truncate">{ph.label || `Photo ${i + 1}`}</p>
                           {preview && (

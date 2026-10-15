@@ -1096,27 +1096,28 @@ router.post('/:id/template-image', authenticate, isOwner(), uploadSingle('couple
     }
 
     const photoPath = `/uploads/couple-photos/${req.file.filename}`;
+    // JSON path key — quote it so any element id (dashes, dots…) is valid.
+    const jsonPath = `$."${String(placeholderId).replace(/["\\]/g, '')}"`;
+
+    // Atomic merge in MySQL: two photos uploaded at the same time (multi-photo
+    // template) used to read-modify-write the whole map and overwrite each
+    // other, leaving invitations without one of the photos. A non-object
+    // value (NULL, legacy string) is reset to an empty object first.
+    // couplePhoto keeps pointing at the first image (legacy fallback).
+    await prisma.$executeRaw`
+      UPDATE weddings
+      SET template_images = JSON_SET(
+            IF(JSON_TYPE(template_images) = 'OBJECT', template_images, JSON_OBJECT()),
+            ${jsonPath}, ${photoPath}),
+          couple_photo = COALESCE(couple_photo, ${photoPath})
+      WHERE id = ${req.params.id}`;
 
     const wedding = await prisma.wedding.findUnique({
       where: { id: req.params.id },
-      select: { templateImages: true, couplePhoto: true }
+      select: { templateImages: true }
     });
 
-    const current = (wedding && wedding.templateImages && typeof wedding.templateImages === 'object')
-      ? wedding.templateImages
-      : {};
-    const updatedImages = { ...current, [placeholderId]: photoPath };
-
-    // Keep couplePhoto pointing at the first placeholder's image for backward
-    // compatibility with anything still reading the legacy single-photo field.
-    const data = { templateImages: updatedImages };
-    if (!wedding || !wedding.couplePhoto) {
-      data.couplePhoto = photoPath;
-    }
-
-    await prisma.wedding.update({ where: { id: req.params.id }, data });
-
-    res.json({ message: 'Image mise à jour', url: photoPath, templateImages: updatedImages });
+    res.json({ message: 'Image mise à jour', url: photoPath, templateImages: wedding?.templateImages || {} });
   } catch (error) {
     logger.error('Upload template image error:', error);
     res.status(500).json({ error: 'Erreur lors de l\'upload' });

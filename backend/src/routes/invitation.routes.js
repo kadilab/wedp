@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { authenticate } = require('../middleware/auth.middleware');
 const { generateQRCode, generateUniqueCode, generateQRCodeBase64 } = require('../utils/qrcode');
-const { generateInvitationPDF, generateBatchPDFs, generateInvitationImage, generatePrintLayoutPDF, calculateImposition } = require('../utils/pdf');
+const { generateInvitationPDF, generateBatchPDFs, generateInvitationImage, generatePrintLayoutPDF, calculateImposition, findMissingPhotos } = require('../utils/pdf');
 const { getWeddingQuota } = require('../utils/invitationQuota');
 const { findAccessibleWedding } = require('../utils/weddingAccess');
 const logger = require('../utils/logger');
@@ -240,6 +240,8 @@ router.post('/:weddingId/generate-pdfs', authenticate, async (req, res) => {
     res.json({
       message: `${pdfs.length} PDFs gÃ©nÃ©rÃ©s`,
       generated: pdfs.length,
+      // Photo placeholders rendered empty — the UI tells the client to add them.
+      missingPhotos: findMissingPhotos(wedding, wedding.template),
       errors: errors.length,
       details: { pdfs, errors }
     });
@@ -322,6 +324,7 @@ router.post('/:weddingId/generate-images', authenticate, async (req, res) => {
     res.json({
       message: `${images.length} images gÃ©nÃ©rÃ©es`,
       generated: images.length,
+      missingPhotos: findMissingPhotos(wedding, wedding.template),
       errors: errors.length,
       details: { images, errors }
     });

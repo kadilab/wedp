@@ -115,6 +115,46 @@ function resolveImageToDataUri(imgPath) {
   }
 }
 
+// templateImages may come back as an object (Prisma JSON) or a JSON string.
+function parseTemplateImages(raw) {
+  if (!raw) return {};
+  if (typeof raw === 'string') {
+    try { const v = JSON.parse(raw); return v && typeof v === 'object' ? v : {}; } catch (_) { return {}; }
+  }
+  return typeof raw === 'object' ? raw : {};
+}
+
+/**
+ * Returns (elementId) => image path for the client photo placeholders of a
+ * design. Exact id match first; otherwise the n-th "orphan" upload (an image
+ * keyed by an id that is no longer in the template) for the n-th unmatched
+ * placeholder; finally the legacy couplePhoto.
+ */
+function buildPhotoResolver(wedding, designElements = []) {
+  const images = parseTemplateImages(wedding.templateImages);
+  const photoIds = designElements.filter(el => el && el.type === 'photo' && el.visible !== false).map(el => el.id);
+  const orphans = Object.entries(images).filter(([id]) => !photoIds.includes(id)).map(([, url]) => url).filter(Boolean);
+  const unmatched = photoIds.filter(id => !images[id]);
+  return (id) => {
+    if (images[id]) return images[id];
+    const i = unmatched.indexOf(id);
+    return (i >= 0 && orphans[i]) || wedding.couplePhoto || '';
+  };
+}
+
+/**
+ * Photo placeholders that will render empty for this wedding (no upload, or
+ * the file is missing on disk). Used to warn the client at generation time.
+ */
+function findMissingPhotos(wedding, template) {
+  const elements = template?.config?.designElements || [];
+  const resolve = buildPhotoResolver(wedding, elements);
+  return elements
+    .filter(el => el && el.type === 'photo' && el.visible !== false)
+    .filter(el => !resolveImageToDataUri(resolve(el.id)))
+    .map(el => ({ id: el.id, label: el.label || 'Photo' }));
+}
+
 /**
  * Generate HTML content for the invitation PDF
  * This HTML faithfully reproduces the InvitationView.jsx frontend component
@@ -817,9 +857,18 @@ function generateDesignBasedHTML(options) {
   const mTop = margins.top || 0;
   const mLeft = margins.left || 0;
 
-  // Build element HTML
+  // Client photos per placeholder. Bound by element id; when an id no longer
+  // matches (template edited/duplicated after the upload), reuse the uploaded
+  // images that match no current placeholder, in placeholder order, then the
+  // legacy single couplePhoto — a photo the client sent is never dropped.
+  const photoForPlaceholder = buildPhotoResolver(wedding, designElements);
+
+  // Build element HTML. Same visibility rule as the web preview / public
+  // invitation (TemplatePreview, InvitationView): only an explicit
+  // `visible: false` hides an element — elements saved without the flag used
+  // to be silently dropped from generated PDFs/PNGs.
   const elementsHTML = designElements
-    .filter(el => el.visible)
+    .filter(el => el.visible !== false)
     .map((el, idx) => {
       let content = el.content || '';
 
@@ -920,9 +969,7 @@ function generateDesignBasedHTML(options) {
         const isDecorative = el.type === 'image';
         // Each client photo placeholder binds to its own image by element id
         // (multi-image templates), falling back to legacy couplePhoto.
-        const templateImages = (wedding.templateImages && typeof wedding.templateImages === 'object') ? wedding.templateImages : {};
-        const photoForElement = templateImages[el.id] || wedding.couplePhoto;
-        const photoSrc = isDecorative ? resolveImageToDataUri(el.iconUrl) : resolveImageToDataUri(photoForElement);
+        const photoSrc = isDecorative ? resolveImageToDataUri(el.iconUrl) : resolveImageToDataUri(photoForPlaceholder(el.id));
         const borderColor = hexToRgba(el.borderColor || '#FFFFFF', el.borderOpacity ?? 100);
         const objectFit = el.objectFit || (isDecorative ? 'contain' : 'cover');
         const clipPath = getClipPath(el.shape, el.customClipPath);
@@ -1607,6 +1654,7 @@ ${gridPages.map((imgs, pi) => `
 }
 
 module.exports = {
+  findMissingPhotos,
   generateInvitationPDF,
   generateInvitationImage,
   generateBatchPDFs,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, Link, useSearchParams } from 'react-router-dom'
+import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { invitationAPI, guestAPI, weddingAPI, invitationOrderAPI } from '../../services/api'
 import { socketService } from '../../services/socket'
@@ -32,6 +32,7 @@ const RSVP_BADGE = {
 
 export default function Invitations() {
   const { id: weddingId } = useParams()
+  const navigate = useNavigate()
   const [selectedGuests, setSelectedGuests] = useState([])
   const [generating, setGenerating] = useState(false)
   const [showDownloadMenu, setShowDownloadMenu] = useState(false)
@@ -188,6 +189,25 @@ export default function Invitations() {
     }
   )
 
+  // The template has photo slots the client never filled — say so (with a
+  // shortcut) instead of silently producing invitations without the photo.
+  const warnMissingPhotos = (missing) => {
+    if (!Array.isArray(missing) || missing.length === 0) return
+    const names = missing.map(m => m.label).join(', ')
+    toast((t) => (
+      <span className="text-sm">
+        {missing.length > 1 ? `${missing.length} emplacements photo sont vides` : 'Un emplacement photo est vide'} ({names}).{' '}
+        <button
+          type="button"
+          className="font-semibold text-primary-700 underline"
+          onClick={() => { toast.dismiss(t.id); navigate(`/weddings/${weddingId}/edit#photos`) }}
+        >
+          Ajouter les photos
+        </button>
+      </span>
+    ), { icon: '🖼️', duration: 10000 })
+  }
+
   const generatePdfsMutation = useMutation(
     (guestIds) => invitationAPI.generatePDFs(weddingId, guestIds),
     {
@@ -199,6 +219,7 @@ export default function Invitations() {
         if (errors > 0) {
           toast.error(`${errors} erreur(s) lors de la génération`)
         }
+        warnMissingPhotos(response.data.missingPhotos)
         queryClient.invalidateQueries(['invitations', weddingId])
       },
       onError: (error) => {
@@ -218,6 +239,7 @@ export default function Invitations() {
         if (errors > 0) {
           toast.error(`${errors} erreur(s) lors de la génération`)
         }
+        warnMissingPhotos(response.data.missingPhotos)
         queryClient.invalidateQueries(['invitations', weddingId])
       },
       onError: (error) => {
