@@ -1,19 +1,22 @@
-import { useState, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useMutation, useQuery } from 'react-query'
-import api, { weddingAPI, templateAPI } from '../../services/api'
+import { weddingAPI, templateAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import TemplatePreview from '../../components/templates/TemplatePreview'
 import TablesEditor from '../../components/TablesEditor'
 import DrinkOptionsEditor from '../../components/DrinkOptionsEditor'
-import { eventUsesCouple, eventUsesHonoree, eventUsesFreeTitle, eventUsesTables, honoreeFieldLabel } from '../../utils/eventTypes'
-import { getVisibleFields } from '../../utils/templateVariables'
+import {
+  ChurchIcon, IdentityFields, VenueFields, ProgrammeFields, MessageFields, EventSummary,
+  PROGRAMME_FIELDS, identityFieldNames, identityStepLabel
+} from '../../components/events/EventFields'
+import { eventUsesCouple, eventUsesHonoree, eventUsesFreeTitle, eventUsesTables } from '../../utils/eventTypes'
+import { getVisibleFields, templateUsesProgramme } from '../../utils/templateVariables'
 import {
   ArrowLeftIcon,
+  ArrowRightIcon,
   HeartIcon,
-  BuildingLibraryIcon,
-  MusicalNoteIcon,
   CalendarDaysIcon,
   SparklesIcon,
   SwatchIcon,
@@ -24,26 +27,21 @@ import {
   CakeIcon,
   GiftIcon,
   UserGroupIcon,
-  MapPinIcon,
   CheckIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  ClipboardDocumentCheckIcon,
+  InformationCircleIcon
 } from '@heroicons/react/24/outline'
 
-const ChurchIcon = ({ className }) => (
-  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
-    <path d="M18 12.22V9l-5-2.5V5h1V3h-1V1h-2v2h-1v2h1v1.5L6 9v3.22l-2 1V22h8v-3c0-1.1.9-2 2-2s2 .9 2 2v3h8v-8.78l-2-1zM12 13.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" />
-  </svg>
-)
-
-// Event types - WEDDING gets the full programme (mairie/église/réception),
-// everything else is a simple date/heure/lieu/titre event.
+// Event types — WEDDING gets the full programme (mairie/église/réception),
+// everything else is a simple date/heure/lieu event.
 const EVENT_TYPES_META = [
-  { id: 'WEDDING', label: 'Mariage', icon: HeartIcon, desc: 'Cérémonie civile, religieuse, réception...' },
+  { id: 'WEDDING', label: 'Mariage', icon: HeartIcon, desc: 'Civil, religieux, réception…' },
+  { id: 'DOT', label: 'Mariage coutumier', icon: GiftIcon, desc: 'Dot, cérémonie traditionnelle' },
   { id: 'BIRTHDAY', label: 'Anniversaire', icon: CakeIcon, desc: 'Date, heure et lieu' },
-  { id: 'DOT', label: 'Mariage coutumier', icon: GiftIcon, desc: 'Cérémonie traditionnelle' },
-  { id: 'CEREMONY', label: 'Cérémonie', icon: ChurchIcon, desc: 'Baptême, communion...' },
-  { id: 'CONFERENCE', label: 'Conférence', icon: UserGroupIcon, desc: 'Séminaire, conférence...' },
-  { id: 'OTHER', label: 'Autre événement', icon: CalendarDaysIcon, desc: 'Tout autre type d\'événement' }
+  { id: 'CEREMONY', label: 'Cérémonie', icon: ChurchIcon, desc: 'Baptême, communion, action de grâce…' },
+  { id: 'CONFERENCE', label: 'Conférence', icon: UserGroupIcon, desc: 'Séminaire, forum, lancement…' },
+  { id: 'OTHER', label: 'Autre événement', icon: CalendarDaysIcon, desc: 'Fiançailles, soirée, baby shower…' }
 ]
 
 const TEMPLATE_CATEGORIES = {
@@ -54,32 +52,38 @@ const TEMPLATE_CATEGORIES = {
   TRADITIONAL: 'Traditionnel'
 }
 
+const VALID_EVENT_TYPES = EVENT_TYPES_META.map(t => t.id)
+const TEMPLATES_PER_PAGE = 6
+
+const priceLabel = (tmpl) => parseFloat(tmpl.pricePerInvitation) > 0
+  ? `${parseFloat(tmpl.pricePerInvitation).toLocaleString('fr-FR')} FC/inv.`
+  : 'Gratuit'
+
 export default function WeddingCreate() {
-  const [step, setStep] = useState(0)
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  // Template can be preselected via router state or a ?templateId= query param
+  // (the gallery / marketplace "Utiliser ce modèle" CTA).
+  const query = new URLSearchParams(location.search)
+  const preselectedTemplateId = location.state?.templateId || query.get('templateId') || ''
+  const preselectedRaw = location.state?.eventType || query.get('eventType') || ''
+  const preselectedEventType = VALID_EVENT_TYPES.includes(preselectedRaw) ? preselectedRaw : ''
+
+  // Coming from the gallery with a template already picked → open on the
+  // "Modèle" step (type and template preselected) instead of asking again.
+  const [step, setStep] = useState(preselectedTemplateId && preselectedEventType ? 1 : 0)
   const [serverErrors, setServerErrors] = useState([])
   const [previewTmpl, setPreviewTmpl] = useState(null)
   const [templateSearch, setTemplateSearch] = useState('')
   const [templatePage, setTemplatePage] = useState(1)
-  const TEMPLATES_PER_PAGE = 6
-  const navigate = useNavigate()
-  const location = useLocation()
-  // Template can be preselected via router state or a ?templateId= query param
-  // (the marketplace "Use This Template" CTA navigates with a query param).
-  const preselectedTemplateId =
-    location.state?.templateId ||
-    new URLSearchParams(location.search).get('templateId') ||
-    ''
-  // The template's event type (from Templates gallery / marketplace) so the
-  // matching form opens directly instead of defaulting to WEDDING.
-  const VALID_EVENT_TYPES = ['WEDDING', 'DOT', 'BIRTHDAY', 'CEREMONY', 'CONFERENCE', 'OTHER']
-  const preselectedRaw = location.state?.eventType || new URLSearchParams(location.search).get('eventType') || ''
-  const preselectedEventType = VALID_EVENT_TYPES.includes(preselectedRaw) ? preselectedRaw : ''
 
   const {
     register,
     handleSubmit,
     watch,
     setValue,
+    trigger,
     formState: { errors }
   } = useForm({
     defaultValues: {
@@ -91,38 +95,65 @@ export default function WeddingCreate() {
   })
 
   const eventType = watch('eventType')
+  const templateId = watch('templateId')
   const isWedding = eventType === 'WEDDING'
-  const isCouple = eventUsesCouple(eventType)       // WEDDING + DOT → bride/groom
-  const isHonoree = eventUsesHonoree(eventType)     // BIRTHDAY + CEREMONY → honoree name
-  const isFreeTitle = eventUsesFreeTitle(eventType) // CONFERENCE + OTHER → free title
+  const isCouple = eventUsesCouple(eventType)
+  const isHonoree = eventUsesHonoree(eventType)
+  const isFreeTitle = eventUsesFreeTitle(eventType)
   const selectedEventMeta = EVENT_TYPES_META.find(t => t.id === eventType) || EVENT_TYPES_META[0]
 
-  // Only show templates designed for the selected event type - a Mariage
-  // event shouldn't be offered a Conférence layout and vice-versa.
-  const { data: templatesData } = useQuery(
+  // Only templates designed for the selected event type.
+  const { data: templatesData, isFetched: templatesLoaded } = useQuery(
     ['templates', eventType],
     () => templateAPI.getAll({ eventType }),
     { enabled: !!eventType }
   )
   const templates = templatesData?.data?.templates || []
 
-  const { data: myTemplatesData } = useQuery('my-templates', () => templateAPI.getMyTemplates())
+  const { data: myTemplatesData, isFetched: myTemplatesLoaded } = useQuery('my-templates', () => templateAPI.getMyTemplates())
   const myTemplates = (myTemplatesData?.data?.templates || []).filter(t => (t.eventType || 'WEDDING') === eventType)
+  const hasTemplates = templates.length > 0 || myTemplates.length > 0
 
-  // Multi-image templates: one File + preview per photo placeholder, keyed by element id
+  const selectedTemplate = [...myTemplates, ...templates].find(t => t.id === templateId)
+
+  // Changing the event type invalidates a template made for another type.
+  useEffect(() => {
+    if (!templateId || !templatesLoaded || !myTemplatesLoaded) return
+    if (!selectedTemplate) setValue('templateId', '')
+  }, [eventType, templatesLoaded, myTemplatesLoaded]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Multi-image templates: one File + preview per photo placeholder
   const [templateImageFiles, setTemplateImageFiles] = useState({})   // { [elementId]: File }
   const [templateImagePreviews, setTemplateImagePreviews] = useState({}) // { [elementId]: objectURL }
+  const photoPlaceholders = (selectedTemplate?.config?.designElements || []).filter(el => el.type === 'photo')
 
-  // Photo placeholders of the currently-selected template (drives dynamic upload fields)
-  const selectedTemplateForImages = [...myTemplates, ...templates].find(t => t.id === watch('templateId'))
-  const photoPlaceholders = (selectedTemplateForImages?.config?.designElements || [])
-    .filter(el => el.type === 'photo')
-
-  // Dynamic form fields: once a template is chosen, only show the inputs whose
-  // variables the template actually uses (+ always-visible identity/date). No
-  // template selected yet → show everything.
-  const visibleFields = selectedTemplateForImages ? getVisibleFields(selectedTemplateForImages) : null
+  // Only ask for the fields the chosen template actually uses (identity and
+  // date always). No template yet → show everything.
+  const visibleFields = selectedTemplate ? getVisibleFields(selectedTemplate) : null
   const showField = (name) => !visibleFields || visibleFields.has(name)
+
+  // Programme step only when it makes sense: weddings whose template shows
+  // the commune/église/réception blocks (or no template chosen yet).
+  const hasProgramme = isWedding && (!selectedTemplate || templateUsesProgramme(selectedTemplate))
+
+  const STEPS = [
+    { key: 'type', label: 'Type' },
+    { key: 'design', label: 'Modèle' },
+    { key: 'info', label: identityStepLabel(eventType) },
+    ...(hasProgramme ? [{ key: 'programme', label: 'Programme' }] : []),
+    { key: 'review', label: 'Récapitulatif' }
+  ]
+  const stepIndex = (key) => STEPS.findIndex(s => s.key === key)
+  const safeStep = Math.min(step, STEPS.length - 1)
+  const stepKey = STEPS[safeStep].key
+  const isLastStep = stepKey === 'review'
+
+  const FIELD_STEP = (field) => {
+    if (field === 'templateId') return 'design'
+    if (PROGRAMME_FIELDS.includes(field)) return hasProgramme ? 'programme' : 'info'
+    if (field === 'eventType') return 'type'
+    return 'info'
+  }
 
   // Template search + pagination (design step)
   const tplMatches = (t) => {
@@ -140,87 +171,31 @@ export default function WeddingCreate() {
     safeTemplatePage * TEMPLATES_PER_PAGE
   )
 
-  // Shared live-preview data so canvas tokens ({{event_title}}, {{venue_name}}...)
-  // reflect what the user has typed so far, for wedding and non-wedding types alike.
-  const hasTypedInfo = !!(watch('brideName') || watch('groomName') || watch('honoreeName') || watch('eventTitle') || watch('weddingDate'))
-  const previewWeddingDataFull = {
+  // Live preview data so canvas tokens reflect what has been typed so far.
+  const values = watch()
+  const hasTypedInfo = !!(values.brideName || values.groomName || values.honoreeName || values.eventTitle || values.weddingDate)
+  const previewWeddingData = hasTypedInfo ? {
     templateImages: templateImagePreviews,
     eventType,
-    eventTitle: watch('eventTitle'),
-    honoreeName: watch('honoreeName'),
-    brideName: watch('brideName'),
-    groomName: watch('groomName'),
-    weddingDate: watch('weddingDate'),
-    ceremonyTime: watch('ceremonyTime'),
-    venueName: watch('venueName'),
-    venueAddress: watch('venueAddress'),
-    customMessage: watch('customMessage'),
-    additionalInfo: watch('additionalInfo'),
-    communeTime: watch('communeTime'),
-    egliseTime: watch('egliseTime'),
-    receptionStartTime: watch('receptionStartTime'),
-    communeVenue: watch('communeVenue'),
-    egliseVenue: watch('egliseVenue'),
-    receptionVenue: watch('receptionVenue'),
-    receptionDate: watch('receptionDate')
-  }
-  // Before any info is typed (e.g. the new template-first "Modèle" step), fall
-  // back to the rich sample so the preview looks like a finished invitation.
-  const previewWeddingData = hasTypedInfo ? previewWeddingDataFull : null
-
-  // Step numbers shift depending on whether the full wedding programme
-  // step is needed - everything downstream (design/QR/print) just slides up.
-  // Template-first flow: pick the type, then the template (which decides which
-  // variables/fields matter), then only the relevant info fields.
-  const STEP_TYPE = 0
-  const STEP_DESIGN = 1
-  const STEP_INFO = 2
-  const STEP_PROGRAMME = 3
-  // Le style du QR se règle dans l'éditeur de template — plus d'étape QR côté client.
-  const STEP_PREVIEW = isWedding ? 4 : 3
-  const totalSteps = STEP_PREVIEW
-
-  const STEPS = [
-    { num: STEP_TYPE, label: 'Type' },
-    { num: STEP_DESIGN, label: 'Modèle' },
-    ...(isWedding ? [
-      { num: STEP_INFO, label: 'Mariés' },
-      { num: STEP_PROGRAMME, label: 'Programme' },
-      { num: STEP_PREVIEW, label: 'Aperçu' }
-    ] : [
-      { num: STEP_INFO, label: isCouple ? 'Mariés' : 'Infos' },
-      { num: STEP_PREVIEW, label: 'Aperçu' }
-    ])
-  ]
-
-  const FIELD_TO_STEP = isWedding ? {
-    brideName: STEP_INFO, groomName: STEP_INFO, weddingDate: STEP_INFO, customMessage: STEP_INFO,
-    rsvpDeadline: STEP_INFO, additionalInfo: STEP_INFO,
-    communeDate: STEP_PROGRAMME, communeTime: STEP_PROGRAMME, communeVenue: STEP_PROGRAMME, communeAddress: STEP_PROGRAMME,
-    egliseDate: STEP_PROGRAMME, egliseTime: STEP_PROGRAMME, egliseVenue: STEP_PROGRAMME, egliseAddress: STEP_PROGRAMME,
-    receptionDate: STEP_PROGRAMME, receptionStartTime: STEP_PROGRAMME, receptionVenue: STEP_PROGRAMME, receptionAddress: STEP_PROGRAMME,
-    templateId: STEP_DESIGN
-  } : {
-    eventTitle: STEP_INFO, honoreeName: STEP_INFO, brideName: STEP_INFO, groomName: STEP_INFO,
-    weddingDate: STEP_INFO, ceremonyTime: STEP_INFO,
-    venueName: STEP_INFO, venueAddress: STEP_INFO, venueCity: STEP_INFO,
-    customMessage: STEP_INFO, rsvpDeadline: STEP_INFO, additionalInfo: STEP_INFO,
-    templateId: STEP_DESIGN
-  }
-
-  const [couplePhotoFile, setCouplePhotoFile] = useState(null)
-  const [couplePhotoPreview, setCouplePhotoPreview] = useState('')
-  const photoInputRef = useRef(null)
-
-  const handlePhotoChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    if (!file.type.startsWith('image/')) { toast.error('Veuillez sélectionner une image'); return }
-    if (file.size > 5 * 1024 * 1024) { toast.error('Image trop volumineuse (max 5 Mo)'); return }
-    setCouplePhotoFile(file)
-    setCouplePhotoPreview(URL.createObjectURL(file))
-    e.target.value = ''
-  }
+    eventTitle: values.eventTitle,
+    honoreeName: values.honoreeName,
+    brideName: values.brideName,
+    groomName: values.groomName,
+    weddingDate: values.weddingDate,
+    ceremonyTime: values.ceremonyTime,
+    venueName: values.venueName,
+    venueAddress: values.venueAddress,
+    customMessage: values.customMessage,
+    additionalInfo: values.additionalInfo,
+    rsvpDeadline: values.rsvpDeadline,
+    communeTime: values.communeTime,
+    egliseTime: values.egliseTime,
+    receptionStartTime: values.receptionStartTime,
+    communeVenue: values.communeVenue,
+    egliseVenue: values.egliseVenue,
+    receptionVenue: values.receptionVenue,
+    receptionDate: values.receptionDate
+  } : null // before anything is typed, previews use the template's rich sample
 
   const handleTemplateImageChange = (placeholderId, e) => {
     const file = e.target.files[0]
@@ -232,6 +207,28 @@ export default function WeddingCreate() {
     e.target.value = ''
   }
 
+  const goTo = (index) => {
+    setStep(Math.max(0, Math.min(index, STEPS.length - 1)))
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Validate the current step before moving on, so the recap never shows
+  // (and the server never receives) an incomplete event.
+  const goNext = async () => {
+    if (stepKey === 'design' && !templateId && hasTemplates) {
+      toast.error('Choisissez un modèle pour continuer')
+      return
+    }
+    if (stepKey === 'info') {
+      const ok = await trigger(identityFieldNames(eventType))
+      if (!ok) {
+        toast.error('Complétez les champs obligatoires')
+        return
+      }
+    }
+    goTo(safeStep + 1)
+  }
+
   const createMutation = useMutation(
     (data) => weddingAPI.create(data),
     {
@@ -239,17 +236,6 @@ export default function WeddingCreate() {
         setServerErrors([])
         const newWeddingId = response.data.wedding.id
 
-        // Marketplace template usage is recorded server-side on wedding
-        // creation (see wedding.routes), so no extra client call is needed.
-
-        if (couplePhotoFile) {
-          try {
-            await weddingAPI.uploadCouplePhoto(newWeddingId, couplePhotoFile)
-          } catch (e) {
-            toast.error("Événement créé, mais l'envoi de la photo a échoué. Vous pourrez la rajouter depuis la page de l'événement.")
-          }
-        }
-        // Upload per-placeholder template images (multi-image templates)
         const placeholderEntries = Object.entries(templateImageFiles)
         if (placeholderEntries.length > 0) {
           try {
@@ -258,8 +244,8 @@ export default function WeddingCreate() {
                 weddingAPI.uploadTemplateImage(newWeddingId, placeholderId, file)
               )
             )
-          } catch (e) {
-            toast.error("Événement créé, mais l'envoi d'une ou plusieurs photos a échoué. Vous pourrez les rajouter depuis la page de l'événement.")
+          } catch {
+            toast.error("Événement créé, mais l'envoi d'une ou plusieurs photos a échoué. Vous pourrez les rajouter depuis la page de modification.")
           }
         }
         toast.success('Événement créé avec succès !')
@@ -267,21 +253,11 @@ export default function WeddingCreate() {
       },
       onError: (error) => {
         const responseData = error.response?.data
-        if (responseData?.details && Array.isArray(responseData.details)) {
-          // Server validation errors with details
+        if (Array.isArray(responseData?.details) && responseData.details.length) {
           setServerErrors(responseData.details)
-          const firstError = responseData.details[0]
-          if (firstError?.field) {
-            const targetStep = FIELD_TO_STEP[firstError.field]
-            if (targetStep && targetStep !== step) {
-              setStep(targetStep)
-              toast.error(`Erreur à l'étape ${targetStep}: ${firstError.message}`)
-            } else {
-              toast.error(firstError.message)
-            }
-          } else {
-            toast.error(responseData.error || 'Erreur de validation')
-          }
+          const first = responseData.details[0]
+          if (first?.field) goTo(stepIndex(FIELD_STEP(first.field)))
+          toast.error(first?.message || responseData.error || 'Erreur de validation')
         } else {
           setServerErrors([])
           toast.error(responseData?.error || 'Erreur lors de la création')
@@ -297,27 +273,22 @@ export default function WeddingCreate() {
       eventType: data.eventType || 'WEDDING',
       weddingDate: new Date(data.weddingDate).toISOString(),
       ceremonyTime: cleanValue(data.ceremonyTime),
-      // Main address — every event type has one
       venueName: cleanValue(data.venueName),
       venueAddress: cleanValue(data.venueAddress),
       venueCity: cleanValue(data.venueCity),
       venueMapUrl: cleanValue(data.venueMapUrl),
-      // Identity fields, per event type
       ...(isCouple ? { brideName: data.brideName, groomName: data.groomName } : {}),
       ...(isHonoree ? { honoreeName: data.honoreeName } : {}),
       ...(isFreeTitle ? { eventTitle: data.eventTitle } : {}),
-      // Predefined tables (only for events that seat guests)
       ...(eventUsesTables(eventType) ? { tables: data.tables || [] } : {}),
       drinkOptions: data.drinkOptions || [],
       templateId: cleanValue(data.templateId),
       customMessage: cleanValue(data.customMessage),
-      // Le style du QR est porté par le template (éditeur) — non réglable ici.
-      // Extra
       rsvpDeadline: data.rsvpDeadline ? new Date(data.rsvpDeadline).toISOString() : null,
       additionalInfo: cleanValue(data.additionalInfo)
     }
 
-    // Only weddings carry the full 3-step programme (commune/église/réception).
+    // Only weddings carry the programme (commune/église/réception).
     const formattedData = isWedding ? {
       ...base,
       communeDate: data.communeDate ? new Date(data.communeDate).toISOString() : null,
@@ -337,101 +308,163 @@ export default function WeddingCreate() {
     createMutation.mutate(formattedData)
   }
 
+  // Client-side validation failed at the final click → jump to the field.
+  const onInvalid = (errs) => {
+    const first = Object.keys(errs)[0]
+    if (first) goTo(stepIndex(FIELD_STEP(first)))
+    toast.error('Certains champs obligatoires sont vides')
+  }
 
-  // Helper to check if a field has a server error
+  // Creation is ONLY triggered by the explicit "Créer l'événement" click on
+  // the recap (never by a form submit / Enter key — that used to create the
+  // event the instant the recap appeared).
+  const createEvent = handleSubmit(onSubmit, onInvalid)
+
   const getServerError = (fieldName) => serverErrors.find(e => e.field === fieldName)
+  const stepHasErrors = (key) => serverErrors.some(e => FIELD_STEP(e.field) === key)
 
-  // Check if a step has server errors
-  const stepHasErrors = (stepNum) => serverErrors.some(e => FIELD_TO_STEP[e.field] === stepNum)
+  const templateCard = (tmpl, mine = false) => {
+    const selected = templateId === tmpl.id
+    return (
+      <label
+        key={tmpl.id}
+        className={`group cursor-pointer rounded-xl border-2 overflow-hidden transition-all ${
+          selected ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-border hover:border-primary-300 hover:shadow-sm'
+        }`}
+      >
+        <input type="radio" value={tmpl.id} className="sr-only" {...register('templateId')} />
+        <div className="aspect-[3/4] bg-gradient-wedding flex items-center justify-center relative">
+          <TemplatePreview template={tmpl} weddingData={previewWeddingData} />
+          {selected && (
+            <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-primary-600 px-2 py-0.5 text-[11px] font-semibold text-white shadow">
+              <CheckIcon className="h-3 w-3" /> Choisi
+            </span>
+          )}
+          {mine && !selected && (
+            <span className="absolute top-2 left-2 bg-primary-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
+              <UserIcon className="h-2.5 w-2.5" /> Mon modèle
+            </span>
+          )}
+          {tmpl.isPremium && (
+            <span className="absolute top-2 right-2 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">Premium</span>
+          )}
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewTmpl(tmpl) }}
+            className="absolute bottom-2 right-2 inline-flex items-center gap-1 bg-white/90 hover:bg-white text-gray-800 text-[11px] font-semibold px-2 py-1 rounded-full shadow"
+          >
+            <EyeIcon className="h-3 w-3" /> Aperçu
+          </button>
+        </div>
+        <div className="p-2">
+          <p className="font-medium text-sm text-content truncate">{tmpl.name}</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-muted truncate">{mine ? 'Personnalisé' : (TEMPLATE_CATEGORIES[tmpl.category] || tmpl.category)}</p>
+            <p className="text-xs font-bold text-primary-600 shrink-0">{priceLabel(tmpl)}</p>
+          </div>
+        </div>
+      </label>
+    )
+  }
 
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <button onClick={() => navigate('/weddings')} className="flex items-center text-gray-600 hover:text-gray-900 mb-4">
-          <ArrowLeftIcon className="h-5 w-5 mr-1" /> Retour
+      <div className="mb-6">
+        <button type="button" onClick={() => navigate('/weddings')} className="flex items-center text-muted hover:text-content mb-4">
+          <ArrowLeftIcon className="h-5 w-5 mr-1" /> Mes événements
         </button>
-        <h1 className="text-3xl font-serif font-bold text-gray-900">Créer un nouvel événement</h1>
-        <p className="text-gray-600 mt-1">Remplissez les informations de votre événement</p>
+        <h1 className="text-2xl sm:text-3xl font-serif font-bold text-content">Créer un événement</h1>
+        <p className="text-muted mt-1">
+          {safeStep === 0 ? 'Commencez par le type d\'événement.' : `${selectedEventMeta.label} · étape ${safeStep + 1} sur ${STEPS.length}`}
+        </p>
       </div>
 
-      {/* Progress Steps */}
-      <div className="flex items-center justify-center mb-8 overflow-x-auto pb-2">
-        {STEPS.map((s, idx) => (
-          <div key={s.num} className="flex items-center">
-            <div className="flex flex-col items-center relative">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-medium text-sm transition-colors ${
-                stepHasErrors(s.num)
-                  ? 'bg-red-500 text-white ring-2 ring-red-200'
-                  : step >= s.num ? 'bg-primary-600 text-white' : 'bg-gray-200 text-gray-500'
-              }`}>
-                {stepHasErrors(s.num) ? '!' : s.num}
-              </div>
-              <span className={`text-xs mt-1 whitespace-nowrap ${
-                stepHasErrors(s.num) ? 'text-red-600 font-medium' : step >= s.num ? 'text-primary-600' : 'text-gray-400'
-              }`}>
-                {s.label}
-              </span>
-            </div>
-            {idx < STEPS.length - 1 && (
-              <div className={`w-10 h-1 mx-1 mb-4 ${step > s.num ? 'bg-primary-600' : 'bg-gray-200'}`} />
-            )}
-          </div>
-        ))}
-      </div>
+      {/* Progress — numbered from 1, completed steps are clickable */}
+      <ol className="flex items-start justify-between sm:justify-center gap-1 sm:gap-0 mb-8 overflow-x-auto pb-2" aria-label="Étapes">
+        {STEPS.map((s, idx) => {
+          const done = idx < safeStep
+          const current = idx === safeStep
+          const hasErr = stepHasErrors(s.key)
+          return (
+            <li key={s.key} className="flex items-center">
+              <button
+                type="button"
+                onClick={() => done && goTo(idx)}
+                disabled={!done}
+                aria-current={current ? 'step' : undefined}
+                className="flex flex-col items-center min-w-[3.5rem] disabled:cursor-default"
+              >
+                <span className={`w-9 h-9 rounded-full flex items-center justify-center font-semibold text-sm transition-colors ${
+                  hasErr ? 'bg-red-500 text-white ring-2 ring-red-200'
+                    : current ? 'bg-primary-600 text-white ring-4 ring-primary-100'
+                      : done ? 'bg-primary-600 text-white' : 'bg-surface-2 text-muted border border-border'
+                }`}>
+                  {hasErr ? '!' : done ? <CheckIcon className="h-4 w-4" /> : idx + 1}
+                </span>
+                <span className={`text-[11px] sm:text-xs mt-1 whitespace-nowrap ${
+                  hasErr ? 'text-red-600 font-medium' : current ? 'text-primary-700 font-semibold' : done ? 'text-primary-600' : 'text-muted'
+                }`}>
+                  {s.label}
+                </span>
+              </button>
+              {idx < STEPS.length - 1 && (
+                <span className={`hidden sm:block w-10 h-0.5 mx-1 mb-5 ${idx < safeStep ? 'bg-primary-600' : 'bg-border'}`} />
+              )}
+            </li>
+          )
+        })}
+      </ol>
 
-      {/* Error Summary */}
+      {/* Server-side validation summary */}
       {serverErrors.length > 0 && (
-        <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4" role="alert">
           <div className="flex items-start">
             <ExclamationTriangleIcon className="h-5 w-5 text-red-500 mr-3 mt-0.5 flex-shrink-0" />
             <div className="flex-1">
-              <h3 className="text-sm font-medium text-red-800">Erreur de validation</h3>
+              <h3 className="text-sm font-medium text-red-800">Quelques informations sont à corriger</h3>
               <ul className="mt-2 space-y-1">
                 {serverErrors.map((err, idx) => (
-                  <li key={idx} className="text-sm text-red-700 flex items-center justify-between">
-                    <span>
-                      <strong className="capitalize">{err.field}</strong>: {err.message}
-                    </span>
-                    {FIELD_TO_STEP[err.field] !== undefined && FIELD_TO_STEP[err.field] !== step && (
-                      <button
-                        type="button"
-                        onClick={() => setStep(FIELD_TO_STEP[err.field])}
-                        className="ml-2 text-xs text-red-600 underline hover:text-red-800"
-                      >
-                        Aller à l'étape {FIELD_TO_STEP[err.field]}
+                  <li key={idx} className="text-sm text-red-700 flex items-center justify-between gap-2">
+                    <span>{err.message}</span>
+                    {err.field && FIELD_STEP(err.field) !== stepKey && (
+                      <button type="button" onClick={() => goTo(stepIndex(FIELD_STEP(err.field)))} className="text-xs text-red-600 underline hover:text-red-800 shrink-0">
+                        Corriger
                       </button>
                     )}
                   </li>
                 ))}
               </ul>
             </div>
-            <button
-              type="button"
-              onClick={() => setServerErrors([])}
-              className="ml-2 text-red-500 hover:text-red-700"
-            >
-              ×
-            </button>
+            <button type="button" onClick={() => setServerErrors([])} className="ml-2 text-red-500 hover:text-red-700" aria-label="Fermer">×</button>
           </div>
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="bg-white rounded-xl shadow-lg p-8">
+      {/* No native submit: Enter never creates the event by accident. */}
+      <form
+        onSubmit={(e) => e.preventDefault()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.type !== 'button') e.preventDefault()
+        }}
+        noValidate
+      >
+        <div className="bg-surface border border-border rounded-2xl shadow-sm p-5 sm:p-8">
 
-          {/* ===================== STEP 0: Type d'événement ===================== */}
-          {step === STEP_TYPE && (
+          {/* ===================== Type ===================== */}
+          {stepKey === 'type' && (
             <div className="space-y-6">
-              <h2 className="text-xl font-serif font-bold text-gray-900 mb-2 flex items-center">
-                <SparklesIcon className="h-6 w-6 mr-2 text-primary-500" />
-                Quel type d'événement organisez-vous ?
-              </h2>
-              <p className="text-gray-600">
-                Le mariage propose un programme complet (mairie, église, réception). Les autres types restent simples : date, heure, lieu et message.
-              </p>
+              <div>
+                <h2 className="text-xl font-serif font-bold text-content flex items-center">
+                  <SparklesIcon className="h-6 w-6 mr-2 text-primary-500" />
+                  Quel type d'événement organisez-vous ?
+                </h2>
+                <p className="text-muted mt-1 text-sm">
+                  Le formulaire s'adapte : programme complet pour un mariage, date et lieu uniques pour les autres.
+                </p>
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" role="radiogroup">
                 {EVENT_TYPES_META.map((type) => {
                   const Icon = type.icon
                   const isSelected = eventType === type.id
@@ -439,17 +472,15 @@ export default function WeddingCreate() {
                     <label
                       key={type.id}
                       className={`cursor-pointer p-5 rounded-xl border-2 transition-all hover:shadow-md ${
-                        isSelected ? 'border-primary-500 bg-primary-50 shadow-md ring-1 ring-primary-200' : 'border-gray-200 hover:border-gray-300'
+                        isSelected ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/10 shadow-md ring-1 ring-primary-200' : 'border-border hover:border-primary-300'
                       }`}
                     >
-                      <input type="radio" value={type.id} className="hidden" {...register('eventType')} />
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${
-                        isSelected ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-500'
-                      }`}>
+                      <input type="radio" value={type.id} className="sr-only" {...register('eventType')} />
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${isSelected ? 'bg-primary-600 text-white' : 'bg-surface-2 text-muted'}`}>
                         <Icon className="h-6 w-6" />
                       </div>
-                      <p className="font-semibold text-gray-900">{type.label}</p>
-                      <p className="text-xs text-gray-500 mt-1">{type.desc}</p>
+                      <p className="font-semibold text-content">{type.label}</p>
+                      <p className="text-xs text-muted mt-1">{type.desc}</p>
                       {isSelected && (
                         <div className="mt-2 inline-flex items-center gap-1 text-xs text-primary-600 font-medium">
                           <CheckIcon className="h-3.5 w-3.5" /> Sélectionné
@@ -462,535 +493,112 @@ export default function WeddingCreate() {
             </div>
           )}
 
-          {/* ===================== STEP INFO (Couple: Mariage / Mariage coutumier) ===================== */}
-          {step === STEP_INFO && isCouple && (
+          {/* ===================== Modèle ===================== */}
+          {stepKey === 'design' && (
             <div className="space-y-6">
-              <h2 className="text-xl font-serif font-bold text-gray-900 mb-6 flex items-center">
-                <HeartIcon className="h-6 w-6 mr-2 text-primary-500" />
-                Informations des mariés
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
                 <div>
-                  <label className="label">Prénom de la mariée *</label>
-                  <input type="text" className={`input ${errors.brideName || getServerError('brideName') ? 'input-error' : ''}`} placeholder="Sophie" {...register('brideName', { required: 'Ce champ est requis' })} />
-                  {(errors.brideName || getServerError('brideName')) && (
-                    <p className="mt-1 text-sm text-red-600">{errors.brideName?.message || getServerError('brideName')?.message}</p>
-                  )}
+                  <h2 className="text-xl font-serif font-bold text-content flex items-center">
+                    <SwatchIcon className="h-6 w-6 mr-2 text-primary-500" />
+                    Choisissez votre modèle
+                  </h2>
+                  <p className="text-muted mt-1 text-sm">Modèles « {selectedEventMeta.label} ». Les champs à remplir s'adaptent au modèle choisi.</p>
                 </div>
-                <div>
-                  <label className="label">Prénom du marié *</label>
-                  <input type="text" className={`input ${errors.groomName || getServerError('groomName') ? 'input-error' : ''}`} placeholder="Thomas" {...register('groomName', { required: 'Ce champ est requis' })} />
-                  {(errors.groomName || getServerError('groomName')) && (
-                    <p className="mt-1 text-sm text-red-600">{errors.groomName?.message || getServerError('groomName')?.message}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="label">Date principale de l'événement *</label>
-                  <input type="date" className={`input ${errors.weddingDate || getServerError('weddingDate') ? 'input-error' : ''}`} {...register('weddingDate', { required: 'Ce champ est requis' })} />
-                  {(errors.weddingDate || getServerError('weddingDate')) && (
-                    <p className="mt-1 text-sm text-red-600">{errors.weddingDate?.message || getServerError('weddingDate')?.message}</p>
-                  )}
-                </div>
-                {showField('ceremonyTime') && (
-                <div>
-                  <label className="label">Heure{isWedding ? ' (les heures détaillées se règlent dans le programme)' : ''}</label>
-                  <input type="time" className="input" {...register('ceremonyTime')} />
-                </div>
-                )}
-              </div>
-
-              {/* Adresse principale — pour le mariage coutumier c'est le seul lieu ;
-                  pour le mariage, le programme détaillé (commune/église/réception)
-                  se renseigne à l'étape suivante. */}
-              {(showField('venueName') || showField('venueAddress')) && (
-              <div className="border-t pt-6 space-y-4">
-                <h3 className="font-medium text-gray-900 flex items-center">
-                  <MapPinIcon className="h-5 w-5 mr-2 text-primary-500" />
-                  Lieu principal{isWedding ? ' (facultatif si le programme est détaillé)' : ''}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="label text-sm">Nom du lieu</label>
-                    <input type="text" className="input" placeholder="Salle des fêtes, domicile familial..." {...register('venueName')} />
-                  </div>
-                  <div>
-                    <label className="label text-sm">Ville</label>
-                    <input type="text" className="input" placeholder="Dakar" {...register('venueCity')} />
-                  </div>
-                </div>
-                <div>
-                  <label className="label text-sm">Adresse</label>
-                  <input type="text" className="input" placeholder="Adresse complète" {...register('venueAddress')} />
-                </div>
-                {showField('venueMapUrl') && (
-                  <div>
-                    <label className="label text-sm">Lien Google Maps <span className="text-gray-400 font-normal">— pour le bouton « itinéraire »</span></label>
-                    <input type="url" className="input" placeholder="https://maps.google.com/..." {...register('venueMapUrl')} />
-                    <p className="text-xs text-gray-400 mt-1">Facultatif — sinon l'itinéraire est calculé depuis le nom + l'adresse.</p>
+                {hasTemplates && (
+                  <div className="relative w-full sm:w-64">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+                    <input
+                      type="search"
+                      value={templateSearch}
+                      onChange={(e) => { setTemplateSearch(e.target.value); setTemplatePage(1) }}
+                      placeholder="Rechercher un modèle…"
+                      aria-label="Rechercher un modèle"
+                      className="input pl-9 py-2 text-sm w-full"
+                    />
                   </div>
                 )}
               </div>
-              )}
 
-              {showField('customMessage') && (
-              <div className="border-t pt-6">
-                <label className="label">Message personnalisé</label>
-                <textarea className="input" rows={3} placeholder="Nous avons le plaisir de vous inviter à célébrer notre union..." {...register('customMessage')} />
-              </div>
-              )}
-
-              {/* Photo des mariés */}
-              {/*<div className="border-t pt-6">
-                <h3 className="font-medium text-gray-900 flex items-center mb-1">
-                  <PhotoIcon className="h-5 w-5 mr-2 text-primary-500" />
-                  Photo des mariés
-                </h3>
-                <p className="text-sm text-gray-500 mb-3">
-                  Si votre template prévoit un emplacement photo, cette image y sera intégrée automatiquement.
-                </p>
-                <div className="flex items-center gap-4">
-                  <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 border flex items-center justify-center flex-shrink-0">
-                    {couplePhotoPreview ? (
-                      <img src={couplePhotoPreview} alt="Photo des mariés" className="w-full h-full object-cover" />
-                    ) : (
-                      <PhotoIcon className="h-8 w-8 text-gray-300" />
-                    )}
-                  </div>
-                  <div>
-                    <button type="button" onClick={() => photoInputRef.current?.click()} className="btn-secondary text-sm">
-                      {couplePhotoPreview ? 'Changer la photo' : 'Ajouter une photo'}
-                    </button>
-                    <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP (max 5 Mo)</p>
-                  </div>
-                  <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+              {!templatesLoaded ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="aspect-[3/4] rounded-xl bg-surface-2 animate-pulse" />
+                  ))}
                 </div>
-              </div>*/}
-
-              {/* Extra personalization */}
-              {(showField('rsvpDeadline') || showField('additionalInfo')) && (
-              <div className="border-t pt-6 space-y-4">
-                <h3 className="font-medium text-gray-900 flex items-center">
-                  <SparklesIcon className="h-5 w-5 mr-2 text-amber-500" />
-                  Personnalisation avancée
-                </h3>
-                {showField('rsvpDeadline') && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="label">Date limite RSVP</label>
-                    <input type="date" className="input" {...register('rsvpDeadline')} />
-                  </div>
-                </div>
-                )}
-                {showField('additionalInfo') && (
-                <div>
-                  <label className="label">Informations supplémentaires</label>
-                  <textarea className="input" rows={2} placeholder="Parking disponible, allergies alimentaires à signaler..." {...register('additionalInfo')} />
-                </div>
-                )}
-              </div>
-              )}
-            </div>
-          )}
-
-          {/* ===================== STEP INFO (honoree / titre libre) ===================== */}
-          {step === STEP_INFO && !isCouple && (
-            <div className="space-y-6">
-              <h2 className="text-xl font-serif font-bold text-gray-900 mb-2 flex items-center">
-                <selectedEventMeta.icon className="h-6 w-6 mr-2 text-primary-500" />
-                Informations de l'événement
-              </h2>
-              <p className="text-gray-600 mb-2">{selectedEventMeta.label} — date, heure, lieu et message suffisent.</p>
-
-              {isHonoree ? (
-                <div>
-                  <label className="label">{honoreeFieldLabel(eventType)} *</label>
-                  <input
-                    type="text"
-                    className={`input ${errors.honoreeName || getServerError('honoreeName') ? 'input-error' : ''}`}
-                    placeholder={eventType === 'BIRTHDAY' ? 'Fatou' : 'Jean'}
-                    {...register('honoreeName', { required: 'Ce champ est requis' })}
-                  />
-                  <p className="mt-1 text-xs text-gray-400">
-                    Le titre s'affiche automatiquement : « {selectedEventMeta.label} de {watch('honoreeName') || '…'} »
+              ) : !hasTemplates ? (
+                <div className="text-center py-10 bg-surface-2 rounded-xl">
+                  <SwatchIcon className="h-10 w-10 text-muted mx-auto mb-2" />
+                  <p className="text-muted text-sm">
+                    Aucun modèle « {selectedEventMeta.label} » pour le moment — vous pourrez en choisir un plus tard.
                   </p>
-                  {(errors.honoreeName || getServerError('honoreeName')) && (
-                    <p className="mt-1 text-sm text-red-600">{errors.honoreeName?.message || getServerError('honoreeName')?.message}</p>
-                  )}
                 </div>
               ) : (
-                <div>
-                  <label className="label">Titre / Nom de l'événement *</label>
-                  <input
-                    type="text"
-                    className={`input ${errors.eventTitle || getServerError('eventTitle') ? 'input-error' : ''}`}
-                    placeholder={eventType === 'CONFERENCE' ? 'Conférence Tech 2026' : 'Soirée de gala 2026'}
-                    {...register('eventTitle', { required: 'Ce champ est requis' })}
-                  />
-                  {(errors.eventTitle || getServerError('eventTitle')) && (
-                    <p className="mt-1 text-sm text-red-600">{errors.eventTitle?.message || getServerError('eventTitle')?.message}</p>
-                  )}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="label">Date *</label>
-                  <input type="date" className={`input ${errors.weddingDate || getServerError('weddingDate') ? 'input-error' : ''}`} {...register('weddingDate', { required: 'Ce champ est requis' })} />
-                  {(errors.weddingDate || getServerError('weddingDate')) && (
-                    <p className="mt-1 text-sm text-red-600">{errors.weddingDate?.message || getServerError('weddingDate')?.message}</p>
-                  )}
-                </div>
-                {showField('ceremonyTime') && (
-                <div>
-                  <label className="label">Heure</label>
-                  <input type="time" className="input" {...register('ceremonyTime')} />
-                </div>
-                )}
-              </div>
-
-              {(showField('venueName') || showField('venueAddress')) && (
-              <div className="border-t pt-6 space-y-4">
-                <h3 className="font-medium text-gray-900 flex items-center">
-                  <MapPinIcon className="h-5 w-5 mr-2 text-primary-500" />
-                  Lieu
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="label text-sm">Nom du lieu</label>
-                    <input type="text" className="input" placeholder="Salle des fêtes, Hôtel..." {...register('venueName')} />
-                  </div>
-                  <div>
-                    <label className="label text-sm">Ville</label>
-                    <input type="text" className="input" placeholder="Dakar" {...register('venueCity')} />
-                  </div>
-                </div>
-                <div>
-                  <label className="label text-sm">Adresse</label>
-                  <input type="text" className="input" placeholder="Adresse complète" {...register('venueAddress')} />
-                </div>
-                {showField('venueMapUrl') && (
-                  <div>
-                    <label className="label text-sm">Lien Google Maps <span className="text-gray-400 font-normal">— pour le bouton « itinéraire »</span></label>
-                    <input type="url" className="input" placeholder="https://maps.google.com/..." {...register('venueMapUrl')} />
-                    <p className="text-xs text-gray-400 mt-1">Facultatif — sinon l'itinéraire est calculé depuis le nom + l'adresse.</p>
-                  </div>
-                )}
-              </div>
-              )}
-
-              {showField('customMessage') && (
-              <div className="border-t pt-6">
-                <label className="label">Message personnalisé</label>
-                <textarea className="input" rows={3} placeholder="Nous avons le plaisir de vous inviter..." {...register('customMessage')} />
-              </div>
-              )}
-
-              {(showField('rsvpDeadline') || showField('additionalInfo')) && (
-              <div className="border-t pt-6 space-y-4">
-                {showField('rsvpDeadline') && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="label">Date limite RSVP</label>
-                    <input type="date" className="input" {...register('rsvpDeadline')} />
-                  </div>
-                </div>
-                )}
-                {showField('additionalInfo') && (
-                <div>
-                  <label className="label">Informations supplémentaires</label>
-                  <textarea className="input" rows={2} placeholder="Parking disponible, dress code..." {...register('additionalInfo')} />
-                </div>
-                )}
-              </div>
-              )}
-            </div>
-          )}
-
-          {/* ===================== STEP INFO: Tables (événements à places assises) ===================== */}
-          {step === STEP_INFO && eventUsesTables(eventType) && (
-            <div className="mt-6">
-              <TablesEditor value={watch('tables') || []} onChange={(v) => setValue('tables', v)} />
-            </div>
-          )}
-
-          {/* ===================== STEP INFO: Liste de boissons ===================== */}
-          {step === STEP_INFO && (
-            <div className="mt-6">
-              <DrinkOptionsEditor value={watch('drinkOptions') || []} onChange={(v) => setValue('drinkOptions', v)} />
-            </div>
-          )}
-
-          {/* ===================== STEP PROGRAMME (Mariage uniquement) ===================== */}
-          {step === STEP_PROGRAMME && isWedding && (
-            <div className="space-y-8">
-              <div>
-                <h2 className="text-xl font-serif font-bold text-gray-900 mb-2 flex items-center">
-                  <CalendarDaysIcon className="h-6 w-6 mr-2 text-primary-500" />
-                  Programme du mariage
-                </h2>
-                <p className="text-gray-600">Définissez les différentes étapes de votre journée</p>
-              </div>
-
-              {/* Mairie */}
-              {(showField('communeDate') || showField('communeTime') || showField('communeVenue') || showField('communeAddress')) && (
-              <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                    <BuildingLibraryIcon className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Mariage Civil (Mairie)</h3>
-                    <p className="text-sm text-gray-600">Cérémonie à la commune</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><label className="label text-sm">Date</label><input type="date" className="input" {...register('communeDate')} /></div>
-                  <div><label className="label text-sm">Heure</label><input type="time" className="input" {...register('communeTime')} /></div>
-                  <div><label className="label text-sm">Nom de la mairie</label><input type="text" className="input" placeholder="Mairie de Paris 8ème" {...register('communeVenue')} /></div>
-                  <div><label className="label text-sm">Adresse</label><input type="text" className="input" placeholder="3 Rue de Lisbonne, 75008 Paris" {...register('communeAddress')} /></div>
-                </div>
-              </div>
-              )}
-
-              {/* Église */}
-              {(showField('egliseDate') || showField('egliseTime') || showField('egliseVenue') || showField('egliseAddress')) && (
-              <div className="bg-purple-50 rounded-xl p-6 border border-purple-200">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
-                    <ChurchIcon className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Mariage Religieux (Église)</h3>
-                    <p className="text-sm text-gray-600">Cérémonie religieuse</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><label className="label text-sm">Date</label><input type="date" className="input" {...register('egliseDate')} /></div>
-                  <div><label className="label text-sm">Heure</label><input type="time" className="input" {...register('egliseTime')} /></div>
-                  <div><label className="label text-sm">Nom de l'église</label><input type="text" className="input" placeholder="Église Saint-Augustin" {...register('egliseVenue')} /></div>
-                  <div><label className="label text-sm">Adresse</label><input type="text" className="input" placeholder="46 Bd Malesherbes, 75008 Paris" {...register('egliseAddress')} /></div>
-                </div>
-              </div>
-              )}
-
-              {/* Réception */}
-              {(showField('receptionDate') || showField('receptionStartTime') || showField('receptionVenue') || showField('receptionAddress')) && (
-              <div className="bg-pink-50 rounded-xl p-6 border border-pink-200">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-pink-500 rounded-full flex items-center justify-center">
-                    <MusicalNoteIcon className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Réception & Soirée Dansante</h3>
-                    <p className="text-sm text-gray-600">Fête et célébration</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><label className="label text-sm">Date</label><input type="date" className="input" {...register('receptionDate')} /></div>
-                  <div><label className="label text-sm">Heure de début</label><input type="time" className="input" {...register('receptionStartTime')} /></div>
-                  <div><label className="label text-sm">Nom du lieu</label><input type="text" className="input" placeholder="Château de Versailles" {...register('receptionVenue')} /></div>
-                  <div><label className="label text-sm">Adresse</label><input type="text" className="input" placeholder="Place d'Armes, 78000 Versailles" {...register('receptionAddress')} /></div>
-                </div>
-              </div>
-              )}
-
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <p className="text-sm text-amber-800">
-                  <strong>💡 Astuce :</strong> Seules les étapes renseignées apparaîtront sur vos invitations.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* ===================== STEP DESIGN ===================== */}
-          {step === STEP_DESIGN && (
-            <div className="space-y-6">
-              <h2 className="text-xl font-serif font-bold text-gray-900 mb-6 flex items-center">
-                <SwatchIcon className="h-6 w-6 mr-2 text-primary-500" />
-                Choix du template
-              </h2>
-
-              {/* Template Selection + Live Preview */}
-              <div>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-                  <h3 className="font-medium text-gray-900">Choisir un template</h3>
-                  {(templates.length > 0 || myTemplates.length > 0) && (
-                    <div className="relative w-full sm:w-64">
-                      <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input
-                        type="text"
-                        value={templateSearch}
-                        onChange={(e) => { setTemplateSearch(e.target.value); setTemplatePage(1) }}
-                        placeholder="Rechercher un template…"
-                        className="input pl-9 py-2 text-sm w-full"
-                      />
-                    </div>
-                  )}
-                </div>
-                {templates.length === 0 && myTemplates.length === 0 ? (
-                  <div className="text-center py-6 bg-gray-50 rounded-xl">
-                    <HeartIcon className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                    <p className="text-gray-500 text-sm">
-                      Aucun template disponible pour le type « {selectedEventMeta.label} » pour le moment
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                      {filteredMyTemplates.length > 0 && (
-                        <div>
-                          <p className="text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2 flex items-center gap-1">
-                            <UserIcon className="h-3.5 w-3.5" /> Mes templates personnalisés
-                          </p>
-                          <div className="grid grid-cols-2 gap-3">
-                            {filteredMyTemplates.map((tmpl) => (
-                              <label key={tmpl.id} className={`cursor-pointer rounded-xl border-2 overflow-hidden transition-all ${
-                                watch('templateId') === tmpl.id ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-primary-100 hover:border-primary-300 hover:shadow-sm'
-                              }`}>
-                                <input type="radio" value={tmpl.id} className="hidden" {...register('templateId')} />
-                                <div className="aspect-[3/4] bg-gradient-wedding flex items-center justify-center relative">
-                                  <TemplatePreview template={tmpl} weddingData={previewWeddingData} />
-                                  {watch('templateId') === tmpl.id && (
-                                    <div className="absolute inset-0 bg-primary-600/10 flex items-center justify-center">
-                                      <div className="bg-primary-600 text-white rounded-full p-1.5">
-                                        <EyeIcon className="h-4 w-4" />
-                                      </div>
-                                    </div>
-                                  )}
-                                  <span className="absolute top-2 left-2 bg-primary-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
-                                    <UserIcon className="h-2.5 w-2.5" /> Mon template
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewTmpl(tmpl) }}
-                                    className="absolute bottom-2 right-2 inline-flex items-center gap-1 bg-white/90 hover:bg-white text-gray-800 text-[10px] font-semibold px-2 py-1 rounded-full shadow"
-                                  >
-                                    <EyeIcon className="h-3 w-3" /> Aperçu
-                                  </button>
-                                </div>
-                                <div className="p-2">
-                                  <p className="font-medium text-sm text-gray-900 truncate">{tmpl.name}</p>
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-xs text-primary-500">Personnalisé</p>
-                                    <p className="text-xs font-bold text-primary-600">
-                                      {parseFloat(tmpl.pricePerInvitation) > 0 ? `${parseFloat(tmpl.pricePerInvitation).toLocaleString('fr-FR')} FC/inv.` : 'Gratuit'}
-                                    </p>
-                                  </div>
-                                </div>
-                              </label>
-                            ))}
-                          </div>
-                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-4 mb-2">Templates globaux</p>
-                        </div>
-                      )}
-                      {filteredMyTemplates.length === 0 && filteredTemplates.length === 0 && (
-                        <div className="text-center py-8 bg-gray-50 rounded-xl">
-                          <MagnifyingGlassIcon className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                          <p className="text-sm text-gray-500">Aucun template ne correspond à « {templateSearch} »</p>
-                        </div>
-                      )}
-                      <div className="grid grid-cols-2 gap-3">
-                        {pagedTemplates.map((tmpl) => (
-                          <label key={tmpl.id} className={`cursor-pointer rounded-xl border-2 overflow-hidden transition-all ${
-                            watch('templateId') === tmpl.id ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                          }`}>
-                            <input type="radio" value={tmpl.id} className="hidden" {...register('templateId')} />
-                            <div className="aspect-[3/4] bg-gradient-wedding flex items-center justify-center relative">
-                              <TemplatePreview template={tmpl} weddingData={{ brideName: watch('brideName'), groomName: watch('groomName'), weddingDate: watch('weddingDate'), communeTime: watch('communeTime'), egliseTime: watch('egliseTime'), receptionStartTime: watch('receptionStartTime'), communeVenue: watch('communeVenue'), egliseVenue: watch('egliseVenue'), receptionVenue: watch('receptionVenue') }} />
-                              {watch('templateId') === tmpl.id && (
-                                <div className="absolute inset-0 bg-primary-600/10 flex items-center justify-center">
-                                  <div className="bg-primary-600 text-white rounded-full p-1.5">
-                                    <EyeIcon className="h-4 w-4" />
-                                  </div>
-                                </div>
-                              )}
-                              {tmpl.isPremium && (
-                                <span className="absolute top-2 right-2 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">Premium</span>
-                              )}
-                              <button
-                                type="button"
-                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPreviewTmpl(tmpl) }}
-                                className="absolute bottom-2 right-2 inline-flex items-center gap-1 bg-white/90 hover:bg-white text-gray-800 text-[10px] font-semibold px-2 py-1 rounded-full shadow"
-                              >
-                                <EyeIcon className="h-3 w-3" /> Aperçu
-                              </button>
-                            </div>
-                            <div className="p-2">
-                              <p className="font-medium text-sm text-gray-900 truncate">{tmpl.name}</p>
-                              <div className="flex items-center justify-between">
-                                <p className="text-xs text-gray-500">{TEMPLATE_CATEGORIES[tmpl.category] || tmpl.category}</p>
-                                <p className="text-xs font-bold text-primary-600">
-                                  {parseFloat(tmpl.pricePerInvitation) > 0 ? `${parseFloat(tmpl.pricePerInvitation).toLocaleString('fr-FR')} FC/inv.` : 'Gratuit'}
-                                </p>
-                              </div>
-                            </div>
-                          </label>
-                        ))}
+                <div className="space-y-4">
+                  {filteredMyTemplates.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2 flex items-center gap-1">
+                        <UserIcon className="h-3.5 w-3.5" /> Mes modèles personnalisés
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {filteredMyTemplates.map((tmpl) => templateCard(tmpl, true))}
                       </div>
-
-                      {/* Pagination (global templates) */}
-                      {totalTemplatePages > 1 && (
-                        <div className="flex items-center justify-center gap-2 pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setTemplatePage(p => Math.max(1, p - 1))}
-                            disabled={safeTemplatePage <= 1}
-                            className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
-                          >
-                            ‹ Précédent
-                          </button>
-                          <span className="text-sm text-gray-500">
-                            Page {safeTemplatePage} / {totalTemplatePages}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setTemplatePage(p => Math.min(totalTemplatePages, p + 1))}
-                            disabled={safeTemplatePage >= totalTemplatePages}
-                            className="px-3 py-1.5 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
-                          >
-                            Suivant ›
-                          </button>
-                        </div>
-                      )}
+                      <p className="text-xs font-semibold text-muted uppercase tracking-wider mt-5 mb-2">Catalogue</p>
                     </div>
-                )}
-              </div>
+                  )}
+                  {filteredMyTemplates.length === 0 && filteredTemplates.length === 0 && (
+                    <div className="text-center py-8 bg-surface-2 rounded-xl">
+                      <MagnifyingGlassIcon className="h-8 w-8 text-muted mx-auto mb-2" />
+                      <p className="text-sm text-muted">Aucun modèle ne correspond à « {templateSearch} »</p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {pagedTemplates.map((tmpl) => templateCard(tmpl))}
+                  </div>
 
-              {/* Dynamic per-placeholder image uploads (multi-image templates) */}
-              {watch('templateId') && photoPlaceholders.length > 0 && (
-                <div className="border-t pt-6">
-                  <h3 className="font-medium text-gray-900 mb-1">
+                  {totalTemplatePages > 1 && (
+                    <div className="flex items-center justify-center gap-2 pt-2">
+                      <button type="button" onClick={() => setTemplatePage(p => Math.max(1, p - 1))} disabled={safeTemplatePage <= 1}
+                        className="px-3 py-1.5 text-sm rounded-lg border border-border text-muted hover:bg-surface-2 disabled:opacity-40">
+                        ‹ Précédent
+                      </button>
+                      <span className="text-sm text-muted">Page {safeTemplatePage} / {totalTemplatePages}</span>
+                      <button type="button" onClick={() => setTemplatePage(p => Math.min(totalTemplatePages, p + 1))} disabled={safeTemplatePage >= totalTemplatePages}
+                        className="px-3 py-1.5 text-sm rounded-lg border border-border text-muted hover:bg-surface-2 disabled:opacity-40">
+                        Suivant ›
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Per-placeholder photos (multi-image templates) */}
+              {templateId && photoPlaceholders.length > 0 && (
+                <div className="border-t border-border pt-6">
+                  <h3 className="font-medium text-content mb-1 flex items-center gap-2">
+                    <PhotoIcon className="h-5 w-5 text-primary-500" />
                     Photos de l'invitation
-                    <span className="ml-2 text-xs font-normal text-gray-400">
-                      ({photoPlaceholders.length} emplacement{photoPlaceholders.length > 1 ? 's' : ''})
-                    </span>
+                    <span className="text-xs font-normal text-muted">({photoPlaceholders.length} emplacement{photoPlaceholders.length > 1 ? 's' : ''})</span>
                   </h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Ce template contient {photoPlaceholders.length} emplacement{photoPlaceholders.length > 1 ? 's' : ''} photo.
-                    Chargez une image pour chacun — chaque emplacement reçoit sa propre photo.
-                  </p>
+                  <p className="text-sm text-muted mb-4">Facultatif — vous pourrez aussi les ajouter plus tard.</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {photoPlaceholders.map((ph, i) => {
                       const preview = templateImagePreviews[ph.id]
                       return (
                         <div key={ph.id} className="space-y-1">
                           <label className="block cursor-pointer">
-                            <div className={`aspect-square rounded-xl border-2 ${preview ? 'border-primary-300' : 'border-dashed border-gray-300'} overflow-hidden bg-gray-50 flex items-center justify-center hover:border-primary-400 transition-colors`}>
+                            <div className={`aspect-square rounded-xl border-2 ${preview ? 'border-primary-300' : 'border-dashed border-border'} overflow-hidden bg-surface-2 flex items-center justify-center hover:border-primary-400 transition-colors`}>
                               {preview ? (
                                 <img src={preview} alt={ph.label || `Photo ${i + 1}`} className="w-full h-full object-cover" />
                               ) : (
-                                <div className="text-center text-gray-400 p-2">
+                                <div className="text-center text-muted p-2">
                                   <PhotoIcon className="h-7 w-7 mx-auto mb-1" />
                                   <span className="text-[11px]">Ajouter</span>
                                 </div>
                               )}
                             </div>
-                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleTemplateImageChange(ph.id, e)} />
+                            <input type="file" accept="image/*" className="sr-only" onChange={(e) => handleTemplateImageChange(ph.id, e)} />
                           </label>
-                          <p className="text-xs text-center text-gray-600 truncate">{ph.label || `Photo ${i + 1}`}</p>
+                          <p className="text-xs text-center text-muted truncate">{ph.label || `Photo ${i + 1}`}</p>
                           {preview && (
                             <button
                               type="button"
@@ -1012,111 +620,183 @@ export default function WeddingCreate() {
             </div>
           )}
 
-          {/* ===================== STEP PREVIEW ===================== */}
-          {step === STEP_PREVIEW && (
-            <div className="space-y-6">
-              <h2 className="text-xl font-serif font-bold text-gray-900 mb-2 flex items-center">
-                <EyeIcon className="h-6 w-6 mr-2 text-primary-500" />
-                Visualisez votre invitation
-              </h2>
-              <p className="text-gray-600">
-                Voici un aperçu de votre invitation avec vos informations. Cliquez sur l'aperçu pour l'agrandir.
-              </p>
+          {/* ===================== Infos (per type) ===================== */}
+          {stepKey === 'info' && (
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-xl font-serif font-bold text-content flex items-center">
+                  <selectedEventMeta.icon className="h-6 w-6 mr-2 text-primary-500" />
+                  {isCouple ? 'Les mariés' : isHonoree ? identityStepLabel(eventType) : 'Votre événement'}
+                </h2>
+                <p className="text-muted mt-1 text-sm">
+                  Les champs marqués * sont obligatoires.{selectedTemplate ? ' Seuls les champs utilisés par votre modèle sont affichés.' : ''}
+                </p>
+              </div>
 
-              {selectedTemplateForImages ? (
-                <div className="flex flex-col items-center">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewTmpl(selectedTemplateForImages)}
-                    className="group relative w-full max-w-sm rounded-xl overflow-hidden shadow-lg border border-gray-200 hover:shadow-xl transition-shadow"
-                    title="Cliquer pour agrandir"
-                  >
-                    <TemplatePreview template={selectedTemplateForImages} adaptive weddingData={previewWeddingData} />
-                    <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
-                      <span className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-1 px-3 py-1.5 bg-white/90 rounded-full text-sm font-medium text-gray-800 transition-opacity">
-                        <EyeIcon className="h-4 w-4" /> Agrandir
-                      </span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewTmpl(selectedTemplateForImages)}
-                    className="btn-secondary btn-sm mt-4"
-                  >
-                    <EyeIcon className="h-4 w-4 mr-1" /> Agrandir l'aperçu
-                  </button>
-
-                  <div className="mt-6 w-full max-w-md bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-700">
-                    💡 Cet aperçu est donné à titre indicatif. Les invitations définitives (avec QR code
-                    personnalisé par invité) seront générées depuis la page <strong>Invitations</strong> de l'événement.
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
-                  <p className="text-amber-700 text-sm">
-                    Aucun template sélectionné. Revenez à l'étape <strong>Design</strong> pour en choisir un.
-                  </p>
-                  <button type="button" onClick={() => setStep(STEP_DESIGN)} className="btn-secondary btn-sm mt-3">
-                    Choisir un template
-                  </button>
+              <div className="space-y-6">
+                <IdentityFields eventType={eventType} register={register} errors={errors} watch={watch} serverError={getServerError} />
+              </div>
+              <div className="border-t border-border pt-6">
+                <VenueFields eventType={eventType} register={register} showField={showField} />
+              </div>
+              <div className="border-t border-border pt-6">
+                <MessageFields eventType={eventType} register={register} showField={showField} />
+              </div>
+              {eventUsesTables(eventType) && (
+                <div className="border-t border-border pt-6">
+                  <TablesEditor value={values.tables || []} onChange={(v) => setValue('tables', v)} />
                 </div>
               )}
+              <div className="border-t border-border pt-6">
+                <DrinkOptionsEditor value={values.drinkOptions || []} onChange={(v) => setValue('drinkOptions', v)} />
+              </div>
             </div>
           )}
 
-          {/* Navigation */}
-          <div className="flex items-center justify-between mt-8 pt-6 border-t">
-            {step > STEP_TYPE ? (
-              <button type="button" onClick={() => setStep(step - 1)} className="btn-secondary">Précédent</button>
-            ) : <div />}
+          {/* ===================== Programme (weddings) ===================== */}
+          {stepKey === 'programme' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-serif font-bold text-content flex items-center">
+                  <CalendarDaysIcon className="h-6 w-6 mr-2 text-primary-500" />
+                  Programme du mariage
+                </h2>
+                <p className="text-muted mt-1 text-sm">Renseignez les étapes de votre journée — toutes sont facultatives.</p>
+              </div>
+              <ProgrammeFields register={register} showField={showField} />
+            </div>
+          )}
 
-            {step < totalSteps ? (
-              <button type="button" onClick={() => setStep(step + 1)} className="btn-primary">Suivant</button>
+          {/* ===================== Récapitulatif ===================== */}
+          {stepKey === 'review' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-serif font-bold text-content flex items-center">
+                  <ClipboardDocumentCheckIcon className="h-6 w-6 mr-2 text-primary-500" />
+                  Vérifiez avant de créer
+                </h2>
+                <p className="text-muted mt-1 text-sm">
+                  Relisez votre invitation et vos informations. Rien n'est créé tant que vous n'avez pas cliqué sur « Créer l'événement ».
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-[minmax(0,300px)_1fr] gap-6 items-start">
+                {/* Invitation preview */}
+                <div>
+                  {selectedTemplate ? (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewTmpl(selectedTemplate)}
+                      className="group relative block w-full max-w-xs mx-auto rounded-xl overflow-hidden shadow-lg border border-border hover:shadow-xl transition-shadow"
+                      title="Agrandir l'aperçu"
+                    >
+                      <TemplatePreview template={selectedTemplate} adaptive weddingData={previewWeddingData} />
+                      <span className="absolute inset-x-0 bottom-0 flex justify-center p-3 bg-gradient-to-t from-black/50 to-transparent">
+                        <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-white/95 rounded-full text-xs font-semibold text-gray-800">
+                          <EyeIcon className="h-4 w-4" /> Agrandir
+                        </span>
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="aspect-[3/4] max-w-xs mx-auto rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center text-center p-6 bg-surface-2">
+                      <SwatchIcon className="h-10 w-10 text-muted mb-2" />
+                      <p className="text-sm text-muted">Aucun modèle choisi</p>
+                      {hasTemplates && (
+                        <button type="button" onClick={() => goTo(stepIndex('design'))} className="btn-secondary btn-sm mt-3">
+                          Choisir un modèle
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Recap */}
+                <div className="rounded-xl border border-border p-4 sm:p-5">
+                  <EventSummary
+                    eventType={eventType}
+                    values={values}
+                    template={selectedTemplate}
+                    showProgramme={hasProgramme}
+                    onEdit={(section) => goTo(stepIndex(section === 'programme' && !hasProgramme ? 'info' : section))}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:bg-blue-500/10 dark:border-blue-500/30 dark:text-blue-300">
+                <InformationCircleIcon className="h-5 w-5 shrink-0 mt-0.5" />
+                <p>
+                  Après la création, vous ajouterez vos invités puis générerez les invitations (une par invité, avec son QR code)
+                  depuis la page <strong>Invitations</strong>. Tout reste modifiable ensuite.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Navigation — Next and Create are distinct elements (keys) and
+              neither is a native submit button. */}
+          <div className="flex items-center justify-between gap-3 mt-8 pt-6 border-t border-border">
+            {safeStep > 0 ? (
+              <button key="prev" type="button" onClick={() => goTo(safeStep - 1)} className="btn-secondary inline-flex items-center gap-1">
+                <ArrowLeftIcon className="h-4 w-4" /> Précédent
+              </button>
+            ) : <span />}
+
+            {!isLastStep ? (
+              <button key="next" type="button" onClick={goNext} className="btn-primary inline-flex items-center gap-1">
+                {STEPS[safeStep + 1]?.key === 'review' ? 'Voir le récapitulatif' : 'Suivant'} <ArrowRightIcon className="h-4 w-4" />
+              </button>
             ) : (
-              <button type="submit" disabled={createMutation.isLoading} className="btn-primary">
+              <button key="create" type="button" onClick={createEvent} disabled={createMutation.isLoading} className="btn-primary inline-flex items-center gap-2">
                 {createMutation.isLoading ? (
-                  <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
-                    Création...
-                  </span>
-                ) : 'Créer l\'événement'}
+                    Création…
+                  </>
+                ) : (
+                  <><CheckIcon className="h-5 w-5" /> Créer l'événement</>
+                )}
               </button>
             )}
           </div>
         </div>
       </form>
 
-      {/* Large template preview modal */}
+      {/* Large template preview */}
       {previewTmpl && (
         <div
           className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
           onClick={() => setPreviewTmpl(null)}
+          role="dialog"
+          aria-modal="true"
         >
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[92vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white p-4 border-b flex items-center justify-between">
+          <div className="bg-surface rounded-2xl shadow-2xl max-w-lg w-full max-h-[92vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-surface p-4 border-b border-border flex items-center justify-between z-10">
               <div>
-                <h3 className="text-lg font-serif font-bold text-gray-900">{previewTmpl.name}</h3>
-                <p className="text-xs font-semibold text-primary-600">
-                  {parseFloat(previewTmpl.pricePerInvitation) > 0 ? `${parseFloat(previewTmpl.pricePerInvitation).toLocaleString('fr-FR')} FC / invitation` : 'Gratuit'}
-                </p>
+                <h3 className="text-lg font-serif font-bold text-content">{previewTmpl.name}</h3>
+                <p className="text-xs font-semibold text-primary-600">{priceLabel(previewTmpl)}</p>
               </div>
-              <button onClick={() => setPreviewTmpl(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+              <button type="button" onClick={() => setPreviewTmpl(null)} className="text-muted hover:text-content text-xl leading-none" aria-label="Fermer">✕</button>
             </div>
             <div className="p-6 flex justify-center">
-              <div className="w-full max-w-sm bg-white shadow-lg rounded-lg overflow-hidden">
+              <div className="w-full max-w-sm shadow-lg rounded-lg overflow-hidden">
                 <TemplatePreview template={previewTmpl} adaptive weddingData={previewWeddingData} />
               </div>
             </div>
-            <div className="p-4 border-t flex justify-center">
-              <button
-                onClick={() => { setValue('templateId', previewTmpl.id); setPreviewTmpl(null) }}
-                className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors"
-              >
-                Choisir ce template
-              </button>
+            <div className="p-4 border-t border-border flex justify-center">
+              {stepKey === 'review' ? (
+                <button type="button" onClick={() => setPreviewTmpl(null)} className="btn-secondary">Fermer</button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { setValue('templateId', previewTmpl.id); setPreviewTmpl(null) }}
+                  className="btn-primary"
+                >
+                  {templateId === previewTmpl.id ? 'Modèle choisi ✓' : 'Choisir ce modèle'}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
@@ -9,20 +9,19 @@ import TemplatePreview from '../../components/templates/TemplatePreview'
 import ImageUpload from '../../components/common/ImageUpload'
 import TablesEditor from '../../components/TablesEditor'
 import DrinkOptionsEditor from '../../components/DrinkOptionsEditor'
-import { eventUsesCouple, eventUsesHonoree, eventUsesFreeTitle, eventUsesTables, honoreeFieldLabel, getEventDisplayTitle } from '../../utils/eventTypes'
 import {
-  ArrowLeftIcon, TrashIcon, BuildingLibraryIcon, MusicalNoteIcon,
-  CalendarDaysIcon, HeartIcon,
-  SparklesIcon,
-  SwatchIcon, ExclamationTriangleIcon,
-  EyeIcon, UserIcon, PhotoIcon, PaintBrushIcon, LockClosedIcon, GiftIcon, PrinterIcon
+  Section, IdentityFields, VenueFields, ProgrammeFields, MessageFields, identityStepLabel
+} from '../../components/events/EventFields'
+import {
+  EVENT_TYPE_LABELS, eventUsesCouple, eventUsesHonoree, eventUsesFreeTitle, eventUsesTables, getEventDisplayTitle
+} from '../../utils/eventTypes'
+import { getVisibleFields, templateUsesProgramme } from '../../utils/templateVariables'
+import {
+  ArrowLeftIcon, TrashIcon, MusicalNoteIcon, CalendarDaysIcon, HeartIcon,
+  SwatchIcon, ExclamationTriangleIcon, EyeIcon, UserIcon, PhotoIcon, PaintBrushIcon,
+  LockClosedIcon, GiftIcon, PrinterIcon, UserGroupIcon, AdjustmentsHorizontalIcon,
+  CheckCircleIcon, MagnifyingGlassIcon, CheckIcon
 } from '@heroicons/react/24/outline'
-
-const ChurchIcon = ({ className }) => (
-  <svg className={className} fill="currentColor" viewBox="0 0 24 24">
-    <path d="M18 12.22V9l-5-2.5V5h1V3h-1V1h-2v2h-1v2h1v1.5L6 9v3.22l-2 1V22h8v-3c0-1.1.9-2 2-2s2 .9 2 2v3h8v-8.78l-2-1zM12 13.5c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" />
-  </svg>
-)
 
 const TEMPLATE_CATEGORIES = {
   ELEGANT: 'Élégant',
@@ -32,33 +31,45 @@ const TEMPLATE_CATEGORIES = {
   TRADITIONAL: 'Traditionnel'
 }
 
+const STATUS_OPTIONS = [
+  { value: 'DRAFT', label: 'Brouillon', hint: 'En préparation' },
+  { value: 'ACTIVE', label: 'Actif', hint: 'Invitations en cours' },
+  { value: 'COMPLETED', label: 'Terminé', hint: 'L\'événement a eu lieu' },
+  { value: 'CANCELLED', label: 'Annulé', hint: 'Événement annulé' }
+]
+
+const TEMPLATES_PER_PAGE = 9
+
+const toDateInput = (v) => (v ? String(v).split('T')[0] : '')
+
 export default function WeddingEdit() {
   const { id } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [templateSearch, setTemplateSearch] = useState('')
+  const [templatePage, setTemplatePage] = useState(1)
 
   const { data: weddingData, isLoading } = useQuery(['wedding', id], () => weddingAPI.getOne(id))
   const wedding = weddingData?.data?.wedding
-  // Event type is fixed at creation - this page only adapts which fields it shows.
-  const isWedding = !wedding?.eventType || wedding.eventType === 'WEDDING'
-  const isCouple = eventUsesCouple(wedding?.eventType)       // WEDDING + DOT → bride/groom
-  const isHonoree = eventUsesHonoree(wedding?.eventType)     // BIRTHDAY + CEREMONY → honoree name
-  const isFreeTitle = eventUsesFreeTitle(wedding?.eventType) // CONFERENCE + OTHER → free title
-  const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
+  // The event type is fixed at creation — the page adapts its fields to it.
+  const eventType = wedding?.eventType || 'WEDDING'
+  const isWedding = eventType === 'WEDDING'
+  const isCouple = eventUsesCouple(eventType)
+  const isHonoree = eventUsesHonoree(eventType)
+  const isFreeTitle = eventUsesFreeTitle(eventType)
 
-  // Only show templates designed for this event's type
   const { data: templatesData } = useQuery(
-    ['templates', wedding?.eventType],
-    () => templateAPI.getAll({ eventType: wedding?.eventType || 'WEDDING' }),
+    ['templates', eventType],
+    () => templateAPI.getAll({ eventType }),
     { enabled: !!wedding }
   )
   const { data: myTemplatesData } = useQuery('my-templates', () => templateAPI.getMyTemplates())
-
   const templates = templatesData?.data?.templates || []
-  const myTemplates = (myTemplatesData?.data?.templates || []).filter(t => (t.eventType || 'WEDDING') === (wedding?.eventType || 'WEDDING'))
+  const myTemplates = (myTemplatesData?.data?.templates || []).filter(t => (t.eventType || 'WEDDING') === eventType)
 
   const {
-    register, handleSubmit, watch, setValue,
+    register, handleSubmit, watch, setValue, reset,
     formState: { errors, isDirty }
   } = useForm({
     values: wedding ? {
@@ -73,7 +84,7 @@ export default function WeddingEdit() {
       giftRegistryMessage: wedding.giftRegistryMessage || '',
       printBackEnabled: wedding.printBackEnabled || false,
       printBackText: wedding.printBackText || '',
-      weddingDate: wedding.weddingDate?.split('T')[0],
+      weddingDate: toDateInput(wedding.weddingDate),
       ceremonyTime: wedding.ceremonyTime || '',
       venueName: wedding.venueName || '',
       venueAddress: wedding.venueAddress || '',
@@ -82,65 +93,76 @@ export default function WeddingEdit() {
       customMessage: wedding.customMessage || '',
       templateId: wedding.templateId || '',
       status: wedding.status,
-      // Programme
-      communeDate: wedding.communeDate?.split('T')[0] || '',
+      communeDate: toDateInput(wedding.communeDate),
       communeTime: wedding.communeTime || '',
       communeVenue: wedding.communeVenue || '',
       communeAddress: wedding.communeAddress || '',
-      egliseDate: wedding.egliseDate?.split('T')[0] || '',
+      egliseDate: toDateInput(wedding.egliseDate),
       egliseTime: wedding.egliseTime || '',
       egliseVenue: wedding.egliseVenue || '',
       egliseAddress: wedding.egliseAddress || '',
-      receptionDate: wedding.receptionDate?.split('T')[0] || '',
+      receptionDate: toDateInput(wedding.receptionDate),
       receptionStartTime: wedding.receptionStartTime || '',
       receptionVenue: wedding.receptionVenue || '',
       receptionAddress: wedding.receptionAddress || '',
-      // Extra
-      rsvpDeadline: wedding.rsvpDeadline?.split('T')[0] || '',
+      rsvpDeadline: toDateInput(wedding.rsvpDeadline),
       additionalInfo: wedding.additionalInfo || ''
     } : undefined
   })
 
-  const selectedTemplateId = watch('templateId')
+  const values = watch()
+  const selectedTemplateId = values.templateId
+  const selectedTemplate = [...myTemplates, ...templates].find(t => t.id === selectedTemplateId)
+  const isOwnTemplate = myTemplates.some(t => t.id === selectedTemplateId)
 
-  // Photo placeholders of the bound template - drives the per-placeholder uploads
-  const selectedTemplateForImages = [...myTemplates, ...templates].find(t => t.id === selectedTemplateId)
-  const photoPlaceholders = (selectedTemplateForImages?.config?.designElements || [])
-    .filter(el => el.type === 'photo')
+  // Same rule as the creation wizard: only the fields the template uses.
+  const visibleFields = selectedTemplate ? getVisibleFields(selectedTemplate) : null
+  const showField = (name) => !visibleFields || visibleFields.has(name)
+  const hasProgramme = isWedding && (!selectedTemplate || templateUsesProgramme(selectedTemplate))
+
+  const photoPlaceholders = (selectedTemplate?.config?.designElements || []).filter(el => el.type === 'photo')
   const weddingTemplateImages = (wedding?.templateImages && typeof wedding.templateImages === 'object')
     ? wedding.templateImages : {}
 
-  // Shared live-preview data so canvas tokens ({{event_title}}, {{venue_name}}...)
-  // reflect what the user has typed so far, for wedding and non-wedding types alike.
   const previewWeddingData = {
-    eventType: wedding?.eventType,
-    eventTitle: watch('eventTitle'),
-    honoreeName: watch('honoreeName'),
-    brideName: watch('brideName'),
-    groomName: watch('groomName'),
-    weddingDate: watch('weddingDate'),
-    ceremonyTime: watch('ceremonyTime'),
-    venueName: watch('venueName'),
-    venueAddress: watch('venueAddress'),
-    customMessage: watch('customMessage'),
-    communeTime: watch('communeTime'),
-    communeVenue: watch('communeVenue'),
-    egliseTime: watch('egliseTime'),
-    egliseVenue: watch('egliseVenue'),
-    receptionStartTime: watch('receptionStartTime'),
-    receptionVenue: watch('receptionVenue'),
-    receptionDate: watch('receptionDate')
+    eventType,
+    templateImages: weddingTemplateImages,
+    eventTitle: values.eventTitle,
+    honoreeName: values.honoreeName,
+    brideName: values.brideName,
+    groomName: values.groomName,
+    weddingDate: values.weddingDate,
+    ceremonyTime: values.ceremonyTime,
+    venueName: values.venueName,
+    venueAddress: values.venueAddress,
+    customMessage: values.customMessage,
+    additionalInfo: values.additionalInfo,
+    communeTime: values.communeTime,
+    communeVenue: values.communeVenue,
+    egliseTime: values.egliseTime,
+    egliseVenue: values.egliseVenue,
+    receptionStartTime: values.receptionStartTime,
+    receptionVenue: values.receptionVenue,
+    receptionDate: values.receptionDate
   }
+
+  // Warn before leaving with unsaved changes.
+  useEffect(() => {
+    if (!isDirty) return
+    const onBeforeUnload = (e) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [isDirty])
 
   const updateMutation = useMutation(
     (data) => weddingAPI.update(id, data),
     {
       onSuccess: () => {
-        toast.success('Événement mis à jour avec succès')
+        toast.success('Modifications enregistrées')
         queryClient.invalidateQueries(['wedding', id])
       },
       onError: (error) => {
-        toast.error(error.response?.data?.error || 'Erreur lors de la mise à jour')
+        toast.error(error.response?.data?.details?.[0]?.message || error.response?.data?.error || 'Erreur lors de la mise à jour')
       }
     }
   )
@@ -153,11 +175,8 @@ export default function WeddingEdit() {
     }
   )
 
-  // Clone a shared/marketplace template into the client's own copy — points
-  // this wedding at the clone and drops it straight into the visual editor so
-  // they can adapt colors/background/layout to their event. The original
-  // creator still earns their commission (the clone keeps a lineage pointer
-  // back to the marketplace template, see backend fork route).
+  // Clone a shared/marketplace template into the client's own copy and open
+  // it in the visual editor (the original creator keeps their commission).
   const forkTemplateMutation = useMutation(
     (templateId) => templateAPI.fork(templateId, id),
     {
@@ -165,30 +184,27 @@ export default function WeddingEdit() {
         const forkedId = res.data?.template?.id
         queryClient.invalidateQueries('my-templates')
         queryClient.invalidateQueries(['wedding', id])
-        toast.success('Template dupliqué — personnalisez-le à votre goût')
+        toast.success('Modèle dupliqué — personnalisez-le à votre goût')
         if (forkedId) navigate(`/templates/${forkedId}/design?wedding=${id}`)
       },
-      onError: (error) => toast.error(error.response?.data?.error || 'Erreur lors de la duplication du template')
+      onError: (error) => toast.error(error.response?.data?.error || 'Erreur lors de la duplication du modèle')
     }
   )
-  const handlePersonalize = (e, templateId) => {
-    e.preventDefault()
-    e.stopPropagation()
-    forkTemplateMutation.mutate(templateId)
+
+  const confirmLeaveIfDirty = async () => {
+    if (!isDirty) return true
+    return confirmDialog({
+      title: 'Modifications non enregistrées',
+      message: 'Vos modifications seront perdues si vous quittez cette page.',
+      confirmText: 'Quitter sans enregistrer'
+    })
   }
 
-  const uploadPhotoMutation = useMutation(
-    ({ file, onProgress }) => weddingAPI.uploadCouplePhoto(id, file, onProgress),
-    {
-      onSuccess: () => {
-        toast.success('Photo des mariés mise à jour')
-        queryClient.invalidateQueries(['wedding', id])
-      },
-      onError: (error) => toast.error(error.response?.data?.error || "Erreur lors de l'upload")
-    }
-  )
-  const handlePhotoUpload = (file, filename, onProgress) =>
-    uploadPhotoMutation.mutateAsync({ file, onProgress })
+  const handlePersonalize = async (e, templateId) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (await confirmLeaveIfDirty()) forkTemplateMutation.mutate(templateId)
+  }
 
   const musicInputRef = useRef(null)
   const [musicUploadProgress, setMusicUploadProgress] = useState(null)
@@ -217,7 +233,7 @@ export default function WeddingEdit() {
     uploadMusicMutation.mutate({ file, onProgress: setMusicUploadProgress })
   }
 
-  // One upload handler per template photo placeholder (multi-image templates)
+  // One upload handler per template photo placeholder
   const makeTemplateImageUpload = (placeholderId) => async (file, filename, onProgress) => {
     const res = await weddingAPI.uploadTemplateImage(id, placeholderId, file, onProgress)
     queryClient.invalidateQueries(['wedding', id])
@@ -228,7 +244,7 @@ export default function WeddingEdit() {
   const cleanValue = (val) => (val === '' || val === undefined) ? null : val
 
   // Once invitations exist, only the template is frozen (its layout/QR are
-  // baked into invitations already issued) — every other field stays editable.
+  // baked into invitations already issued) — everything else stays editable.
   const templateLocked = (wedding?._count?.invitations || 0) > 0
 
   const onSubmit = (data) => {
@@ -238,23 +254,20 @@ export default function WeddingEdit() {
       templateId: cleanValue(data.templateId),
       status: data.status,
       ceremonyTime: cleanValue(data.ceremonyTime),
-      // Main address — every event type has one
       venueName: cleanValue(data.venueName),
       venueAddress: cleanValue(data.venueAddress),
       venueCity: cleanValue(data.venueCity),
       venueMapUrl: cleanValue(data.venueMapUrl),
-      // Identity fields, per event type
       ...(isCouple ? { brideName: data.brideName, groomName: data.groomName } : {}),
       ...(isHonoree ? { honoreeName: data.honoreeName } : {}),
       ...(isFreeTitle ? { eventTitle: data.eventTitle } : {}),
-      ...(eventUsesTables(wedding?.eventType) ? { tables: data.tables || [] } : {}),
+      ...(eventUsesTables(eventType) ? { tables: data.tables || [] } : {}),
       drinkOptions: data.drinkOptions || [],
       giftRegistryEnabled: !!data.giftRegistryEnabled,
       giftRegistryGoal: data.giftRegistryGoal === '' ? null : parseFloat(data.giftRegistryGoal),
       giftRegistryMessage: cleanValue(data.giftRegistryMessage),
       printBackEnabled: !!data.printBackEnabled,
       printBackText: cleanValue(data.printBackText),
-      // Programme — weddings only
       ...(isWedding ? {
         communeDate: data.communeDate ? new Date(data.communeDate).toISOString() : null,
         communeTime: cleanValue(data.communeTime),
@@ -269,25 +282,41 @@ export default function WeddingEdit() {
         receptionVenue: cleanValue(data.receptionVenue),
         receptionAddress: cleanValue(data.receptionAddress)
       } : {}),
-      // Le style du QR code se règle désormais dans l'éditeur de template
-      // (côté créateur/admin) — le client ne peut plus l'altérer ici.
-      // Extra
       rsvpDeadline: data.rsvpDeadline ? new Date(data.rsvpDeadline).toISOString() : null,
       additionalInfo: cleanValue(data.additionalInfo)
     }
     updateMutation.mutate(submitData)
   }
 
+  const onInvalid = (errs) => {
+    const first = Object.keys(errs)[0]
+    document.getElementById(first)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    toast.error('Certains champs obligatoires sont vides')
+  }
+
   const handleDelete = async () => {
     const ok = await confirmDialog({
       title: 'Supprimer l’événement',
-      message: 'Êtes-vous sûr de vouloir supprimer cet événement ? Cette action est irréversible.',
-      confirmText: 'Supprimer'
+      message: 'Les invités, invitations et réponses de cet événement seront supprimés. Cette action est irréversible.',
+      confirmText: 'Supprimer définitivement'
     })
     if (ok) deleteMutation.mutate()
   }
 
-  if (isLoading) {
+  const goBack = async () => {
+    if (await confirmLeaveIfDirty()) navigate(`/weddings/${id}`)
+  }
+
+  // Template list: search + pagination (the whole catalogue is loaded).
+  const q = templateSearch.trim().toLowerCase()
+  const matches = (t) => !q || (t.name || '').toLowerCase().includes(q) ||
+    (TEMPLATE_CATEGORIES[t.category] || '').toLowerCase().includes(q)
+  const filteredTemplates = templates.filter(matches)
+  const totalTemplatePages = Math.max(1, Math.ceil(filteredTemplates.length / TEMPLATES_PER_PAGE))
+  const safeTemplatePage = Math.min(templatePage, totalTemplatePages)
+  const pagedTemplates = filteredTemplates.slice((safeTemplatePage - 1) * TEMPLATES_PER_PAGE, safeTemplatePage * TEMPLATES_PER_PAGE)
+
+  if (isLoading || !wedding) {
     return (
       <div className="py-12 text-center">
         <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>
@@ -295,641 +324,409 @@ export default function WeddingEdit() {
     )
   }
 
+  const NAV = [
+    { id: 'info', label: identityStepLabel(eventType) === 'Événement' ? 'Informations' : identityStepLabel(eventType) },
+    ...(hasProgramme ? [{ id: 'programme', label: 'Programme' }] : []),
+    ...(photoPlaceholders.length > 0 ? [{ id: 'photos', label: 'Photos' }] : []),
+    { id: 'guests', label: 'Invités' },
+    { id: 'options', label: 'Options' },
+    { id: 'design', label: 'Modèle' },
+    { id: 'status', label: 'Statut' }
+  ]
+  const scrollTo = (sectionId) => document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+  const templateCard = (tmpl, mine = false) => {
+    const selected = selectedTemplateId === tmpl.id
+    return (
+      <label key={tmpl.id} className={`group relative rounded-xl border-2 overflow-hidden transition-all ${templateLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
+        selected ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-border hover:border-primary-300 hover:shadow-sm'
+      }`}>
+        <input type="radio" value={tmpl.id} className="sr-only" disabled={templateLocked} {...register('templateId')} />
+        <div className="aspect-[3/4] bg-gradient-wedding flex items-center justify-center relative">
+          <TemplatePreview template={tmpl} weddingData={previewWeddingData} />
+          {selected && (
+            <span className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-primary-600 px-2 py-0.5 text-[11px] font-semibold text-white shadow">
+              <CheckIcon className="h-3 w-3" /> Actuel
+            </span>
+          )}
+          {mine && !selected && (
+            <span className="absolute top-2 left-2 bg-primary-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
+              <UserIcon className="h-2.5 w-2.5" /> Mon modèle
+            </span>
+          )}
+          {tmpl.isPremium && (
+            <span className="absolute top-2 right-2 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">Premium</span>
+          )}
+          {!templateLocked && (
+            mine ? (
+              <button
+                type="button"
+                onClick={async (e) => { e.preventDefault(); e.stopPropagation(); if (await confirmLeaveIfDirty()) navigate(`/templates/${tmpl.id}/design?wedding=${id}`) }}
+                className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-primary-700 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-white whitespace-nowrap"
+              >
+                <PaintBrushIcon className="h-3.5 w-3.5" /> Modifier le design
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={forkTemplateMutation.isLoading}
+                onClick={(e) => handlePersonalize(e, tmpl.id)}
+                className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-primary-700 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-white disabled:opacity-60 whitespace-nowrap"
+              >
+                <PaintBrushIcon className="h-3.5 w-3.5" />
+                {forkTemplateMutation.isLoading && forkTemplateMutation.variables === tmpl.id ? 'Duplication…' : 'Personnaliser'}
+              </button>
+            )
+          )}
+        </div>
+        <div className="p-2">
+          <p className="font-medium text-sm text-content truncate">{tmpl.name}</p>
+          <p className="text-xs text-muted truncate">{mine ? 'Personnalisé' : (TEMPLATE_CATEGORIES[tmpl.category] || tmpl.category)}</p>
+        </div>
+      </label>
+    )
+  }
+
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <button onClick={() => navigate(`/weddings/${id}`)} className="flex items-center text-muted hover:text-content mb-4">
-          <ArrowLeftIcon className="h-5 w-5 mr-1" /> Retour
+    <div className="max-w-6xl mx-auto pb-24">
+      {/* Header */}
+      <div className="mb-6">
+        <button type="button" onClick={goBack} className="flex items-center text-muted hover:text-content mb-4">
+          <ArrowLeftIcon className="h-5 w-5 mr-1" /> Retour à l'événement
         </button>
-        <h1 className="text-3xl font-serif font-bold text-content">Modifier l'événement</h1>
-        <p className="text-muted mt-2 flex items-center gap-2">
-          {getEventDisplayTitle(wedding)}
-          <span className="inline-flex items-center rounded-full bg-primary-500/10 px-2.5 py-1 text-xs font-semibold text-primary-600 dark:text-primary-400">{EVENT_TYPE_LABELS[wedding?.eventType] || 'Mariage'}</span>
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-content">Modifier l'événement</h1>
+            <p className="text-muted mt-1 flex items-center gap-2 flex-wrap">
+              <span className="truncate">{getEventDisplayTitle({ ...wedding, ...values, eventType })}</span>
+              <span className="inline-flex items-center rounded-full bg-primary-500/10 px-2.5 py-0.5 text-xs font-semibold text-primary-600 dark:text-primary-400">
+                {EVENT_TYPE_LABELS[eventType]}
+              </span>
+            </p>
+          </div>
+        </div>
       </div>
+
+      {/* Section shortcuts */}
+      <nav className="sticky top-16 z-20 -mx-4 sm:mx-0 mb-6 bg-bg/90 backdrop-blur px-4 sm:px-0 py-2" aria-label="Sections">
+        <div className="flex gap-2 overflow-x-auto">
+          {NAV.map((n) => (
+            <button key={n.id} type="button" onClick={() => scrollTo(n.id)}
+              className="shrink-0 rounded-full border border-border bg-surface px-3.5 py-1.5 text-sm font-medium text-muted hover:text-content hover:border-primary-300">
+              {n.label}
+            </button>
+          ))}
+        </div>
+      </nav>
 
       {templateLocked && (
         <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-          <ExclamationTriangleIcon className="h-6 w-6 shrink-0 text-amber-500 mt-0.5" />
+          <LockClosedIcon className="h-6 w-6 shrink-0 text-amber-500 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Template verrouillé</p>
+            <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Modèle verrouillé</p>
             <p className="text-sm text-amber-700/90 dark:text-amber-400/80">
-              Des invitations ont déjà été générées pour cet événement : le template ne peut plus être changé.
-              Les autres informations (textes, dates, lieu, couleurs…) restent modifiables.
+              Des invitations ont déjà été générées : le modèle ne peut plus être changé. Les autres informations restent modifiables.
             </p>
           </div>
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* ==================== Section 1: Couple (Mariage / Mariage coutumier) ==================== */}
-        {isCouple && (
-        <div className="rounded-2xl border border-border bg-surface p-8 space-y-6">
-          <h2 className="text-xl font-serif font-bold text-content flex items-center gap-2">
-            <HeartIcon className="h-6 w-6 text-primary-500" />
-            Informations des mariés
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="label">Prénom de la mariée *</label>
-              <input type="text" className={`input ${errors.brideName ? 'input-error' : ''}`} {...register('brideName', { required: 'Requis' })} />
-              {errors.brideName && <p className="text-red-500 text-sm mt-1">{errors.brideName.message}</p>}
-            </div>
-            <div>
-              <label className="label">Prénom du marié *</label>
-              <input type="text" className={`input ${errors.groomName ? 'input-error' : ''}`} {...register('groomName', { required: 'Requis' })} />
-              {errors.groomName && <p className="text-red-500 text-sm mt-1">{errors.groomName.message}</p>}
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="label">Date principale de l'événement *</label>
-              <input type="date" className={`input ${errors.weddingDate ? 'input-error' : ''}`} {...register('weddingDate', { required: 'Requis' })} />
-            </div>
-            <div>
-              <label className="label">Heure{isWedding ? ' (les heures détaillées se règlent dans le programme)' : ''}</label>
-              <input type="time" className="input" {...register('ceremonyTime')} />
-            </div>
-          </div>
-
-          {/* Adresse principale — seul lieu pour le mariage coutumier ;
-              pour le mariage, le programme détaillé est plus bas. */}
-          <div className="border-t border-border pt-6 space-y-4">
-            <h3 className="font-medium text-content">Lieu principal{isWedding ? ' (facultatif si le programme est détaillé)' : ''}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="label text-sm">Nom du lieu</label>
-                <input type="text" className="input" {...register('venueName')} />
+      <form
+        onSubmit={handleSubmit(onSubmit, onInvalid)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.type !== 'submit') e.preventDefault() }}
+        noValidate
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 items-start">
+          <div className="space-y-6 min-w-0">
+            {/* ========== Informations ========== */}
+            <Section
+              id="info"
+              icon={isCouple ? HeartIcon : CalendarDaysIcon}
+              title={isCouple ? 'Les mariés' : 'Informations de l\'événement'}
+              description="Les champs marqués * sont obligatoires."
+            >
+              <IdentityFields eventType={eventType} register={register} errors={errors} watch={watch} />
+              <div className="border-t border-border pt-6">
+                <VenueFields eventType={eventType} register={register} showField={showField} />
               </div>
-              <div>
-                <label className="label text-sm">Ville</label>
-                <input type="text" className="input" {...register('venueCity')} />
+              <div className="border-t border-border pt-6">
+                <MessageFields eventType={eventType} register={register} showField={showField} />
               </div>
-            </div>
-            <div>
-              <label className="label text-sm">Adresse</label>
-              <input type="text" className="input" {...register('venueAddress')} />
-            </div>
-            <div>
-              <label className="label text-sm">Lien Google Maps <span className="text-muted font-normal">— pour la carte cliquable de l'invitation</span></label>
-              <input type="url" className="input" placeholder="https://maps.google.com/..." {...register('venueMapUrl')} />
-              <p className="text-xs text-muted mt-1">Facultatif — sinon l'itinéraire est calculé depuis le nom + l'adresse.</p>
-            </div>
-          </div>
+            </Section>
 
-          <div className="border-t border-border pt-6">
-            <label className="label">Message personnalisé</label>
-            <textarea className="input" rows={3} placeholder="Un message spécial..." {...register('customMessage')} />
-          </div>
+            {/* ========== Programme (weddings) ========== */}
+            {hasProgramme && (
+              <Section id="programme" icon={CalendarDaysIcon} title="Programme du mariage" description="Toutes les étapes sont facultatives.">
+                <ProgrammeFields register={register} showField={showField} />
+              </Section>
+            )}
 
-          {/* Photo des mariés 
-          <div className="border-t border-border pt-6">
-            <h3 className="font-medium text-content flex items-center mb-1">
-              <PhotoIcon className="h-5 w-5 mr-2 text-primary-500" />
-              Photo des mariés
-            </h3>
-            <p className="text-sm text-muted mb-3">
-              Si votre template prévoit un emplacement photo, cette image y sera intégrée automatiquement.
-            </p>
-            <ImageUpload
-              value={wedding?.couplePhoto}
-              onUpload={handlePhotoUpload}
-              preset="couplePhoto"
-              size="lg"
-              helpText="JPG, PNG ou WebP — compressée automatiquement (max 5 Mo)"
-              validation={{ maxSizeMB: 5 }}
-            />
-          </div>
-*/}
-          {/* Per-placeholder images for multi-photo templates */}
-          {photoPlaceholders.length > 1 && (
-            <div className="border-t border-border pt-6">
-              <h3 className="font-medium text-content flex items-center mb-1">
-                <PhotoIcon className="h-5 w-5 mr-2 text-primary-500" />
-                Photos de l'invitation
-                <span className="ml-2 text-xs font-normal text-muted">
-                  ({photoPlaceholders.length} emplacements)
-                </span>
-              </h3>
-              <p className="text-sm text-muted mb-4">
-                Ce template a plusieurs emplacements photo — chacun reçoit sa propre image.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {photoPlaceholders.map((ph, i) => (
-                  <div key={ph.id}>
-                    <p className="text-xs font-medium text-muted mb-1 truncate">{ph.label || `Photo ${i + 1}`}</p>
-                    <ImageUpload
-                      value={weddingTemplateImages[ph.id]}
-                      onUpload={makeTemplateImageUpload(ph.id)}
-                      preset="couplePhoto"
-                      size="md"
-                      helpText="Max 5 Mo"
-                      validation={{ maxSizeMB: 5 }}
-                    />
+            {/* ========== Template photos ========== */}
+            {photoPlaceholders.length > 0 && (
+              <Section
+                id="photos"
+                icon={PhotoIcon}
+                title="Photos de l'invitation"
+                description={`Votre modèle a ${photoPlaceholders.length} emplacement${photoPlaceholders.length > 1 ? 's' : ''} photo. Enregistré dès l'envoi.`}
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {photoPlaceholders.map((ph, i) => (
+                    <div key={ph.id}>
+                      <p className="text-xs font-medium text-muted mb-1 truncate">{ph.label || `Photo ${i + 1}`}</p>
+                      <ImageUpload
+                        value={weddingTemplateImages[ph.id]}
+                        onUpload={makeTemplateImageUpload(ph.id)}
+                        preset="couplePhoto"
+                        size="md"
+                        helpText="Max 5 Mo"
+                        validation={{ maxSizeMB: 5 }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {/* ========== Guests: tables & drinks ========== */}
+            <Section id="guests" icon={UserGroupIcon} title="Accueil des invités">
+              {eventUsesTables(eventType) && (
+                <TablesEditor value={values.tables || []} onChange={(v) => setValue('tables', v, { shouldDirty: true })} />
+              )}
+              <div className={eventUsesTables(eventType) ? 'border-t border-border pt-6' : ''}>
+                <DrinkOptionsEditor value={values.drinkOptions || []} onChange={(v) => setValue('drinkOptions', v, { shouldDirty: true })} />
+              </div>
+            </Section>
+
+            {/* ========== Options ========== */}
+            <Section id="options" icon={AdjustmentsHorizontalIcon} title="Options">
+              {/* Background music — saved on upload */}
+              <div className="space-y-3">
+                <h3 className="font-medium text-content flex items-center gap-2">
+                  <MusicalNoteIcon className="h-5 w-5 text-primary-500" /> Musique de fond
+                </h3>
+                <p className="text-sm text-muted">Jouée sur la page d'invitation (avec un bouton pour couper le son). Enregistrée dès l'envoi.</p>
+                {wedding.musicUrl ? (
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <audio controls src={wedding.musicUrl} className="h-10 w-full sm:max-w-xs" />
+                    <div className="flex shrink-0 gap-2">
+                      <button type="button" onClick={() => musicInputRef.current?.click()} disabled={uploadMusicMutation.isLoading} className="btn-outline btn-sm">Remplacer</button>
+                      <button type="button" onClick={() => removeMusicMutation.mutate()} disabled={removeMusicMutation.isLoading} className="btn-ghost btn-sm text-red-500">Retirer</button>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Extra personalization */}
-          <div className="border-t border-border pt-6 space-y-4">
-            <h3 className="font-medium text-content flex items-center">
-              <SparklesIcon className="h-5 w-5 mr-2 text-amber-500" />
-              Personnalisation avancée
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="label">Date limite RSVP</label>
-                <input type="date" className="input" {...register('rsvpDeadline')} />
-              </div>
-            </div>
-            <div>
-              <label className="label">Informations supplémentaires</label>
-              <textarea className="input" rows={2} placeholder="Parking, allergies..." {...register('additionalInfo')} />
-            </div>
-          </div>
-
-          {/* Background music */}
-          <div className="border-t border-border pt-6 space-y-3">
-            <h3 className="font-medium text-content flex items-center">
-              <MusicalNoteIcon className="h-5 w-5 mr-2 text-primary-500" />
-              Musique de fond
-            </h3>
-            <p className="text-sm text-muted">
-              Jouée automatiquement (avec un bouton pour couper le son) sur la page d'invitation publique.
-            </p>
-
-            {wedding?.musicUrl ? (
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <audio controls src={wedding.musicUrl} className="h-10 w-full sm:max-w-xs" />
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => musicInputRef.current?.click()}
-                    disabled={uploadMusicMutation.isLoading}
-                    className="btn-outline btn-sm"
-                  >
-                    Remplacer
+                ) : (
+                  <button type="button" onClick={() => musicInputRef.current?.click()} disabled={uploadMusicMutation.isLoading} className="btn-outline btn-sm inline-flex items-center gap-1.5">
+                    <MusicalNoteIcon className="h-4 w-4" />
+                    {uploadMusicMutation.isLoading ? `Envoi…${musicUploadProgress != null ? ` ${musicUploadProgress}%` : ''}` : 'Ajouter une musique'}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => removeMusicMutation.mutate()}
-                    disabled={removeMusicMutation.isLoading}
-                    className="btn-ghost btn-sm text-red-500"
-                  >
-                    Retirer
-                  </button>
+                )}
+                <input
+                  ref={musicInputRef}
+                  type="file"
+                  accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac"
+                  className="sr-only"
+                  onChange={handleMusicFileChange}
+                />
+                <p className="text-xs text-muted">MP3, WAV, OGG, M4A ou AAC — 10 Mo max.</p>
+              </div>
+
+              {/* Gift registry */}
+              <div className="border-t border-border pt-6 space-y-4">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" className="mt-1 h-4 w-4 rounded" {...register('giftRegistryEnabled')} />
+                  <span>
+                    <span className="font-medium text-content flex items-center gap-2">
+                      <GiftIcon className="h-5 w-5 text-primary-500" /> Cagnotte en ligne
+                    </span>
+                    <span className="block text-sm text-muted mt-0.5">
+                      Vos invités peuvent envoyer un cadeau en argent (Mobile Money) depuis leur invitation.
+                    </span>
+                  </span>
+                </label>
+                {values.giftRegistryEnabled && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-7">
+                    <div>
+                      <label htmlFor="giftRegistryGoal" className="label text-sm">Objectif en FC (facultatif)</label>
+                      <input id="giftRegistryGoal" type="number" min="0" step="1" className="input" placeholder="Ex : 500 000" {...register('giftRegistryGoal')} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label htmlFor="giftRegistryMessage" className="label text-sm">Message pour vos invités (facultatif)</label>
+                      <textarea id="giftRegistryMessage" className="input" rows={2} placeholder="Ex : Aidez-nous à préparer notre nouvelle vie !" {...register('giftRegistryMessage')} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Double-sided print */}
+              <div className="border-t border-border pt-6 space-y-4">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" className="mt-1 h-4 w-4 rounded" {...register('printBackEnabled')} />
+                  <span>
+                    <span className="font-medium text-content flex items-center gap-2">
+                      <PrinterIcon className="h-5 w-5 text-primary-500" /> Impression recto-verso
+                    </span>
+                    <span className="block text-sm text-muted mt-0.5">
+                      Ajoute un verso identique sur chaque carte imprimée : un cadre élégant avec votre message.
+                    </span>
+                  </span>
+                </label>
+                {values.printBackEnabled && (
+                  <div className="pl-7">
+                    <label htmlFor="printBackText" className="label text-sm">Message au verso</label>
+                    <textarea id="printBackText" className="input" rows={3} placeholder="Ex : Merci de partager ce moment avec nous ❤️" {...register('printBackText')} />
+                  </div>
+                )}
+              </div>
+            </Section>
+
+            {/* ========== Template ========== */}
+            <Section id="design" icon={SwatchIcon} title="Modèle d'invitation"
+              description={templateLocked ? 'Verrouillé : des invitations ont déjà été générées.' : 'Survolez un modèle pour le personnaliser (couleurs, fond, mise en page).'}>
+              {templates.length === 0 && myTemplates.length === 0 ? (
+                <div className="text-center py-6 bg-surface-2 rounded-xl">
+                  <SwatchIcon className="h-10 w-10 text-muted mx-auto mb-2" />
+                  <p className="text-muted text-sm">Aucun modèle « {EVENT_TYPE_LABELS[eventType]} » disponible pour le moment.</p>
                 </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => musicInputRef.current?.click()}
-                disabled={uploadMusicMutation.isLoading}
-                className="btn-outline btn-sm inline-flex items-center gap-1.5"
-              >
-                <MusicalNoteIcon className="h-4 w-4" />
-                {uploadMusicMutation.isLoading
-                  ? `Envoi...${musicUploadProgress != null ? ` ${musicUploadProgress}%` : ''}`
-                  : 'Ajouter une musique'}
-              </button>
-            )}
-            <input
-              ref={musicInputRef}
-              type="file"
-              accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac"
-              className="hidden"
-              onChange={handleMusicFileChange}
-            />
-            <p className="text-xs text-muted">MP3, WAV, OGG, M4A ou AAC — 10 Mo max.</p>
-          </div>
-        </div>
-        )}
-
-        {/* ==================== Section 1bis: Infos (honoree / titre libre) ==================== */}
-        {!isCouple && (
-        <div className="rounded-2xl border border-border bg-surface p-8 space-y-6">
-          <h2 className="text-xl font-serif font-bold text-content flex items-center gap-2">
-            <CalendarDaysIcon className="h-6 w-6 text-primary-500" />
-            Informations de l'événement
-          </h2>
-          {isHonoree ? (
-            <div>
-              <label className="label">{honoreeFieldLabel(wedding?.eventType)} *</label>
-              <input type="text" className={`input ${errors.honoreeName ? 'input-error' : ''}`} placeholder={wedding?.eventType === 'BIRTHDAY' ? 'Fatou' : 'Jean'} {...register('honoreeName', { required: 'Requis' })} />
-              <p className="mt-1 text-xs text-muted">
-                Le titre s'affiche automatiquement : « {EVENT_TYPE_LABELS[wedding?.eventType]} de {watch('honoreeName') || '…'} »
-              </p>
-              {errors.honoreeName && <p className="text-red-500 text-sm mt-1">{errors.honoreeName.message}</p>}
-            </div>
-          ) : (
-            <div>
-              <label className="label">Titre / Nom de l'événement *</label>
-              <input type="text" className={`input ${errors.eventTitle ? 'input-error' : ''}`} {...register('eventTitle', { required: 'Requis' })} />
-              {errors.eventTitle && <p className="text-red-500 text-sm mt-1">{errors.eventTitle.message}</p>}
-            </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="label">Date *</label>
-              <input type="date" className={`input ${errors.weddingDate ? 'input-error' : ''}`} {...register('weddingDate', { required: 'Requis' })} />
-            </div>
-            <div>
-              <label className="label">Heure</label>
-              <input type="time" className="input" {...register('ceremonyTime')} />
-            </div>
-          </div>
-          <div className="border-t border-border pt-6 space-y-4">
-            <h3 className="font-medium text-content">Lieu</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="label text-sm">Nom du lieu</label>
-                <input type="text" className="input" {...register('venueName')} />
-              </div>
-              <div>
-                <label className="label text-sm">Ville</label>
-                <input type="text" className="input" {...register('venueCity')} />
-              </div>
-            </div>
-            <div>
-              <label className="label text-sm">Adresse</label>
-              <input type="text" className="input" {...register('venueAddress')} />
-            </div>
-          </div>
-          <div className="border-t border-border pt-6">
-            <label className="label">Message personnalisé</label>
-            <textarea className="input" rows={3} placeholder="Un message spécial..." {...register('customMessage')} />
-          </div>
-          <div className="border-t border-border pt-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="label">Date limite RSVP</label>
-                <input type="date" className="input" {...register('rsvpDeadline')} />
-              </div>
-            </div>
-            <div>
-              <label className="label">Informations supplémentaires</label>
-              <textarea className="input" rows={2} placeholder="Parking, dress code..." {...register('additionalInfo')} />
-            </div>
-          </div>
-
-          {/* Background music */}
-          <div className="border-t border-border pt-6 space-y-3">
-            <h3 className="font-medium text-content flex items-center">
-              <MusicalNoteIcon className="h-5 w-5 mr-2 text-primary-500" />
-              Musique de fond
-            </h3>
-            <p className="text-sm text-muted">
-              Jouée automatiquement (avec un bouton pour couper le son) sur la page d'invitation publique.
-            </p>
-
-            {wedding?.musicUrl ? (
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <audio controls src={wedding.musicUrl} className="h-10 w-full sm:max-w-xs" />
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => musicInputRef.current?.click()}
-                    disabled={uploadMusicMutation.isLoading}
-                    className="btn-outline btn-sm"
-                  >
-                    Remplacer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeMusicMutation.mutate()}
-                    disabled={removeMusicMutation.isLoading}
-                    className="btn-ghost btn-sm text-red-500"
-                  >
-                    Retirer
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => musicInputRef.current?.click()}
-                disabled={uploadMusicMutation.isLoading}
-                className="btn-outline btn-sm inline-flex items-center gap-1.5"
-              >
-                <MusicalNoteIcon className="h-4 w-4" />
-                {uploadMusicMutation.isLoading
-                  ? `Envoi...${musicUploadProgress != null ? ` ${musicUploadProgress}%` : ''}`
-                  : 'Ajouter une musique'}
-              </button>
-            )}
-            <input
-              ref={musicInputRef}
-              type="file"
-              accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac"
-              className="hidden"
-              onChange={handleMusicFileChange}
-            />
-            <p className="text-xs text-muted">MP3, WAV, OGG, M4A ou AAC — 10 Mo max.</p>
-          </div>
-        </div>
-        )}
-
-        {/* ==================== Tables (événements à places assises) ==================== */}
-        {eventUsesTables(wedding?.eventType) && (
-        <div className="rounded-2xl border border-border bg-surface p-8">
-          <TablesEditor value={watch('tables') || []} onChange={(v) => setValue('tables', v)} />
-        </div>
-        )}
-
-        {/* ==================== Liste de boissons ==================== */}
-        <div className="rounded-2xl border border-border bg-surface p-8">
-          <DrinkOptionsEditor value={watch('drinkOptions') || []} onChange={(v) => setValue('drinkOptions', v, { shouldDirty: true })} />
-        </div>
-
-        {/* ==================== Cagnotte en ligne ==================== */}
-        <div className="rounded-2xl border border-border bg-surface p-8 space-y-4">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input type="checkbox" className="mt-1 h-4 w-4 rounded" {...register('giftRegistryEnabled')} />
-            <span>
-              <span className="font-medium text-content flex items-center gap-2">
-                <GiftIcon className="h-5 w-5 text-primary-500" /> Cagnotte en ligne
-              </span>
-              <span className="block text-sm text-muted mt-0.5">
-                Permet à vos invités d'envoyer un cadeau en argent (Mobile Money) directement depuis le lien d'invitation.
-              </span>
-            </span>
-          </label>
-          {watch('giftRegistryEnabled') && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-7">
-              <div>
-                <label className="label text-sm">Objectif (optionnel)</label>
-                <input type="number" min="0" step="0.01" className="input" placeholder="Ex : 500" {...register('giftRegistryGoal')} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="label text-sm">Message pour vos invités (optionnel)</label>
-                <textarea className="input" rows={2} placeholder="Ex : Aidez-nous à financer notre lune de miel !" {...register('giftRegistryMessage')} />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ==================== Impression recto-verso ==================== */}
-        <div className="rounded-2xl border border-border bg-surface p-8 space-y-4">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input type="checkbox" className="mt-1 h-4 w-4 rounded" {...register('printBackEnabled')} />
-            <span>
-              <span className="font-medium text-content flex items-center gap-2">
-                <PrinterIcon className="h-5 w-5 text-primary-500" /> Impression recto-verso
-              </span>
-              <span className="block text-sm text-muted mt-0.5">
-                Ajoute un verso partagé (même contenu sur chaque carte) à vos fichiers d'impression : un cadre élégant avec votre message, prêt pour une impression recto-verso.
-              </span>
-            </span>
-          </label>
-          {watch('printBackEnabled') && (
-            <div className="pl-7">
-              <label className="label text-sm">Message au verso</label>
-              <textarea
-                className="input"
-                rows={3}
-                placeholder="Ex : Merci de partager ce moment avec nous ❤️ #JeanEtMarie"
-                {...register('printBackText')}
-              />
-              <p className="text-xs text-muted mt-1">
-                Ce texte apparaîtra au dos de chaque carte imprimée (identique pour tous les invités).
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* ==================== Section 2: Programme (Mariage uniquement) ==================== */}
-        {isWedding && (
-        <div className="rounded-2xl border border-border bg-surface p-8 space-y-8">
-          <h2 className="text-xl font-serif font-bold text-content flex items-center gap-2">
-            <CalendarDaysIcon className="h-6 w-6 text-primary-500" />
-            Programme du mariage
-          </h2>
-
-          {/* Mairie */}
-          <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                <BuildingLibraryIcon className="h-5 w-5 text-white" />
-              </div>
-              <div><h3 className="font-bold text-blue-900">Mariage Civil</h3><p className="text-sm text-blue-600">Mairie / Commune</p></div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><label className="label text-sm">Date</label><input type="date" className="input bg-white" {...register('communeDate')} /></div>
-              <div><label className="label text-sm">Heure</label><input type="time" className="input bg-white" {...register('communeTime')} /></div>
-              <div><label className="label text-sm">Nom</label><input type="text" className="input bg-white" placeholder="Mairie de..." {...register('communeVenue')} /></div>
-              <div><label className="label text-sm">Adresse</label><input type="text" className="input bg-white" {...register('communeAddress')} /></div>
-            </div>
-          </div>
-
-          {/* Église */}
-          <div className="bg-purple-50 rounded-xl p-6 border border-purple-200">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
-                <ChurchIcon className="h-5 w-5 text-white" />
-              </div>
-              <div><h3 className="font-bold text-purple-900">Mariage Religieux</h3><p className="text-sm text-purple-600">Église</p></div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><label className="label text-sm">Date</label><input type="date" className="input bg-white" {...register('egliseDate')} /></div>
-              <div><label className="label text-sm">Heure</label><input type="time" className="input bg-white" {...register('egliseTime')} /></div>
-              <div><label className="label text-sm">Nom</label><input type="text" className="input bg-white" placeholder="Église..." {...register('egliseVenue')} /></div>
-              <div><label className="label text-sm">Adresse</label><input type="text" className="input bg-white" {...register('egliseAddress')} /></div>
-            </div>
-          </div>
-
-          {/* Réception */}
-          <div className="bg-pink-50 rounded-xl p-6 border border-pink-200">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-pink-500 rounded-full flex items-center justify-center">
-                <MusicalNoteIcon className="h-5 w-5 text-white" />
-              </div>
-              <div><h3 className="font-bold text-pink-900">Réception & Soirée</h3><p className="text-sm text-pink-600">Fête et célébration</p></div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><label className="label text-sm">Date</label><input type="date" className="input bg-white" {...register('receptionDate')} /></div>
-              <div><label className="label text-sm">Heure début</label><input type="time" className="input bg-white" {...register('receptionStartTime')} /></div>
-              <div><label className="label text-sm">Nom du lieu</label><input type="text" className="input bg-white" {...register('receptionVenue')} /></div>
-              <div><label className="label text-sm">Adresse</label><input type="text" className="input bg-white" {...register('receptionAddress')} /></div>
-            </div>
-          </div>
-        </div>
-        )}
-
-        {/* ==================== Section 3: Design ==================== */}
-        <div className="rounded-2xl border border-border bg-surface p-8 space-y-6">
-          <h2 className="text-xl font-serif font-bold text-content flex items-center gap-2">
-            <SwatchIcon className="h-6 w-6 text-primary-500" />
-            Choix du template
-          </h2>
-
-          {/* Template Selection + Live Preview */}
-          <div>
-            <h3 className="font-medium text-content mb-3">Choisir un template</h3>
-            {templates.length === 0 && myTemplates.length === 0 ? (
-              <div className="text-center py-6 bg-bg rounded-xl">
-                <HeartIcon className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                <p className="text-muted text-sm">
-                  Aucun template disponible pour le type « {EVENT_TYPE_LABELS[wedding?.eventType] || 'Mariage'} » pour le moment
-                </p>
-              </div>
-            ) : (
-              <div className="flex gap-6">
-                {/* Left: template grid */}
-                <div className="flex-1 space-y-4">
+              ) : (
+                <div className="space-y-4">
                   {myTemplates.length > 0 && (
                     <div>
                       <p className="text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2 flex items-center gap-1">
-                        <UserIcon className="h-3.5 w-3.5" /> Mes templates personnalisés
+                        <UserIcon className="h-3.5 w-3.5" /> Mes modèles personnalisés
                       </p>
-                      <div className="grid grid-cols-2 gap-3">
-                        {myTemplates.map((tmpl) => (
-                          <label key={tmpl.id} className={`group relative rounded-xl border-2 overflow-hidden transition-all ${templateLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
-                            selectedTemplateId === tmpl.id ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-primary-100 hover:border-primary-300 hover:shadow-sm'
-                          }`}>
-                            <input type="radio" value={tmpl.id} className="hidden" disabled={templateLocked} {...register('templateId')} />
-                            <div className="aspect-[3/4] bg-gradient-wedding flex items-center justify-center relative">
-                              <TemplatePreview template={tmpl} weddingData={previewWeddingData} />
-                              {selectedTemplateId === tmpl.id && (
-                                <div className="absolute inset-0 bg-primary-600/10 flex items-center justify-center">
-                                  <div className="bg-primary-600 text-white rounded-full p-1.5">
-                                    <EyeIcon className="h-4 w-4" />
-                                  </div>
-                                </div>
-                              )}
-                              <span className="absolute top-2 left-2 bg-primary-600 text-white text-[10px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-0.5">
-                                <UserIcon className="h-2.5 w-2.5" /> Mon template
-                              </span>
-                              {!templateLocked && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/templates/${tmpl.id}/design?wedding=${id}`) }}
-                                  className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-primary-700 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-white"
-                                >
-                                  <PaintBrushIcon className="h-3.5 w-3.5" /> Modifier le design
-                                </button>
-                              )}
-                            </div>
-                            <div className="p-2">
-                              <p className="font-medium text-sm text-content truncate">{tmpl.name}</p>
-                              <p className="text-xs text-primary-500">Personnalisé</p>
-                            </div>
-                          </label>
-                        ))}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {myTemplates.map((tmpl) => templateCard(tmpl, true))}
                       </div>
-                      <p className="text-xs font-semibold text-muted uppercase tracking-wider mt-4 mb-2">Templates globaux</p>
                     </div>
                   )}
-                  <div className="grid grid-cols-2 gap-3">
-                    {templates.map((tmpl) => (
-                      <label key={tmpl.id} className={`group relative rounded-xl border-2 overflow-hidden transition-all ${templateLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${
-                        selectedTemplateId === tmpl.id ? 'border-primary-600 ring-2 ring-primary-200 shadow-md' : 'border-border hover:border-border hover:shadow-sm'
-                      }`}>
-                        <input type="radio" value={tmpl.id} className="hidden" disabled={templateLocked} {...register('templateId')} />
-                        <div className="aspect-[3/4] bg-gradient-wedding flex items-center justify-center relative">
-                          <TemplatePreview template={tmpl} weddingData={previewWeddingData} />
-                          {selectedTemplateId === tmpl.id && (
-                            <div className="absolute inset-0 bg-primary-600/10 flex items-center justify-center">
-                              <div className="bg-primary-600 text-white rounded-full p-1.5">
-                                <EyeIcon className="h-4 w-4" />
-                              </div>
-                            </div>
-                          )}
-                          {tmpl.isPremium && (
-                            <span className="absolute top-2 right-2 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">Premium</span>
-                          )}
-                          {!templateLocked && (
-                            <button
-                              type="button"
-                              disabled={forkTemplateMutation.isLoading}
-                              onClick={(e) => handlePersonalize(e, tmpl.id)}
-                              className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-primary-700 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 hover:bg-white disabled:opacity-60"
-                            >
-                              <PaintBrushIcon className="h-3.5 w-3.5" />
-                              {forkTemplateMutation.isLoading && forkTemplateMutation.variables === tmpl.id ? 'Duplication...' : 'Personnaliser'}
-                            </button>
-                          )}
-                        </div>
-                        <div className="p-2">
-                          <p className="font-medium text-sm text-content truncate">{tmpl.name}</p>
-                          <p className="text-xs text-muted">{TEMPLATE_CATEGORIES[tmpl.category] || tmpl.category}</p>
-                        </div>
-                      </label>
-                    ))}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <p className="text-xs font-semibold text-muted uppercase tracking-wider">Catalogue</p>
+                    <div className="relative w-full sm:w-60">
+                      <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+                      <input type="search" value={templateSearch} onChange={(e) => { setTemplateSearch(e.target.value); setTemplatePage(1) }}
+                        placeholder="Rechercher un modèle…" aria-label="Rechercher un modèle" className="input pl-9 py-2 text-sm w-full" />
+                    </div>
                   </div>
-                  {templateLocked && (
-                    <p className="flex items-center gap-1.5 text-xs text-muted">
-                      <LockClosedIcon className="h-3.5 w-3.5" />
-                      Le template est verrouillé car des invitations ont déjà été générées.
-                    </p>
+                  {filteredTemplates.length === 0 ? (
+                    <p className="text-sm text-muted text-center py-6">Aucun modèle ne correspond à « {templateSearch} ».</p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {pagedTemplates.map((tmpl) => templateCard(tmpl))}
+                    </div>
+                  )}
+                  {totalTemplatePages > 1 && (
+                    <div className="flex items-center justify-center gap-2 pt-1">
+                      <button type="button" onClick={() => setTemplatePage(p => Math.max(1, p - 1))} disabled={safeTemplatePage <= 1}
+                        className="px-3 py-1.5 text-sm rounded-lg border border-border text-muted hover:bg-surface-2 disabled:opacity-40">‹ Précédent</button>
+                      <span className="text-sm text-muted">Page {safeTemplatePage} / {totalTemplatePages}</span>
+                      <button type="button" onClick={() => setTemplatePage(p => Math.min(totalTemplatePages, p + 1))} disabled={safeTemplatePage >= totalTemplatePages}
+                        className="px-3 py-1.5 text-sm rounded-lg border border-border text-muted hover:bg-surface-2 disabled:opacity-40">Suivant ›</button>
+                    </div>
                   )}
                 </div>
+              )}
+            </Section>
 
-                {/* Right: live preview panel */}
-                <div className="w-52 flex-shrink-0">
-                  <div className="sticky top-4">
-                    <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2 flex items-center gap-1">
-                      <EyeIcon className="h-3.5 w-3.5" /> Aperçu en direct
-                    </p>
-                    {selectedTemplateId ? (
-                      (() => {
-                        const selectedTmpl = [...myTemplates, ...templates].find(t => t.id === selectedTemplateId)
-                        return selectedTmpl ? (
-                          <div className="rounded-xl border-2 border-primary-200 overflow-hidden shadow-lg">
-                            <div className="aspect-[3/4] relative bg-bg">
-                              <TemplatePreview
-                                template={selectedTmpl}
-                                weddingData={previewWeddingData}
-                              />
-                            </div>
-                            <div className="p-2 bg-primary-50 border-t border-primary-200">
-                              <p className="text-xs font-semibold text-primary-700 truncate">{selectedTmpl.name}</p>
-                              <p className="text-[10px] text-primary-500 mt-0.5">
-                                {(watch('brideName') || wedding?.brideName || 'Mariée')} & {(watch('groomName') || wedding?.groomName || 'Marié')}
-                              </p>
-                            </div>
-                          </div>
-                        ) : null
-                      })()
-                    ) : (
-                      <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center bg-bg text-center p-4">
-                        <SwatchIcon className="h-8 w-8 text-gray-300 mb-2" />
-                        <p className="text-xs text-muted">Sélectionnez un template pour voir l'aperçu</p>
-                      </div>
-                    )}
-                  </div>
+            {/* ========== Status + danger zone ========== */}
+            <Section id="status" icon={CheckCircleIcon} title="Statut">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" role="radiogroup" aria-label="Statut de l'événement">
+                {STATUS_OPTIONS.map((s) => (
+                  <label key={s.value} className={`cursor-pointer rounded-xl border-2 p-3 transition ${values.status === s.value ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/10' : 'border-border hover:border-primary-300'}`}>
+                    <input type="radio" value={s.value} className="sr-only" {...register('status')} />
+                    <span className="block text-sm font-semibold text-content">{s.label}</span>
+                    <span className="block text-xs text-muted">{s.hint}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="border-t border-border pt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-red-600 flex items-center gap-1.5"><ExclamationTriangleIcon className="h-4 w-4" /> Zone dangereuse</p>
+                  <p className="text-xs text-muted">Supprime l'événement, ses invités et ses invitations.</p>
+                </div>
+                <button type="button" onClick={handleDelete} className="btn-danger inline-flex items-center justify-center" disabled={deleteMutation.isLoading}>
+                  <TrashIcon className="h-5 w-5 mr-2" />
+                  {deleteMutation.isLoading ? 'Suppression…' : 'Supprimer l\'événement'}
+                </button>
+              </div>
+            </Section>
+          </div>
+
+          {/* Live preview (desktop sidebar) */}
+          <aside className="hidden lg:block sticky top-32">
+            <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2 flex items-center gap-1">
+              <EyeIcon className="h-3.5 w-3.5" /> Aperçu en direct
+            </p>
+            {selectedTemplate ? (
+              <div className="rounded-xl border border-border overflow-hidden shadow-lg bg-surface">
+                <button type="button" onClick={() => setPreviewOpen(true)} className="block w-full aspect-[3/4] relative bg-surface-2" title="Agrandir">
+                  <TemplatePreview template={selectedTemplate} weddingData={previewWeddingData} />
+                </button>
+                <div className="p-3 border-t border-border space-y-2">
+                  <p className="text-xs font-semibold text-content truncate">{selectedTemplate.name}</p>
+                  <button type="button" onClick={() => setPreviewOpen(true)} className="btn-secondary btn-sm w-full inline-flex items-center justify-center gap-1">
+                    <EyeIcon className="h-4 w-4" /> Agrandir
+                  </button>
+                  {isOwnTemplate && !templateLocked && (
+                    <button type="button" onClick={async () => { if (await confirmLeaveIfDirty()) navigate(`/templates/${selectedTemplate.id}/design?wedding=${id}`) }}
+                      className="btn-ghost btn-sm w-full inline-flex items-center justify-center gap-1 text-primary-700">
+                      <PaintBrushIcon className="h-4 w-4" /> Modifier le design
+                    </button>
+                  )}
                 </div>
               </div>
+            ) : (
+              <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center bg-surface-2 text-center p-4">
+                <SwatchIcon className="h-8 w-8 text-muted mb-2" />
+                <p className="text-xs text-muted">Choisissez un modèle pour voir l'aperçu</p>
+              </div>
             )}
-          </div>
+          </aside>
         </div>
 
-        {/* ==================== Section 6: Statut ==================== */}
-        <div className="rounded-2xl border border-border bg-surface p-8 space-y-6">
-          <h2 className="text-xl font-serif font-bold text-content">Statut</h2>
-          <select className="input" {...register('status')}>
-            <option value="DRAFT">Brouillon</option>
-            <option value="ACTIVE">Actif</option>
-            <option value="COMPLETED">Terminé</option>
-            <option value="CANCELLED">Annulé</option>
-          </select>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center justify-between rounded-2xl border border-border bg-surface p-6">
-          <button type="button" onClick={handleDelete} className="btn-danger flex items-center" disabled={deleteMutation.isLoading}>
-            <TrashIcon className="h-5 w-5 mr-2" />
-            {deleteMutation.isLoading ? 'Suppression...' : 'Supprimer'}
-          </button>
-          <div className="flex items-center gap-4">
-            <button type="button" onClick={() => navigate(`/weddings/${id}`)} className="btn-secondary">Annuler</button>
-            <button type="submit" disabled={!isDirty || updateMutation.isLoading} className="btn-primary">
-              {updateMutation.isLoading ? 'Enregistrement...' : 'Enregistrer'}
-            </button>
+        {/* Sticky save bar */}
+        <div className="sticky bottom-4 z-30 mt-6">
+          <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-lg transition-colors ${
+            isDirty ? 'bg-gray-900 border-gray-900 text-white' : 'bg-surface/95 backdrop-blur border-border text-muted'
+          }`}>
+            <p className="text-sm flex items-center gap-2">
+              {isDirty
+                ? <><span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" /> Modifications non enregistrées</>
+                : <><CheckCircleIcon className="h-4 w-4 text-green-600" /> Tout est enregistré</>}
+            </p>
+            <div className="flex gap-2">
+              {selectedTemplate && (
+                <button type="button" onClick={() => setPreviewOpen(true)} className={`lg:hidden px-3 py-2 rounded-lg text-sm font-medium ${isDirty ? 'text-gray-300 hover:bg-white/10' : 'text-muted hover:bg-surface-2'}`}>
+                  Aperçu
+                </button>
+              )}
+              {isDirty && (
+                <button type="button" onClick={() => reset()} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10">
+                  Annuler
+                </button>
+              )}
+              <button type="submit" disabled={!isDirty || updateMutation.isLoading} className="btn-primary text-sm disabled:opacity-50">
+                {updateMutation.isLoading ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+            </div>
           </div>
         </div>
       </form>
+
+      {/* Full-size preview */}
+      {previewOpen && selectedTemplate && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setPreviewOpen(false)} role="dialog" aria-modal="true">
+          <div className="bg-surface rounded-2xl shadow-2xl max-w-lg w-full max-h-[92vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-surface p-4 border-b border-border flex items-center justify-between z-10">
+              <h3 className="text-lg font-serif font-bold text-content truncate">{selectedTemplate.name}</h3>
+              <button type="button" onClick={() => setPreviewOpen(false)} className="text-muted hover:text-content text-xl leading-none" aria-label="Fermer">✕</button>
+            </div>
+            <div className="p-6 flex justify-center">
+              <div className="w-full max-w-sm shadow-lg rounded-lg overflow-hidden">
+                <TemplatePreview template={selectedTemplate} adaptive weddingData={previewWeddingData} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
