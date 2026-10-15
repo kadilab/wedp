@@ -238,7 +238,21 @@ export const fontAPI = {
 
 // Template API
 export const templateAPI = {
-  getAll: (params) => api.get('/templates', { params }),
+  // The API paginates (10 per page by default). Callers that filter/paginate
+  // client-side (gallery, event create/edit pickers) need the WHOLE published
+  // catalogue, so without an explicit page/limit we fetch every page (100 at a
+  // time) and return one response with all templates.
+  getAll: async (params = {}) => {
+    if (params.page || params.limit) return api.get('/templates', { params })
+    const all = []
+    let res
+    for (let page = 1; page <= 20; page++) {
+      res = await api.get('/templates', { params: { ...params, page, limit: 100 } })
+      all.push(...(res.data?.templates || []))
+      if (!res.data?.pagination?.hasNextPage) break
+    }
+    return { ...res, data: { ...res.data, templates: all } }
+  },
   getMyTemplates: () => api.get('/templates/mine'),
   getOne: (id) => api.get(`/templates/${id}`),
   create: (data) => api.post('/templates', data),
