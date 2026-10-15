@@ -1,5 +1,8 @@
 import axios from 'axios'
 
+// File uploads get a much longer timeout than regular API calls.
+const UPLOAD_TIMEOUT_MS = 10 * 60 * 1000
+
 const api = axios.create({
   baseURL: '/api',
   timeout: 30000,
@@ -132,6 +135,9 @@ export const weddingAPI = {
     formData.append('music', file)
     return api.post(`/weddings/${id}/music`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      // A 10 MB song over a slow mobile connection takes well over the 30 s
+      // default — which used to abort the upload half-way.
+      timeout: UPLOAD_TIMEOUT_MS,
       onUploadProgress: onProgress
         ? (e) => onProgress(Math.round((e.loaded * 100) / (e.total || e.loaded)))
         : undefined
@@ -145,6 +151,7 @@ export const weddingAPI = {
     formData.append('placeholderId', placeholderId)
     return api.post(`/weddings/${id}/template-image`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: UPLOAD_TIMEOUT_MS,
       onUploadProgress: onProgress
         ? (e) => onProgress(Math.round((e.loaded * 100) / (e.total || e.loaded)))
         : undefined
@@ -209,7 +216,8 @@ export const invitationOrderAPI = {
     const formData = new FormData()
     formData.append('proof', file)
     return api.post(`/invitation-orders/${weddingId}/orders/${orderId}/proof`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: UPLOAD_TIMEOUT_MS
     })
   },
   // K-PAY automatic Mobile Money payment (GATEWAY): returns { gatewayUrl }

@@ -14,6 +14,12 @@ uploadDirs.forEach(dir => {
   }
 });
 
+const EXT_BY_MIME = {
+  'image/jpeg': '.jpg', 'image/jpg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif', 'image/svg+xml': '.svg',
+  'audio/mpeg': '.mp3', 'audio/mp3': '.mp3', 'audio/wav': '.wav', 'audio/x-wav': '.wav', 'audio/ogg': '.ogg',
+  'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a', 'audio/aac': '.aac'
+};
+
 // Storage configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -50,7 +56,10 @@ const storage = multer.diskStorage({
     cb(null, path.join(__dirname, '../../', folder));
   },
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
+    // Some phones/browsers send files without an extension ("audio", "blob").
+    // Without one, the file is served as application/octet-stream and Safari
+    // / iOS refuse to play or display it — derive it from the mimetype.
+    const ext = path.extname(file.originalname).toLowerCase() || EXT_BY_MIME[file.mimetype] || '';
     const filename = `${uuidv4()}${ext}`;
     cb(null, filename);
   }
@@ -86,13 +95,13 @@ const fileFilter = (req, file, cb) => {
     if (allowedAudioTypes.includes(file.mimetype) || /\.(mp3|wav|ogg|m4a|aac)$/i.test(file.originalname)) {
       cb(null, true);
     } else {
-      cb(new Error('Formats acceptés : .mp3, .wav, .ogg, .m4a, .aac'), false);
+      cb(new Error('Format audio non pris en charge. Formats acceptés : MP3, WAV, OGG, M4A, AAC.'), false);
     }
   } else {
     if (allowedImageTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed'), false);
+      cb(new Error('Format non pris en charge : envoyez une image JPG, PNG ou WebP.'), false);
     }
   }
 };
@@ -188,10 +197,11 @@ const uploadFields = (fields) => upload.fields(fields);
 const handleUploadError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: 'File too large. Maximum size is 10MB.' });
+      const maxMb = Math.round((parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024) / (1024 * 1024));
+      return res.status(400).json({ error: `Fichier trop volumineux (maximum ${maxMb} Mo).` });
     }
     if (err.code === 'LIMIT_FILE_COUNT') {
-      return res.status(400).json({ error: 'Too many files.' });
+      return res.status(400).json({ error: 'Trop de fichiers envoyés.' });
     }
     return res.status(400).json({ error: err.message });
   }

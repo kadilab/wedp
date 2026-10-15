@@ -40,6 +40,10 @@ const STATUS_OPTIONS = [
 
 const TEMPLATES_PER_PAGE = 9
 
+// Background music — keep in sync with the backend upload filter / MAX_FILE_SIZE.
+const MUSIC_MAX_MB = 10
+const MUSIC_MIME_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/mp4', 'audio/x-m4a', 'audio/aac']
+
 const toDateInput = (v) => (v ? String(v).split('T')[0] : '')
 
 export default function WeddingEdit() {
@@ -222,6 +226,7 @@ export default function WeddingEdit() {
 
   const musicInputRef = useRef(null)
   const [musicUploadProgress, setMusicUploadProgress] = useState(null)
+  const [musicFileName, setMusicFileName] = useState('')
   const uploadMusicMutation = useMutation(
     ({ file, onProgress }) => weddingAPI.uploadMusic(id, file, onProgress),
     {
@@ -229,8 +234,12 @@ export default function WeddingEdit() {
         toast.success('Musique mise à jour')
         queryClient.invalidateQueries(['wedding', id])
       },
-      onError: (error) => toast.error(error.response?.data?.error || "Erreur lors de l'upload"),
-      onSettled: () => setMusicUploadProgress(null)
+      onError: (error) => toast.error(
+        error.code === 'ECONNABORTED'
+          ? 'L’envoi a pris trop de temps. Vérifiez votre connexion ou choisissez un fichier plus léger.'
+          : error.response?.data?.error || 'Erreur lors de l’envoi de la musique'
+      ),
+      onSettled: () => { setMusicUploadProgress(null); setMusicFileName('') }
     }
   )
   const removeMusicMutation = useMutation(() => weddingAPI.removeMusic(id), {
@@ -240,10 +249,23 @@ export default function WeddingEdit() {
     },
     onError: () => toast.error('Erreur lors de la suppression')
   })
+  // Validate before uploading: a rejected 15 MB file used to be discovered
+  // only after the whole (slow, mobile) upload.
   const handleMusicFileChange = (e) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
+    const okType = MUSIC_MIME_TYPES.includes(file.type) || /\.(mp3|wav|ogg|m4a|aac)$/i.test(file.name)
+    if (!okType) {
+      toast.error('Format non pris en charge. Choisissez un fichier MP3, M4A, AAC, OGG ou WAV.')
+      return
+    }
+    if (file.size > MUSIC_MAX_MB * 1024 * 1024) {
+      toast.error(`Fichier trop lourd (${(file.size / 1024 / 1024).toFixed(1)} Mo). Maximum ${MUSIC_MAX_MB} Mo — exportez-le en MP3.`)
+      return
+    }
+    setMusicFileName(file.name)
+    setMusicUploadProgress(0)
     uploadMusicMutation.mutate({ file, onProgress: setMusicUploadProgress })
   }
 
@@ -524,28 +546,50 @@ export default function WeddingEdit() {
                   <MusicalNoteIcon className="h-5 w-5 text-primary-500" /> Musique de fond
                 </h3>
                 <p className="text-sm text-muted">Jouée sur la page d'invitation (avec un bouton pour couper le son). Enregistrée dès l'envoi.</p>
-                {wedding.musicUrl ? (
+                {uploadMusicMutation.isLoading ? (
+                  <div className="rounded-xl border border-border p-3" role="status">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="truncate text-content">{musicFileName || 'Envoi de la musique…'}</span>
+                      <span className="shrink-0 font-mono text-muted">{musicUploadProgress ?? 0}%</span>
+                    </div>
+                    <div className="mt-2 h-1.5 rounded-full bg-surface-2 overflow-hidden">
+                      <div className="h-full rounded-full bg-primary-500 transition-all" style={{ width: `${musicUploadProgress ?? 0}%` }} />
+                    </div>
+                    <p className="mt-1.5 text-xs text-muted">
+                      {musicUploadProgress === 100 ? 'Finalisation…' : 'Gardez cette page ouverte pendant l’envoi.'}
+                    </p>
+                  </div>
+                ) : wedding.musicUrl ? (
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <audio controls src={wedding.musicUrl} className="h-10 w-full sm:max-w-xs" />
+                    <audio controls preload="metadata" src={wedding.musicUrl} className="h-10 w-full sm:max-w-xs" />
                     <div className="flex shrink-0 gap-2">
-                      <button type="button" onClick={() => musicInputRef.current?.click()} disabled={uploadMusicMutation.isLoading} className="btn-outline btn-sm">Remplacer</button>
-                      <button type="button" onClick={() => removeMusicMutation.mutate()} disabled={removeMusicMutation.isLoading} className="btn-ghost btn-sm text-red-500">Retirer</button>
+                      <button type="button" onClick={() => musicInputRef.current?.click()} className="btn-outline btn-sm">Remplacer</button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const ok = await confirmDialog({ title: 'Retirer la musique ?', message: 'La musique ne sera plus jouée sur vos invitations.', confirmText: 'Retirer' })
+                          if (ok) removeMusicMutation.mutate()
+                        }}
+                        disabled={removeMusicMutation.isLoading}
+                        className="btn-ghost btn-sm text-red-500"
+                      >
+                        Retirer
+                      </button>
                     </div>
                   </div>
                 ) : (
-                  <button type="button" onClick={() => musicInputRef.current?.click()} disabled={uploadMusicMutation.isLoading} className="btn-outline btn-sm inline-flex items-center gap-1.5">
-                    <MusicalNoteIcon className="h-4 w-4" />
-                    {uploadMusicMutation.isLoading ? `Envoi…${musicUploadProgress != null ? ` ${musicUploadProgress}%` : ''}` : 'Ajouter une musique'}
+                  <button type="button" onClick={() => musicInputRef.current?.click()} className="btn-outline btn-sm inline-flex items-center gap-1.5">
+                    <MusicalNoteIcon className="h-4 w-4" /> Ajouter une musique
                   </button>
                 )}
                 <input
                   ref={musicInputRef}
                   type="file"
-                  accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac"
+                  accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/mp4,audio/x-m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac"
                   className="sr-only"
                   onChange={handleMusicFileChange}
                 />
-                <p className="text-xs text-muted">MP3, WAV, OGG, M4A ou AAC — 10 Mo max.</p>
+                <p className="text-xs text-muted">MP3 recommandé (lu partout, y compris sur iPhone) · M4A, AAC, OGG ou WAV · {MUSIC_MAX_MB} Mo max.</p>
               </div>
 
               {/* Gift registry */}

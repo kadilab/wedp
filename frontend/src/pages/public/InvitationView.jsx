@@ -137,13 +137,26 @@ function ScaledCanvas({ width, height, className, children, hPadding = 24 }) {
 // background — it needs to be noticeable enough that a guest actually taps
 // it: a pill with a label and a gentle pulse while silent, collapsing to a
 // small icon-only circle once playing so it stops competing for attention.
-function MusicToggle({ musicUrl, audioRef, isPlaying, onToggle, accentColor = '#df6746' }) {
-  if (!musicUrl) return null
+function MusicToggle({ musicUrl, audioRef, isPlaying, onToggle, onPlayingChange, accentColor = '#df6746' }) {
+  // A missing/unplayable file (deleted, unsupported codec) hides the button
+  // instead of showing a control that does nothing.
+  const [broken, setBroken] = useState(false)
+  if (!musicUrl || broken) return null
   return (
     <>
-      <audio ref={audioRef} src={musicUrl} loop />
+      <audio
+        ref={audioRef}
+        src={musicUrl}
+        loop
+        preload="auto"
+        playsInline
+        onPlay={() => onPlayingChange?.(true)}
+        onPause={() => onPlayingChange?.(false)}
+        onError={() => { setBroken(true); onPlayingChange?.(false) }}
+      />
       <motion.button
         type="button"
+        data-music-toggle
         onClick={onToggle}
         layout
         className="fixed bottom-5 right-5 z-50 flex h-12 items-center gap-2 rounded-full bg-white px-3 text-sm font-medium text-gray-700 shadow-lg transition-shadow hover:shadow-xl"
@@ -504,24 +517,43 @@ export default function InvitationView() {
   const template = invitationResponse?.template  // Template is at top level of invitation response
   const invitationInfo = invitationResponse?.invitation  // QR code, uniqueCode, etc.
 
-  // Background music — most browsers block audible autoplay without a user
-  // gesture, so this attempt silently no-ops there and the floating button
-  // (rendered near the bottom of this component) lets the guest start it.
+  // Background music — browsers block audible autoplay without a user
+  // gesture, so we also start it on the guest's FIRST gesture anywhere on the
+  // page (tap, click, key), unless they explicitly paused it with the
+  // floating button. Re-armed when the invitation data (and thus the <audio>
+  // element) appears.
+  const userPausedMusicRef = useRef(false)
   useEffect(() => {
-    const audio = audioRef.current
-    if (!wedding?.musicUrl || !audio) return
-    audio.volume = 0.6
-    audio.play().then(() => setIsMusicPlaying(true)).catch(() => setIsMusicPlaying(false))
-  }, [wedding?.musicUrl])
+    if (!wedding?.musicUrl) return
+    const tryPlay = () => {
+      const audio = audioRef.current
+      if (!audio || userPausedMusicRef.current || !audio.paused) return
+      audio.volume = 0.6
+      audio.play().catch(() => {})
+    }
+    tryPlay() // works when the browser allows autoplay (e.g. revisits)
+    const EVENTS = ['pointerdown', 'touchstart', 'keydown']
+    const remove = () => EVENTS.forEach(ev => window.removeEventListener(ev, onFirstGesture, true))
+    function onFirstGesture(e) {
+      // A tap on the music button itself is handled by toggleMusic.
+      if (e.target?.closest?.('[data-music-toggle]')) { remove(); return }
+      tryPlay()
+      remove()
+    }
+    EVENTS.forEach(ev => window.addEventListener(ev, onFirstGesture, true))
+    return remove
+  }, [wedding?.musicUrl, invitationResponse]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleMusic = () => {
     const audio = audioRef.current
     if (!audio) return
     if (audio.paused) {
-      audio.play().then(() => setIsMusicPlaying(true)).catch(() => {})
+      userPausedMusicRef.current = false
+      audio.volume = 0.6
+      audio.play().catch(() => {})
     } else {
+      userPausedMusicRef.current = true
       audio.pause()
-      setIsMusicPlaying(false)
     }
   }
 
@@ -658,7 +690,7 @@ export default function InvitationView() {
   if (!invitationCode && wedding && !invitationResponse) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-rose-50 via-white to-gold-50 p-4">
-        <MusicToggle musicUrl={wedding.musicUrl} audioRef={audioRef} isPlaying={isMusicPlaying} onToggle={toggleMusic} accentColor="#f43f5e" />
+        <MusicToggle musicUrl={wedding.musicUrl} audioRef={audioRef} isPlaying={isMusicPlaying} onToggle={toggleMusic} onPlayingChange={setIsMusicPlaying} accentColor="#f43f5e" />
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -837,7 +869,7 @@ export default function InvitationView() {
 
     return (
       <div className="min-h-screen flex flex-col items-center justify-start bg-gray-100 py-6 px-3" style={{ fontFamily: bodyFont }}>
-        <MusicToggle musicUrl={wedding?.musicUrl} audioRef={audioRef} isPlaying={isMusicPlaying} onToggle={toggleMusic} accentColor={primaryColor} />
+        <MusicToggle musicUrl={wedding?.musicUrl} audioRef={audioRef} isPlaying={isMusicPlaying} onToggle={toggleMusic} onPlayingChange={setIsMusicPlaying} accentColor={primaryColor} />
 
         {/* Google Fonts + custom uploaded fonts */}
         <FontStyles />
@@ -1101,7 +1133,7 @@ export default function InvitationView() {
         fontFamily: bodyFont
       }}
     >
-      <MusicToggle musicUrl={wedding?.musicUrl} audioRef={audioRef} isPlaying={isMusicPlaying} onToggle={toggleMusic} accentColor={primaryColor} />
+      <MusicToggle musicUrl={wedding?.musicUrl} audioRef={audioRef} isPlaying={isMusicPlaying} onToggle={toggleMusic} onPlayingChange={setIsMusicPlaying} accentColor={primaryColor} />
 
       {/* Default gradient BG if no custom */}
       {!hasCustomBg && (
