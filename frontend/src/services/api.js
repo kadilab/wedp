@@ -310,6 +310,9 @@ export const checkinAPI = {
 export const guestbookAPI = {
   // Public (no auth) — mur photos / livre d'or
   getWall: (slug) => api.get(`/public/guestbook/${slug}`),
+  // Public download links (no auth needed — plain navigation downloads them).
+  photoDownloadUrl: (slug, postId) => `/api/public/guestbook/${slug}/photos/${postId}/download`,
+  photosZipUrl: (slug) => `/api/public/guestbook/${slug}/photos.zip`,
   submit: (slug, { authorName, message, photo }) => {
     const formData = new FormData()
     formData.append('authorName', authorName)
@@ -323,7 +326,9 @@ export const guestbookAPI = {
   list: (weddingId) => api.get(`/guestbook/${weddingId}`),
   moderate: (weddingId, postId, status) => api.patch(`/guestbook/${weddingId}/${postId}`, { status }),
   remove: (weddingId, postId) => api.delete(`/guestbook/${weddingId}/${postId}`),
-  updateSettings: (weddingId, data) => api.patch(`/guestbook/${weddingId}/settings`, data)
+  updateSettings: (weddingId, data) => api.patch(`/guestbook/${weddingId}/settings`, data),
+  // Every published photo as one ZIP (organiser). Large: no short timeout.
+  downloadPhotosZip: (weddingId) => api.get(`/guestbook/${weddingId}/photos.zip`, { responseType: 'blob', timeout: UPLOAD_TIMEOUT_MS })
 }
 
 // Collaborator API — co-organisateurs/témoins invités sur un mariage

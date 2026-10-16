@@ -12,7 +12,8 @@ import {
   XMarkIcon,
   TrashIcon,
   TvIcon,
-  ClipboardDocumentIcon
+  ClipboardDocumentIcon,
+  ArrowDownTrayIcon
 } from '@heroicons/react/24/outline'
 
 export default function Guestbook() {
@@ -25,7 +26,7 @@ export default function Guestbook() {
 
   const { data, isLoading } = useQuery(['guestbook', weddingId], () => guestbookAPI.list(weddingId))
   const posts = data?.data?.posts || []
-  const settings = data?.data?.settings || { guestbookEnabled: true, guestbookAutoApprove: true }
+  const settings = data?.data?.settings || { guestbookEnabled: true, guestbookAutoApprove: true, guestbookPhotoDownload: true }
 
   const pending = posts.filter(p => p.status === 'PENDING')
   const approved = posts.filter(p => p.status === 'APPROVED')
@@ -58,6 +59,27 @@ export default function Guestbook() {
       onError: () => toast.error('Erreur lors de la mise à jour des réglages')
     }
   )
+
+  const approvedPhotos = approved.filter(p => p.photoUrl).length
+  const [zipLoading, setZipLoading] = useState(false)
+  const downloadZip = async () => {
+    setZipLoading(true)
+    try {
+      const res = await guestbookAPI.downloadPhotosZip(weddingId)
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `photos-livre-dor-${wedding?.slug || weddingId}.zip`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Téléchargement impossible, réessayez.')
+    } finally {
+      setZipLoading(false)
+    }
+  }
 
   const wallUrl = wedding ? `${window.location.origin}/gb/${wedding.slug}` : ''
   const displayUrl = wedding ? `${window.location.origin}/gb/${wedding.slug}/display` : ''
@@ -137,12 +159,24 @@ export default function Guestbook() {
             <p className="mt-2 text-xs text-muted">
               Si désactivée, chaque publication attend votre validation avant d'apparaître sur le mur.
             </p>
+            <label className="mt-2 flex items-center justify-between gap-3 border-t border-border py-2 pt-4">
+              <span className="text-sm text-content">Les invités peuvent voir et télécharger les photos</span>
+              <input
+                type="checkbox"
+                checked={settings.guestbookPhotoDownload !== false}
+                onChange={(e) => settingsMutation.mutate({ guestbookPhotoDownload: e.target.checked })}
+                className="h-5 w-9 shrink-0 accent-primary-600"
+              />
+            </label>
+            <p className="mt-1 text-xs text-muted">
+              Sur la page du QR, les invités voient les photos publiées et peuvent les enregistrer (une par une ou toutes en ZIP).
+            </p>
           </div>
         </div>
 
         {/* Posts */}
         <div className="lg:col-span-2">
-          <div className="mb-4 flex gap-2">
+          <div className="mb-4 flex flex-wrap gap-2">
             <button
               onClick={() => setTab('pending')}
               className={`rounded-lg px-4 py-2 text-sm font-medium ${tab === 'pending' ? 'bg-primary-600 text-white' : 'bg-surface-2 text-muted'}`}
@@ -155,6 +189,16 @@ export default function Guestbook() {
             >
               Publiées {approved.length > 0 && `(${approved.length})`}
             </button>
+            {approvedPhotos > 0 && (
+              <button
+                onClick={downloadZip}
+                disabled={zipLoading}
+                className="btn-outline btn-sm ml-auto inline-flex items-center gap-1.5"
+              >
+                <ArrowDownTrayIcon className="h-4 w-4" />
+                {zipLoading ? 'Préparation…' : `Télécharger les ${approvedPhotos} photo${approvedPhotos > 1 ? 's' : ''} (ZIP)`}
+              </button>
+            )}
           </div>
 
           {isLoading ? (
@@ -168,7 +212,18 @@ export default function Guestbook() {
               {list.map((post) => (
                 <div key={post.id} className="overflow-hidden rounded-2xl border border-border bg-surface">
                   {post.photoUrl && (
-                    <img src={post.photoUrl} alt="" className="h-48 w-full object-cover" />
+                    <div className="relative">
+                      <img src={post.photoUrl} alt="" className="h-48 w-full object-cover" />
+                      <a
+                        href={post.photoUrl}
+                        download
+                        className="absolute right-2 top-2 rounded-full bg-black/55 p-2 text-white hover:bg-black/70"
+                        aria-label="Télécharger la photo"
+                        title="Télécharger la photo"
+                      >
+                        <ArrowDownTrayIcon className="h-4 w-4" />
+                      </a>
+                    </div>
                   )}
                   <div className="p-4">
                     <div className="flex items-center justify-between">

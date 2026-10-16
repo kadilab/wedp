@@ -5,6 +5,8 @@ const { authenticate } = require('../middleware/auth.middleware');
 const { safeDeleteUploads } = require('../utils/helpers');
 const { findAccessibleWedding } = require('../utils/weddingAccess');
 const logger = require('../utils/logger');
+const { eventDisplayName } = require('../utils/helpers');
+const { sendPhotosZip } = require('../utils/guestbookPhotos');
 
 const prisma = new PrismaClient();
 
@@ -31,12 +33,34 @@ router.get('/:weddingId', authenticate, async (req, res) => {
       posts,
       settings: {
         guestbookEnabled: wedding.guestbookEnabled,
-        guestbookAutoApprove: wedding.guestbookAutoApprove
+        guestbookAutoApprove: wedding.guestbookAutoApprove,
+        guestbookPhotoDownload: wedding.guestbookPhotoDownload
       }
     });
   } catch (error) {
     logger.error('Get guestbook posts error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+/**
+ * @route   GET /api/guestbook/:weddingId/photos.zip
+ * @desc    Download every published photo of the guestbook as one ZIP
+ * @access  Private (wedding owner or admin)
+ */
+router.get('/:weddingId/photos.zip', authenticate, async (req, res) => {
+  try {
+    const wedding = await findOwnedWedding(req.params.weddingId, req.user);
+    if (!wedding) return res.status(404).json({ error: 'Mariage non trouvé' });
+
+    const posts = await prisma.guestbookPost.findMany({
+      where: { weddingId: wedding.id, status: 'APPROVED', photoUrl: { not: null } },
+      orderBy: { createdAt: 'asc' }
+    });
+    sendPhotosZip(res, posts, eventDisplayName(wedding));
+  } catch (error) {
+    logger.error('Guestbook photos ZIP error:', error);
+    if (!res.headersSent) res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
@@ -50,15 +74,16 @@ router.patch('/:weddingId/settings', authenticate, async (req, res) => {
     const wedding = await findOwnedWedding(req.params.weddingId, req.user);
     if (!wedding) return res.status(404).json({ error: 'Mariage non trouvé' });
 
-    const { guestbookEnabled, guestbookAutoApprove } = req.body;
+    const { guestbookEnabled, guestbookAutoApprove, guestbookPhotoDownload } = req.body;
 
     const updated = await prisma.wedding.update({
       where: { id: wedding.id },
       data: {
         ...(guestbookEnabled !== undefined && { guestbookEnabled: !!guestbookEnabled }),
-        ...(guestbookAutoApprove !== undefined && { guestbookAutoApprove: !!guestbookAutoApprove })
+        ...(guestbookAutoApprove !== undefined && { guestbookAutoApprove: !!guestbookAutoApprove }),
+        ...(guestbookPhotoDownload !== undefined && { guestbookPhotoDownload: !!guestbookPhotoDownload })
       },
-      select: { guestbookEnabled: true, guestbookAutoApprove: true }
+      select: { guestbookEnabled: true, guestbookAutoApprove: true, guestbookPhotoDownload: true }
     });
 
     res.json({ settings: updated });

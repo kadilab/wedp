@@ -358,6 +358,8 @@ model Wedding {
   // Digital guestbook / photo wall
   guestbookEnabled     Boolean    @default(true) @map("guestbook_enabled")
   guestbookAutoApprove Boolean    @default(true) @map("guestbook_auto_approve")
+  // Guests can browse and download the photos shared on the guestbook.
+  guestbookPhotoDownload Boolean  @default(true) @map("guestbook_photo_download")
 
   // Status
   status            WeddingStatus @default(DRAFT)

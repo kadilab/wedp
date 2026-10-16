@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
-import { useQuery, useMutation } from 'react-query'
+import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { guestbookAPI } from '../../services/api'
 import { motion } from 'framer-motion'
 import { CameraIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
+import GuestbookGallery from '../../components/guestbook/GuestbookGallery'
 
 export default function GuestbookSubmit() {
   const { slug } = useParams()
@@ -14,12 +15,24 @@ export default function GuestbookSubmit() {
   const [sent, setSent] = useState(false)
   const fileInputRef = useRef(null)
 
-  const { data, isLoading, isError } = useQuery(['guestbook-wall-info', slug], () => guestbookAPI.getWall(slug))
+  const queryClient = useQueryClient()
+  // Refreshed regularly so photos shared by other guests appear during the event.
+  const { data, isLoading, isError } = useQuery(
+    ['guestbook-wall-info', slug],
+    () => guestbookAPI.getWall(slug),
+    { refetchInterval: 30_000, refetchOnWindowFocus: true }
+  )
   const wedding = data?.data?.wedding
+  const posts = data?.data?.posts || []
 
   const submitMutation = useMutation(
     () => guestbookAPI.submit(slug, { authorName, message, photo }),
-    { onSuccess: () => setSent(true) }
+    {
+      onSuccess: () => {
+        setSent(true)
+        queryClient.invalidateQueries(['guestbook-wall-info', slug])
+      }
+    }
   )
 
   const handlePhotoChange = (e) => {
@@ -92,7 +105,7 @@ export default function GuestbookSubmit() {
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Un mot doux pour les mariés..."
+                placeholder="Un petit mot pour l’occasion…"
                 rows={3}
                 maxLength={500}
                 className="input"
@@ -146,6 +159,14 @@ export default function GuestbookSubmit() {
             )}
           </form>
         )}
+
+        <GuestbookGallery
+          slug={slug}
+          posts={posts}
+          photoCount={wedding.photoCount}
+          canDownload={wedding.photoDownload !== false}
+          eventTitle={wedding.title}
+        />
       </div>
     </div>
   )

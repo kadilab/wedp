@@ -6,6 +6,7 @@ const { createNotification, NotificationTemplates } = require('../utils/notifica
 const { eventDisplayName } = require('../utils/helpers');
 const { uploadSingle, handleUploadError } = require('../middleware/upload.middleware');
 const kpay = require('../utils/kpay');
+const { sendPhoto, sendPhotosZip } = require('../utils/guestbookPhotos');
 
 const prisma = new PrismaClient();
 
@@ -192,7 +193,7 @@ router.get('/guestbook/:weddingSlug', async (req, res) => {
   try {
     const wedding = await prisma.wedding.findUnique({
       where: { slug: req.params.weddingSlug },
-      select: { id: true, guestbookEnabled: true, brideName: true, groomName: true, eventTitle: true, honoreeName: true, eventType: true }
+      select: { id: true, guestbookEnabled: true, guestbookPhotoDownload: true, brideName: true, groomName: true, eventTitle: true, honoreeName: true, eventType: true }
     });
 
     if (!wedding || !wedding.guestbookEnabled) {
@@ -204,9 +205,12 @@ router.get('/guestbook/:weddingSlug', async (req, res) => {
       orderBy: { createdAt: 'desc' },
       take: 100
     });
+    const photoCount = await prisma.guestbookPost.count({
+      where: { weddingId: wedding.id, status: 'APPROVED', photoUrl: { not: null } }
+    });
 
     res.json({
-      wedding: { id: wedding.id, title: eventDisplayName(wedding) },
+      wedding: { id: wedding.id, title: eventDisplayName(wedding), photoDownload: wedding.guestbookPhotoDownload, photoCount },
       posts
     });
   } catch (error) {
@@ -273,6 +277,60 @@ router.post('/guestbook/:weddingSlug', uploadSingle('guestbookPhoto'), handleUpl
   } catch (error) {
     logger.error('Submit guestbook post error:', error);
     res.status(500).json({ error: 'Erreur lors de l\'envoi' });
+  }
+});
+
+// Guests may download the published guestbook photos, unless the organiser
+// switched it off (Livre d'or → Réglages).
+async function findDownloadableGuestbook(slug) {
+  const wedding = await prisma.wedding.findUnique({
+    where: { slug },
+    select: { id: true, guestbookEnabled: true, guestbookPhotoDownload: true, brideName: true, groomName: true, eventTitle: true, honoreeName: true, eventType: true }
+  });
+  if (!wedding || !wedding.guestbookEnabled || !wedding.guestbookPhotoDownload) return null;
+  return wedding;
+}
+
+/**
+ * @route   GET /api/public/guestbook/:weddingSlug/photos.zip
+ * @desc    Every published guestbook photo as one ZIP
+ * @access  Public (when the organiser allows downloads)
+ */
+router.get('/guestbook/:weddingSlug/photos.zip', async (req, res) => {
+  try {
+    const wedding = await findDownloadableGuestbook(req.params.weddingSlug);
+    if (!wedding) return res.status(404).json({ error: 'Téléchargement non disponible' });
+    const posts = await prisma.guestbookPost.findMany({
+      where: { weddingId: wedding.id, status: 'APPROVED', photoUrl: { not: null } },
+      orderBy: { createdAt: 'asc' }
+    });
+    sendPhotosZip(res, posts, eventDisplayName(wedding));
+  } catch (error) {
+    logger.error('Public guestbook ZIP error:', error);
+    if (!res.headersSent) res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+/**
+ * @route   GET /api/public/guestbook/:weddingSlug/photos/:postId/download
+ * @desc    One published guestbook photo, as a file download
+ * @access  Public (when the organiser allows downloads)
+ */
+router.get('/guestbook/:weddingSlug/photos/:postId/download', async (req, res) => {
+  try {
+    const wedding = await findDownloadableGuestbook(req.params.weddingSlug);
+    if (!wedding) return res.status(404).json({ error: 'Téléchargement non disponible' });
+    const photos = await prisma.guestbookPost.findMany({
+      where: { weddingId: wedding.id, status: 'APPROVED', photoUrl: { not: null } },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, authorName: true, photoUrl: true }
+    });
+    const index = photos.findIndex(p => p.id === req.params.postId);
+    if (index === -1) return res.status(404).json({ error: 'Photo introuvable' });
+    sendPhoto(res, photos[index], index, eventDisplayName(wedding));
+  } catch (error) {
+    logger.error('Public guestbook photo download error:', error);
+    if (!res.headersSent) res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
