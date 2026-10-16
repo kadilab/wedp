@@ -9,57 +9,31 @@ const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
 
-// Print pricing configuration
-const PRINT_PRICING = {
-  paperType: {
-    standard: 0,
-    premium: 0.50,
-    luxury: 1.50
-  },
-  finish: {
-    mat: 0,
-    glossy: 0.20,
-    satin: 0.30
-  },
-  size: {
-    A6: 2.00,
-    A5: 3.00,
-    custom: 4.50
-  },
-  // Recto-verso: printing the shared back side on every card, per unit.
-  doubleSided: 0.75
-};
+const { getPrintPricing, isPrintServiceEnabled, calculatePrintPrice } = require('../utils/printPricing');
 
-function calculatePrintPrice(quantity, paperType, finish, size, doubleSided) {
-  const basePrice = PRINT_PRICING.size[size] || PRINT_PRICING.size.A5;
-  const paperExtra = PRINT_PRICING.paperType[paperType] || 0;
-  const finishExtra = PRINT_PRICING.finish[finish] || 0;
-  const doubleSidedExtra = doubleSided ? PRINT_PRICING.doubleSided : 0;
-  const unitPrice = basePrice + paperExtra + finishExtra + doubleSidedExtra;
-  // Volume discount
-  let discount = 0;
-  if (quantity >= 200) discount = 0.20;
-  else if (quantity >= 100) discount = 0.15;
-  else if (quantity >= 50) discount = 0.10;
-  
-  const total = unitPrice * quantity * (1 - discount);
-  return Math.round(total * 100) / 100;
+const isStaff = (user) => user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+
+// Prices are configured by the admin (Paramètres → Impression), see
+// utils/printPricing.js. Clients cannot order while the service is off.
+async function ensureServiceOpen(req, res) {
+  if (isStaff(req.user) || await isPrintServiceEnabled()) return true;
+  res.status(403).json({ code: 'PRINT_SERVICE_DISABLED', error: 'Le service d’impression n’est pas disponible pour le moment.' });
+  return false;
 }
 
 /**
  * @route   GET /api/print-orders/pricing
- * @desc    Get print pricing info
+ * @desc    Current print pricing (admin-configured) + whether ordering is open
  * @access  Private
  */
-router.get('/pricing', authenticate, (req, res) => {
-  res.json({
-    pricing: PRINT_PRICING,
-    discounts: {
-      '50+': '10%',
-      '100+': '15%',
-      '200+': '20%'
-    }
-  });
+router.get('/pricing', authenticate, async (req, res) => {
+  try {
+    const [pricing, enabled] = await Promise.all([getPrintPricing(), isPrintServiceEnabled()]);
+    res.json({ enabled, pricing });
+  } catch (error) {
+    logger.error('Get print pricing error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
 });
 
 /**
@@ -67,24 +41,23 @@ router.get('/pricing', authenticate, (req, res) => {
  * @desc    Calculate print order price
  * @access  Private
  */
-router.post('/calculate', authenticate, (req, res) => {
-  const { quantity, paperType, finish, size, doubleSided } = req.body;
+router.post('/calculate', authenticate, async (req, res) => {
+  try {
+    const { paperType, finish, size, doubleSided } = req.body;
+    const quantity = parseInt(req.body.quantity, 10);
+    const pricing = await getPrintPricing();
 
-  if (!quantity || quantity < 10) {
-    return res.status(400).json({ error: 'Minimum 10 exemplaires' });
+    if (!quantity || quantity < pricing.minQuantity) {
+      return res.status(400).json({ error: `Minimum ${pricing.minQuantity} exemplaires` });
+    }
+
+    const opts = { quantity, paperType: paperType || 'premium', finish: finish || 'mat', size: size || 'A5', doubleSided: !!doubleSided };
+    const { unitPrice, discountPercent, totalPrice } = calculatePrintPrice(pricing, opts);
+    res.json({ ...opts, unitPrice, discountPercent, totalPrice });
+  } catch (error) {
+    logger.error('Calculate print price error:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
-
-  const price = calculatePrintPrice(quantity, paperType || 'premium', finish || 'mat', size || 'A5', !!doubleSided);
-
-  res.json({
-    quantity,
-    paperType: paperType || 'premium',
-    finish: finish || 'mat',
-    size: size || 'A5',
-    doubleSided: !!doubleSided,
-    unitPrice: Math.round((price / quantity) * 100) / 100,
-    totalPrice: price
-  });
 });
 
 /**
@@ -99,12 +72,15 @@ router.post('/', authenticate, async (req, res) => {
       shippingAddress, shippingCity, shippingCountry, shippingPhone
     } = req.body;
 
+    if (!(await ensureServiceOpen(req, res))) return;
+
     if (!weddingId) {
       return res.status(400).json({ error: 'ID du mariage requis' });
     }
 
-    if (!quantity || quantity < 10) {
-      return res.status(400).json({ error: 'Minimum 10 exemplaires' });
+    const pricing = await getPrintPricing();
+    if (!quantity || quantity < pricing.minQuantity) {
+      return res.status(400).json({ error: `Minimum ${pricing.minQuantity} exemplaires` });
     }
 
     // Verify wedding ownership
@@ -119,13 +95,13 @@ router.post('/', authenticate, async (req, res) => {
     // can't actually be printed.
     const wantsDoubleSided = !!doubleSided && !!wedding.printBackEnabled && !!wedding.printBackText;
 
-    const price = calculatePrintPrice(
-      quantity,
-      paperType || 'premium',
-      finish || 'mat',
-      size || 'A5',
-      wantsDoubleSided
-    );
+    const { totalPrice: price } = calculatePrintPrice(pricing, {
+      quantity: parseInt(quantity, 10),
+      paperType: paperType || 'premium',
+      finish: finish || 'mat',
+      size: size || 'A5',
+      doubleSided: wantsDoubleSided
+    });
 
     const order = await prisma.printOrder.create({
       data: {

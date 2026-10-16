@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { adminAPI } from '../../services/api'
 import useSiteSettingsStore from '../../stores/siteSettingsStore'
 import { confirmDialog } from '../../components/common/confirm'
+import { formatMoney } from '../../utils/currency'
+import { DEFAULT_PRINT_PRICING, PRINT_OPTION_LABELS, normalizePrintPricing, cleanPrintPricing } from '../../utils/printPricing'
 import toast from 'react-hot-toast'
 import {
   Cog6ToothIcon,
@@ -25,7 +27,8 @@ import {
   LinkIcon,
   SignalIcon,
   ExclamationTriangleIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  PrinterIcon
 } from '@heroicons/react/24/outline'
 
 const KPAY_OPERATORS = [
@@ -80,6 +83,7 @@ const DEFAULT_FORM = {
   enableEmailNotifications: true,
   enableAdminNotifications: true,
   printServiceEnabled: false,
+  printPricing: DEFAULT_PRINT_PRICING,
   googleClientId: '',
   googleClientSecret: ''
 }
@@ -131,6 +135,7 @@ function formFromSettings(s) {
     enableEmailNotifications: s.enableEmailNotifications !== 'false' && s.enableEmailNotifications !== false,
     enableAdminNotifications: s.enableAdminNotifications !== 'false' && s.enableAdminNotifications !== false,
     printServiceEnabled: isTrue(s.printServiceEnabled),
+    printPricing: normalizePrintPricing(s.printPricing),
     googleClientId: s.googleClientId || '',
     googleClientSecret: s.googleClientSecret || ''
   }
@@ -285,6 +290,7 @@ const TABS = [
   { id: 'general', label: 'Général', description: 'Identité, contact, connexion', icon: Cog6ToothIcon },
   { id: 'payment', label: 'Paiement en ligne', description: 'K-PAY : Mobile Money & carte', icon: CreditCardIcon },
   { id: 'manual', label: 'Paiement manuel', description: 'Tarifs & numéros affichés', icon: BanknotesIcon },
+  { id: 'print', label: 'Impression', description: 'Service & tarifs d\'impression', icon: PrinterIcon },
   { id: 'email', label: 'Email', description: 'Serveur SMTP', icon: EnvelopeIcon },
   { id: 'notifications', label: 'Notifications', description: 'Emails, alertes, Telegram', icon: BellIcon }
 ]
@@ -299,7 +305,7 @@ export default function AdminSettings() {
   const [logoHeight, setLogoHeight] = useState(32)
   const [savedLogoHeight, setSavedLogoHeight] = useState(32)
   const logoInputRef = useRef(null)
-  const { updateSiteName, updateSiteLogo, updateLogoHeight, updateContactInfo } = useSiteSettingsStore()
+  const { updateSiteName, updateSiteLogo, updateLogoHeight, updateContactInfo, updatePrintServiceEnabled } = useSiteSettingsStore()
 
   const { data: settingsData, isLoading, isError, error: fetchError } = useQuery(
     'admin-settings',
@@ -341,6 +347,8 @@ export default function AdminSettings() {
       updateSiteName(formData.siteName)
       updateLogoHeight(logoHeight)
       updateContactInfo(formData.contactEmail, formData.supportPhone)
+      // Reflect the print switch immediately in this session's client space.
+      updatePrintServiceEnabled(formData.printServiceEnabled)
       toast.success('Paramètres enregistrés')
     },
     onError: (err) => toast.error(err.response?.data?.error || err.response?.data?.message || 'Erreur lors de la sauvegarde')
@@ -348,8 +356,31 @@ export default function AdminSettings() {
 
   const handleSubmit = (e) => {
     e?.preventDefault()
-    updateMutation.mutate({ ...formData, logoHeight: String(logoHeight) })
+    updateMutation.mutate({ ...formData, printPricing: cleanPrintPricing(formData.printPricing), logoHeight: String(logoHeight) })
   }
+
+  // Print pricing editor helpers
+  const setPricing = (group, key, raw) => {
+    const value = raw === '' ? '' : Math.max(0, Number(raw))
+    setFormData(prev => ({
+      ...prev,
+      printPricing: key == null
+        ? { ...prev.printPricing, [group]: value }
+        : { ...prev.printPricing, [group]: { ...prev.printPricing[group], [key]: value } }
+    }))
+  }
+  const setDiscount = (index, field, raw) =>
+    setFormData(prev => ({
+      ...prev,
+      printPricing: {
+        ...prev.printPricing,
+        discounts: prev.printPricing.discounts.map((d, i) => i === index ? { ...d, [field]: raw === '' ? '' : Math.max(0, Number(raw)) } : d)
+      }
+    }))
+  const addDiscount = () =>
+    setFormData(prev => ({ ...prev, printPricing: { ...prev.printPricing, discounts: [...prev.printPricing.discounts, { minQuantity: '', percent: '' }] } }))
+  const removeDiscount = (index) =>
+    setFormData(prev => ({ ...prev, printPricing: { ...prev.printPricing, discounts: prev.printPricing.discounts.filter((_, i) => i !== index) } }))
 
   const discardChanges = () => {
     if (savedForm) setFormData(savedForm)
@@ -681,15 +712,6 @@ export default function AdminSettings() {
                 </div>
               </Section>
 
-              <Section title="Fonctionnalités">
-                <SettingRow
-                  title="Commande d'impression pour les clients"
-                  description="Désactivé : les clients téléchargent toujours leurs fichiers d'impression, mais le bouton « Commander l'impression chez nous » est masqué."
-                >
-                  <Toggle id="printServiceToggle" label="Service d'impression" checked={formData.printServiceEnabled} onChange={(v) => updateField('printServiceEnabled', v)} />
-                </SettingRow>
-              </Section>
-
               <Section
                 title="Connexion avec Google"
                 description="Identifiants OAuth du bouton « Continuer avec Google ». Le Client ID doit être autorisé pour ton domaine dans Google Cloud Console (Origines JavaScript autorisées)."
@@ -956,6 +978,118 @@ export default function AdminSettings() {
               </Section>
             </>
           )}
+
+          {/* ============================== PRINT */}
+          {activeTab === 'print' && (() => {
+            const pr = formData.printPricing
+            const n = (v) => Number(v) || 0
+            // Live example so the admin sees what a typical client pays.
+            const exQty = 100
+            const exUnit = n(pr.size.A5) + n(pr.paperType.premium) + n(pr.finish.mat)
+            const exTier = [...(pr.discounts || [])].filter(d => n(d.minQuantity) > 0).sort((a, b) => n(a.minQuantity) - n(b.minQuantity)).reverse().find(d => exQty >= n(d.minQuantity))
+            const exTotal = Math.round(exUnit * exQty * (1 - (exTier ? n(exTier.percent) : 0) / 100))
+            const priceInput = (id, group, key, value) => (
+              <div className="relative">
+                <input
+                  id={id}
+                  type="number"
+                  min="0"
+                  step="50"
+                  inputMode="numeric"
+                  className="input pr-12"
+                  value={value}
+                  onChange={(e) => setPricing(group, key, e.target.value)}
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-gray-400">FC</span>
+              </div>
+            )
+            return (
+              <>
+                <Section title="Service d'impression" description="Impression et livraison des cartes d'invitation par votre équipe." icon={PrinterIcon}>
+                  <SettingRow
+                    title="Proposer la commande d'impression aux clients"
+                    description={formData.printServiceEnabled
+                      ? 'Activé : bouton « Commander l’impression » sur chaque événement et menu « Impressions ».'
+                      : 'Désactivé : bouton et menu « Impressions » masqués, aucune nouvelle commande acceptée. Les clients peuvent toujours télécharger leurs fichiers à imprimer.'}
+                  >
+                    <Toggle id="printServiceToggle" label="Service d'impression" checked={formData.printServiceEnabled} onChange={(v) => updateField('printServiceEnabled', v)} />
+                  </SettingRow>
+                </Section>
+
+                <Section title="Tarifs par carte" description="Prix de base selon le format, plus les suppléments choisis par le client. Montants en FC, par carte." icon={BanknotesIcon}>
+                  <div className="space-y-5">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800 mb-2">Format (prix de base)</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {Object.keys(DEFAULT_PRINT_PRICING.size).map(k => (
+                          <Field key={k} id={`pp-size-${k}`} label={PRINT_OPTION_LABELS.size[k]}>{priceInput(`pp-size-${k}`, 'size', k, pr.size[k])}</Field>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800 mb-2">Supplément papier</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {Object.keys(DEFAULT_PRINT_PRICING.paperType).map(k => (
+                          <Field key={k} id={`pp-paper-${k}`} label={PRINT_OPTION_LABELS.paperType[k]}>{priceInput(`pp-paper-${k}`, 'paperType', k, pr.paperType[k])}</Field>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800 mb-2">Supplément finition</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {Object.keys(DEFAULT_PRINT_PRICING.finish).map(k => (
+                          <Field key={k} id={`pp-finish-${k}`} label={PRINT_OPTION_LABELS.finish[k]}>{priceInput(`pp-finish-${k}`, 'finish', k, pr.finish[k])}</Field>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <Field id="pp-double" label="Supplément recto-verso">{priceInput('pp-double', 'doubleSided', null, pr.doubleSided)}</Field>
+                      <Field id="pp-min" label="Quantité minimum" hint="Nombre de cartes minimum par commande.">
+                        <input id="pp-min" type="number" min="1" step="1" inputMode="numeric" className="input" value={pr.minQuantity} onChange={(e) => setPricing('minQuantity', null, e.target.value)} />
+                      </Field>
+                    </div>
+                  </div>
+                </Section>
+
+                <Section
+                  title="Remises de volume"
+                  description="La plus grande remise atteinte s'applique au total."
+                  icon={BanknotesIcon}
+                  aside={
+                    <button type="button" onClick={addDiscount} className="inline-flex items-center text-sm text-primary-600 hover:text-primary-700 font-medium shrink-0">
+                      <PlusIcon className="h-4 w-4 mr-1" /> Ajouter
+                    </button>
+                  }
+                >
+                  {pr.discounts.length === 0 ? (
+                    <p className="text-sm text-gray-500">Aucune remise — le prix est le même quelle que soit la quantité.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {pr.discounts.map((d, i) => (
+                        <div key={i} className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm text-gray-600">À partir de</span>
+                          <input type="number" min="1" className="input w-24" aria-label="Quantité" value={d.minQuantity} onChange={(e) => setDiscount(i, 'minQuantity', e.target.value)} />
+                          <span className="text-sm text-gray-600">cartes :</span>
+                          <div className="relative w-24">
+                            <input type="number" min="0" max="90" className="input pr-7" aria-label="Remise en %" value={d.percent} onChange={(e) => setDiscount(i, 'percent', e.target.value)} />
+                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-gray-400">%</span>
+                          </div>
+                          <button type="button" onClick={() => removeDiscount(i)} className="p-2 text-red-500 hover:text-red-700" aria-label="Supprimer la remise">
+                            <TrashIcon className="h-5 w-5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-4 rounded-xl bg-gray-50 border border-gray-100 p-3 text-sm text-gray-600">
+                    Exemple : {exQty} cartes A5, papier premium, finition mate ={' '}
+                    <strong className="text-gray-900">{formatMoney(exTotal)}</strong>
+                    {exTier ? ` (remise ${n(exTier.percent)} % incluse)` : ''}.
+                  </div>
+                </Section>
+              </>
+            )
+          })()}
 
           {/* ============================== EMAIL */}
           {activeTab === 'email' && (

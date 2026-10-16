@@ -15,12 +15,13 @@ const logger = require('../utils/logger');
 
 const prisma = new PrismaClient();
 
-// Print pricing (same as in printOrder.routes.js)
-const PRINT_PRICING = {
-  paperType: { standard: 0, premium: 0.50, luxury: 1.50 },
-  finish: { mat: 0, glossy: 0.20, satin: 0.30 },
-  size: { A6: 2.00, A5: 3.00, custom: 4.50 }
-};
+// Print pricing is admin-configured — shared with printOrder.routes.js.
+const printPricing = require('../utils/printPricing');
+
+async function calculatePrintPrice(quantity, paperType, finish, size) {
+  const pricing = await printPricing.getPrintPricing();
+  return printPricing.calculatePrintPrice(pricing, { quantity, paperType, finish, size, doubleSided: false }).totalPrice;
+}
 
 // Display name used in notifications/logs - couple names for couple events,
 // "Anniversaire de X" for honoree events, the free title otherwise.
@@ -41,19 +42,6 @@ function normalizeDrinkOptions(list) {
     cleaned.push(name);
   }
   return cleaned;
-}
-
-function calculatePrintPrice(quantity, paperType, finish, size) {
-  const basePrice = PRINT_PRICING.size[size] || PRINT_PRICING.size.A5;
-  const paperExtra = PRINT_PRICING.paperType[paperType] || 0;
-  const finishExtra = PRINT_PRICING.finish[finish] || 0;
-  const unitPrice = basePrice + paperExtra + finishExtra;
-  let discount = 0;
-  if (quantity >= 200) discount = 0.20;
-  else if (quantity >= 100) discount = 0.15;
-  else if (quantity >= 50) discount = 0.10;
-  const total = unitPrice * quantity * (1 - discount);
-  return Math.round(total * 100) / 100;
 }
 
 /**
@@ -249,8 +237,8 @@ router.post('/', authenticate, createWeddingValidation, async (req, res) => {
     }
 
     // If print service is requested, create a print order
-    if (wantsPrintService && printQuantity && printQuantity >= 10) {
-      const printPrice = calculatePrintPrice(
+    if (wantsPrintService && printQuantity && printQuantity >= 10 && await printPricing.isPrintServiceEnabled()) {
+      const printPrice = await calculatePrintPrice(
         printQuantity,
         printPaperType || 'premium',
         printFinish || 'mat',
@@ -638,7 +626,7 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
     });
 
     // If print service newly enabled, create a print order
-    if (wantsPrintService && !currentWedding.wantsPrintService && printQuantity && printQuantity >= 10) {
+    if (wantsPrintService && !currentWedding.wantsPrintService && printQuantity && printQuantity >= 10 && await printPricing.isPrintServiceEnabled()) {
       // Check if there's no pending print order for this wedding
       const existingOrder = await prisma.printOrder.findFirst({
         where: { 
@@ -648,7 +636,7 @@ router.put('/:id', authenticate, isOwner(), updateWeddingValidation, async (req,
       });
 
       if (!existingOrder) {
-        const printPrice = calculatePrintPrice(
+        const printPrice = await calculatePrintPrice(
           printQuantity,
           printPaperType || 'premium',
           printFinish || 'mat',

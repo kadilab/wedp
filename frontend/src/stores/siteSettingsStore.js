@@ -82,6 +82,10 @@ const useSiteSettingsStore = create((set, get) => ({
     set({ contactEmail, supportPhone })
   },
 
+  updatePrintServiceEnabled: (enabled) => {
+    set({ printServiceEnabled: !!enabled })
+  },
+
   refresh: () => {
     set({ loaded: false })
   }

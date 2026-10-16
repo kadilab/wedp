@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { printOrderAPI } from '../../services/api'
+import { formatMoney } from '../../utils/currency'
+import useSiteSettingsStore from '../../stores/siteSettingsStore'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -38,6 +40,9 @@ const STEPS = [
 ]
 
 export default function PrintOrders() {
+  // Reached by direct link while the service is off: existing orders stay
+  // visible, but say clearly that no new order can be placed.
+  const printServiceEnabled = useSiteSettingsStore((s) => s.printServiceEnabled)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const queryClient = useQueryClient()
 
@@ -57,7 +62,7 @@ export default function PrintOrders() {
   )
 
   const formatPrice = (price) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(price)
+    return formatMoney(price)
   }
 
   const getStepStatus = (orderStatus, stepKey) => {
@@ -79,6 +84,12 @@ export default function PrintOrders() {
 
   return (
     <div className="max-w-5xl mx-auto">
+      {!printServiceEnabled && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800" role="status">
+          Le service d'impression est momentanément indisponible : aucune nouvelle commande n'est possible.
+          Vous pouvez toujours télécharger vos fichiers à imprimer depuis la page de votre événement.
+        </div>
+      )}
       <div className="mb-8">
         <h1 className="text-3xl font-serif font-bold text-gray-900 flex items-center">
           <PrinterIcon className="h-8 w-8 mr-3 text-primary-500" />

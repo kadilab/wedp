@@ -103,7 +103,7 @@ export default function DashboardLayout({ isAdmin = false }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef(null)
   const { user, logout } = useAuthStore()
-  const { siteName, siteLogo, logoHeight } = useSiteSettingsStore()
+  const { siteName, siteLogo, logoHeight, printServiceEnabled } = useSiteSettingsStore()
   const { isDark, toggle: toggleTheme } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
@@ -121,11 +121,16 @@ export default function DashboardLayout({ isAdmin = false }) {
     }
   }
 
+  // Client "Impressions" entry only while the print service is on
+  // (Paramètres → Impression).
+  const clientSections = printServiceEnabled
+    ? clientNavSections
+    : clientNavSections.map(sec => ({ ...sec, items: sec.items.filter(i => i.href !== '/print-orders') }))
   const navSections = isAdmin
     ? adminNavSections
     : (user?.isCreator || user?.role === 'CREATOR')
-      ? [...clientNavSections, creatorNavSection]
-      : clientNavSections
+      ? [...clientSections, creatorNavSection]
+      : clientSections
 
   const { data: dashStatsData } = useQuery(
     'admin-stats',

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
-import { useMutation } from 'react-query'
+import { useMutation, useQuery } from 'react-query'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { printOrderAPI } from '../../services/api'
 import { XMarkIcon, TruckIcon } from '@heroicons/react/24/outline'
+import { formatMoney } from '../../utils/currency'
+import { normalizePrintPricing } from '../../utils/printPricing'
 
 const PAPERS = [
   { id: 'standard', name: 'Standard', desc: 'Couché 250g' },
@@ -31,15 +33,21 @@ export default function PrintOrderModal({ weddingId, defaultQuantity = 50, backA
   const [estimate, setEstimate] = useState(null)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
+  // Admin-configured prices (Paramètres → Impression) — shown on each option.
+  const { data: pricingData } = useQuery('print-pricing', () => printOrderAPI.getPricing(), { staleTime: 60_000 })
+  const pricing = normalizePrintPricing(pricingData?.data?.pricing)
+  const minQty = pricing.minQuantity
+  const extra = (v) => (Number(v) > 0 ? `+${formatMoney(v)}` : 'Inclus')
+
   // Live price estimate whenever the pricing-relevant fields change.
   useEffect(() => {
     let cancel = false
-    if (!form.quantity || form.quantity < 10) { setEstimate(null); return }
+    if (!form.quantity || form.quantity < minQty) { setEstimate(null); return }
     printOrderAPI.calculate({ quantity: Number(form.quantity), paperType: form.paperType, finish: form.finish, size: form.size, doubleSided: backAvailable && form.doubleSided })
       .then((r) => { if (!cancel) setEstimate(r.data) })
       .catch(() => { if (!cancel) setEstimate(null) })
     return () => { cancel = true }
-  }, [form.quantity, form.paperType, form.finish, form.size, form.doubleSided, backAvailable])
+  }, [form.quantity, form.paperType, form.finish, form.size, form.doubleSided, backAvailable, minQty])
 
   const createMutation = useMutation((data) => printOrderAPI.create(data), {
     onSuccess: () => {
@@ -51,14 +59,14 @@ export default function PrintOrderModal({ weddingId, defaultQuantity = 50, backA
 
   const submit = (e) => {
     e.preventDefault()
-    if (Number(form.quantity) < 10) return toast.error('Minimum 10 exemplaires')
+    if (Number(form.quantity) < minQty) return toast.error(`Minimum ${minQty} exemplaires`)
     if (!form.shippingAddress.trim() || !form.shippingCity.trim() || !form.shippingPhone.trim()) {
       return toast.error('Renseignez l\'adresse de livraison (adresse, ville, téléphone)')
     }
     createMutation.mutate({ weddingId, ...form, quantity: Number(form.quantity), doubleSided: backAvailable && form.doubleSided })
   }
 
-  const fmt = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n || 0)
+  const fmt = formatMoney
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => onClose(false)}>
@@ -71,14 +79,17 @@ export default function PrintOrderModal({ weddingId, defaultQuantity = 50, backA
         <div className="p-6 space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label text-sm">Nombre d'exemplaires (min. 10)</label>
-              <input type="number" min="10" max="2000" className="input" value={form.quantity} onChange={(e) => set('quantity', e.target.value)} />
+              <label className="label text-sm">Nombre d'exemplaires (min. {minQty})</label>
+              <input type="number" min={minQty} max="2000" className="input" value={form.quantity} onChange={(e) => set('quantity', e.target.value)} />
             </div>
             <div>
               <label className="label text-sm">Format</label>
               <div className="flex gap-2">
                 {SIZES.map((s) => (
-                  <button type="button" key={s.id} onClick={() => set('size', s.id)} className={`flex-1 py-2 rounded-lg border text-sm font-medium ${form.size === s.id ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}>{s.name}</button>
+                  <button type="button" key={s.id} onClick={() => set('size', s.id)} className={`flex-1 py-1.5 rounded-lg border text-sm font-medium ${form.size === s.id ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}>
+                    {s.name}
+                    <span className="block text-[11px] font-normal text-gray-500">{fmt(pricing.size[s.id])}</span>
+                  </button>
                 ))}
               </div>
             </div>
@@ -91,6 +102,7 @@ export default function PrintOrderModal({ weddingId, defaultQuantity = 50, backA
                 <button type="button" key={p.id} onClick={() => set('paperType', p.id)} className={`p-2.5 rounded-lg border text-center ${form.paperType === p.id ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}>
                   <p className="text-sm font-medium text-gray-900">{p.name}</p>
                   <p className="text-[11px] text-gray-500">{p.desc}</p>
+                  <p className="text-[11px] font-medium text-primary-600 mt-0.5">{extra(pricing.paperType[p.id])}</p>
                 </button>
               ))}
             </div>
@@ -100,7 +112,10 @@ export default function PrintOrderModal({ weddingId, defaultQuantity = 50, backA
             <label className="label text-sm">Finition</label>
             <div className="grid grid-cols-3 gap-2">
               {FINISHES.map((f) => (
-                <button type="button" key={f.id} onClick={() => set('finish', f.id)} className={`py-2 rounded-lg border text-sm font-medium ${form.finish === f.id ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}>{f.name}</button>
+                <button type="button" key={f.id} onClick={() => set('finish', f.id)} className={`py-1.5 rounded-lg border text-sm font-medium ${form.finish === f.id ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}>
+                  {f.name}
+                  <span className="block text-[11px] font-normal text-primary-600">{extra(pricing.finish[f.id])}</span>
+                </button>
               ))}
             </div>
           </div>
@@ -110,7 +125,7 @@ export default function PrintOrderModal({ weddingId, defaultQuantity = 50, backA
               <input type="checkbox" className="mt-0.5 h-4 w-4 rounded" checked={form.doubleSided} onChange={(e) => set('doubleSided', e.target.checked)} />
               <span>
                 <span className="block text-sm font-medium text-gray-900">Impression recto-verso</span>
-                <span className="block text-xs text-gray-500 mt-0.5">Imprime votre message au dos de chaque carte.</span>
+                <span className="block text-xs text-gray-500 mt-0.5">Imprime votre message au dos de chaque carte · {extra(pricing.doubleSided)} par carte</span>
               </span>
             </label>
           )}
@@ -128,7 +143,16 @@ export default function PrintOrderModal({ weddingId, defaultQuantity = 50, backA
           <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Estimation</p>
-              {estimate && <p className="text-xs text-gray-400">{fmt(estimate.unitPrice)}/unité × {estimate.quantity}</p>}
+              {estimate && (
+                <p className="text-xs text-gray-400">
+                  {fmt(estimate.unitPrice)}/carte × {estimate.quantity}{estimate.discountPercent > 0 ? ` − ${estimate.discountPercent} % de remise` : ''}
+                </p>
+              )}
+              {pricing.discounts?.length > 0 && (
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  Remises : {pricing.discounts.map(d => `${d.percent} % dès ${d.minQuantity}`).join(' · ')}
+                </p>
+              )}
             </div>
             <p className="text-xl font-bold text-gray-900">{estimate ? fmt(estimate.totalPrice) : '—'}</p>
           </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { adminAPI } from '../../services/api'
+import { formatMoney } from '../../utils/currency'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import toast from 'react-hot-toast'
@@ -118,7 +119,7 @@ export default function AdminPrintOrders() {
   const pendingCount = orders.filter(o => o.status === 'PENDING').length
 
   const formatPrice = (price) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(price || 0)
+    return formatMoney(price || 0)
   }
 
   return (
