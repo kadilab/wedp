@@ -26,7 +26,7 @@ router.get('/:weddingId', authenticate, async (req, res) => {
     const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
     const invitations = await prisma.invitation.findMany({
@@ -71,7 +71,7 @@ router.post('/:weddingId/generate', authenticate, async (req, res) => {
     const wedding = await findAccessibleWedding(req.user, weddingId, { include: { template: true } });
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
     // Get guests without invitations (restrict to selected guestIds if provided)
@@ -84,10 +84,10 @@ router.post('/:weddingId/generate', authenticate, async (req, res) => {
     });
 
     if (guestsWithoutInvitation.length === 0) {
-      return res.json({ message: 'Tous les invitÃ©s ont dÃ©jÃ  une invitation', generated: 0 });
+      return res.json({ message: 'Tous les invités ont déjà une invitation', generated: 0 });
     }
 
-    // Enforce invitation quota (1 free + approved purchases) — staff can bypass for support
+    // Enforce invitation quota (approved purchases, no free invitation) — staff can bypass for support
     const isStaff = req.user.role === 'ADMIN' || req.user.role === 'SUPER_ADMIN';
     if (!isStaff) {
       const quota = await getWeddingQuota(weddingId);
@@ -156,14 +156,14 @@ router.post('/:weddingId/generate', authenticate, async (req, res) => {
     }
 
     res.json({
-      message: `${generated.length} invitations gÃ©nÃ©rÃ©es`,
+      message: `${generated.length} invitations générées`,
       generated: generated.length,
       errors: errors.length,
       details: { generated, errors }
     });
   } catch (error) {
     logger.error('Generate invitations error:', error);
-    res.status(500).json({ error: 'Erreur lors de la gÃ©nÃ©ration des invitations' });
+    res.status(500).json({ error: 'Erreur lors de la génération des invitations' });
   }
 });
 
@@ -182,7 +182,7 @@ router.post('/:weddingId/generate-pdfs', authenticate, async (req, res) => {
     });
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
     // Filter guests with invitations
@@ -194,7 +194,7 @@ router.post('/:weddingId/generate-pdfs', authenticate, async (req, res) => {
     }
     
     if (guestsWithInvitations.length === 0) {
-      return res.status(400).json({ error: 'Aucune invitation Ã  traiter. GÃ©nÃ©rez d\'abord les invitations.' });
+      return res.status(400).json({ error: 'Aucune invitation à traiter. Générez d\'abord les invitations.' });
     }
 
     const pdfs = [];
@@ -238,7 +238,7 @@ router.post('/:weddingId/generate-pdfs', authenticate, async (req, res) => {
     logger.info(`PDF generation complete for wedding ${weddingId}: ${pdfs.length} generated, ${errors.length} errors`);
 
     res.json({
-      message: `${pdfs.length} PDFs gÃ©nÃ©rÃ©s`,
+      message: `${pdfs.length} PDFs générés`,
       generated: pdfs.length,
       // Photo placeholders rendered empty — the UI tells the client to add them.
       missingPhotos: findMissingPhotos(wedding, wedding.template),
@@ -247,7 +247,7 @@ router.post('/:weddingId/generate-pdfs', authenticate, async (req, res) => {
     });
   } catch (error) {
     logger.error('Generate PDFs error:', error);
-    res.status(500).json({ error: 'Erreur lors de la gÃ©nÃ©ration des PDFs' });
+    res.status(500).json({ error: 'Erreur lors de la génération des PDFs' });
   }
 });
 
@@ -266,7 +266,7 @@ router.post('/:weddingId/generate-images', authenticate, async (req, res) => {
     });
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
     // Filter guests with invitations
@@ -278,7 +278,7 @@ router.post('/:weddingId/generate-images', authenticate, async (req, res) => {
     }
     
     if (guestsWithInvitations.length === 0) {
-      return res.status(400).json({ error: 'Aucune invitation Ã  traiter. GÃ©nÃ©rez d\'abord les invitations.' });
+      return res.status(400).json({ error: 'Aucune invitation à traiter. Générez d\'abord les invitations.' });
     }
 
     const images = [];
@@ -322,7 +322,7 @@ router.post('/:weddingId/generate-images', authenticate, async (req, res) => {
     logger.info(`Image generation complete for wedding ${weddingId}: ${images.length} generated, ${errors.length} errors`);
 
     res.json({
-      message: `${images.length} images gÃ©nÃ©rÃ©es`,
+      message: `${images.length} images générées`,
       generated: images.length,
       missingPhotos: findMissingPhotos(wedding, wedding.template),
       errors: errors.length,
@@ -330,7 +330,7 @@ router.post('/:weddingId/generate-images', authenticate, async (req, res) => {
     });
   } catch (error) {
     logger.error('Generate Images error:', error);
-    res.status(500).json({ error: 'Erreur lors de la gÃ©nÃ©ration des images' });
+    res.status(500).json({ error: 'Erreur lors de la génération des images' });
   }
 });
 
@@ -406,7 +406,7 @@ router.get('/:weddingId/download-all', authenticate, async (req, res) => {
     await archive.finalize();
   } catch (error) {
     logger.error('Download all error:', error);
-    res.status(500).json({ error: 'Erreur lors du tÃ©lÃ©chargement' });
+    res.status(500).json({ error: 'Erreur lors du téléchargement' });
   }
 });
 
@@ -487,7 +487,7 @@ router.get('/:weddingId/:guestId', authenticate, async (req, res) => {
     });
 
     if (!invitation) {
-      return res.status(404).json({ error: 'Invitation non trouvÃ©e' });
+      return res.status(404).json({ error: 'Invitation non trouvée' });
     }
 
     res.json({ invitation });
@@ -509,7 +509,14 @@ router.post('/:weddingId/:guestId/regenerate', authenticate, async (req, res) =>
     const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
+    }
+
+    // The guest must belong to this event (otherwise a client could reset the
+    // invitation/QR code of another client's guest).
+    const ownedGuest = await prisma.guest.findFirst({ where: { id: guestId, weddingId }, select: { id: true } });
+    if (!ownedGuest) {
+      return res.status(404).json({ error: 'Invité non trouvé' });
     }
 
     // Generate new code with the event's configured QR style (colors + size)
@@ -537,12 +544,12 @@ router.post('/:weddingId/:guestId/regenerate', authenticate, async (req, res) =>
     });
 
     res.json({
-      message: 'QR code rÃ©gÃ©nÃ©rÃ©',
+      message: 'QR code régénéré',
       invitation
     });
   } catch (error) {
     logger.error('Regenerate QR error:', error);
-    res.status(500).json({ error: 'Erreur lors de la rÃ©gÃ©nÃ©ration' });
+    res.status(500).json({ error: 'Erreur lors de la régénération' });
   }
 });
 

@@ -15,6 +15,7 @@ import {
   ArrowRightIcon,
   SparklesIcon
 } from '@heroicons/react/24/outline'
+import { getEventDisplayTitle } from '../../utils/eventTypes'
 
 export default function Dashboard() {
   const { user, updateUser } = useAuthStore()
@@ -42,11 +43,13 @@ export default function Dashboard() {
   const stats = statsData?.data?.stats
   const weddings = weddingsData?.data?.weddings || []
 
+  // No "x / limit" on these cards: there is no event/guest cap (invitations
+  // are paid per unit), the old fixed limits (1 event, 50 guests) were never
+  // enforced and only misled clients.
   const statCards = [
     {
       name: 'Événements',
       value: stats?.weddings || 0,
-      limit: stats?.limits?.weddingsMax,
       icon: HeartIcon,
       color: 'primary',
       href: '/weddings'
@@ -54,7 +57,6 @@ export default function Dashboard() {
     {
       name: 'Invités totaux',
       value: stats?.totalGuests || 0,
-      limit: stats?.limits?.guestsMax,
       icon: UserGroupIcon,
       color: 'blue',
       href: '/weddings'
@@ -207,9 +209,7 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <h3 className="font-medium text-gray-900">
-                      {(!wedding.eventType || wedding.eventType === 'WEDDING')
-                        ? `${wedding.brideName} & ${wedding.groomName}`
-                        : (wedding.eventTitle || 'Événement')}
+                      {getEventDisplayTitle(wedding)}
                     </h3>
                     <p className="text-sm text-gray-500">
                       {format(new Date(wedding.weddingDate), 'd MMMM yyyy', { locale: fr })}

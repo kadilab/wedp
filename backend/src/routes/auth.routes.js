@@ -1,4 +1,5 @@
 const express = require('express');
+const { normalizeEmail } = require('validator');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -316,7 +317,12 @@ router.get('/me', authenticate, async (req, res) => {
  */
 router.post('/forgot-password', async (req, res) => {
   try {
-    const { email } = req.body;
+    // Same normalization as register/login (express-validator normalizeEmail),
+    // otherwise "Jean.Dupont@Gmail.com" never matches the stored address.
+    const email = typeof req.body.email === 'string' ? normalizeEmail(req.body.email.trim()) : null;
+    if (!email) {
+      return res.json({ message: 'Si l\'email existe, vous recevrez un lien de réinitialisation' });
+    }
 
     const user = await prisma.user.findUnique({
       where: { email }
@@ -339,8 +345,13 @@ router.post('/forgot-password', async (req, res) => {
       }
     });
 
-    // Send reset email
-    await sendPasswordResetEmail(user, resetToken);
+    // Send reset email. A mail failure must not change the response: a 500
+    // only for existing accounts would reveal which e-mails are registered.
+    try {
+      await sendPasswordResetEmail(user, resetToken);
+    } catch (mailError) {
+      logger.error(`Password reset email failed for user ${user.id}: ${mailError.message}`);
+    }
 
     res.json({ message: 'Si l\'email existe, vous recevrez un lien de réinitialisation' });
   } catch (error) {

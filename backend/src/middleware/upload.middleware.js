@@ -20,6 +20,29 @@ const EXT_BY_MIME = {
   'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a', 'audio/aac': '.aac'
 };
 
+const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg'];
+const AUDIO_EXTS = ['.mp3', '.wav', '.ogg', '.m4a', '.aac'];
+const FONT_EXTS = ['.ttf', '.otf', '.woff', '.woff2'];
+const SHEET_EXTS = ['.csv', '.xlsx', '.xls'];
+const isSheetField = (f) => f === 'csv' || f === 'guestList' || f === 'file';
+
+const allowedExtsFor = (fieldname) => {
+  if (isSheetField(fieldname)) return SHEET_EXTS;
+  if (fieldname === 'font') return FONT_EXTS;
+  if (fieldname === 'music') return AUDIO_EXTS;
+  return IMAGE_EXTS;
+};
+
+// Some phones/browsers send files without an extension ("audio", "blob") —
+// fall back to the mimetype so Safari / iOS can still play or display them.
+function safeExtension(file) {
+  const allowed = allowedExtsFor(file.fieldname);
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  if (allowed.includes(ext)) return ext;
+  const byMime = EXT_BY_MIME[file.mimetype];
+  return byMime && allowed.includes(byMime) ? byMime : allowed[0];
+}
+
 // Storage configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -56,12 +79,11 @@ const storage = multer.diskStorage({
     cb(null, path.join(__dirname, '../../', folder));
   },
   filename: (req, file, cb) => {
-    // Some phones/browsers send files without an extension ("audio", "blob").
-    // Without one, the file is served as application/octet-stream and Safari
-    // / iOS refuse to play or display it — derive it from the mimetype.
-    const ext = path.extname(file.originalname).toLowerCase() || EXT_BY_MIME[file.mimetype] || '';
-    const filename = `${uuidv4()}${ext}`;
-    cb(null, filename);
+    // The stored extension decides how the file is served back from our own
+    // domain, so it is never taken blindly from the client: only a known safe
+    // extension for the accepted kind is kept (a "photo.html" sent as
+    // image/png used to be stored — and served — as .html).
+    cb(null, `${uuidv4()}${safeExtension(file)}`);
   }
 });
 
@@ -92,13 +114,19 @@ const fileFilter = (req, file, cb) => {
     // Background music — mimetypes are inconsistent across browsers/devices,
     // so also trust the extension (mirrors the 'font' handling above).
     const allowedAudioTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/mp4', 'audio/x-m4a', 'audio/aac'];
-    if (allowedAudioTypes.includes(file.mimetype) || /\.(mp3|wav|ogg|m4a|aac)$/i.test(file.originalname)) {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (ext && !AUDIO_EXTS.includes(ext)) {
+      cb(new Error('Format audio non pris en charge. Formats acceptés : MP3, WAV, OGG, M4A, AAC.'), false);
+    } else if (allowedAudioTypes.includes(file.mimetype) || AUDIO_EXTS.includes(ext)) {
       cb(null, true);
     } else {
       cb(new Error('Format audio non pris en charge. Formats acceptés : MP3, WAV, OGG, M4A, AAC.'), false);
     }
   } else {
-    if (allowedImageTypes.includes(file.mimetype)) {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    if (ext && !IMAGE_EXTS.includes(ext)) {
+      cb(new Error('Format non pris en charge : envoyez une image JPG, PNG ou WebP.'), false);
+    } else if (allowedImageTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
       cb(new Error('Format non pris en charge : envoyez une image JPG, PNG ou WebP.'), false);

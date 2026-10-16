@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { guestAPI, weddingAPI, invitationOrderAPI } from '../../services/api'
 import BuyQuotaModal from '../../components/invitations/BuyQuotaModal'
 import { confirmDialog } from '../../components/common/confirm'
-import { getGuestCategoryOptions, eventUsesTables, eventUsesPlusOnes } from '../../utils/eventTypes'
+import { getGuestCategoryOptions, eventUsesTables, eventUsesPlusOnes, getEventDisplayTitle } from '../../utils/eventTypes'
 import { tableName } from '../../utils/tables'
 import toast from 'react-hot-toast'
 import {
@@ -236,9 +236,7 @@ export default function Guests() {
             <h1 className="text-3xl font-serif font-bold text-gray-900">Invités</h1>
             {wedding && (
               <p className="text-gray-600">
-                {(!wedding.eventType || wedding.eventType === 'WEDDING')
-                  ? `${wedding.brideName} & ${wedding.groomName}`
-                  : (wedding.eventTitle || 'Événement')}
+                {getEventDisplayTitle(wedding)}
               </p>
             )}
           </div>

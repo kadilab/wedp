@@ -6,6 +6,7 @@ import BuyQuotaModal from '../../components/invitations/BuyQuotaModal'
 import { formatMoney } from '../../utils/currency'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { getEventDisplayTitle } from '../../utils/eventTypes'
 import {
   TicketIcon,
   CheckCircleIcon,
@@ -20,7 +21,7 @@ import {
 
 const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
 const eventDisplayName = (w) =>
-  (!w.eventType || w.eventType === 'WEDDING') ? `${w.brideName} & ${w.groomName}` : (w.eventTitle || EVENT_TYPE_LABELS[w.eventType])
+  getEventDisplayTitle(w)
 
 function getStatusBadge(status, order) {
   // PENDING covers two very different situations for the client.

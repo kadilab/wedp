@@ -4,7 +4,7 @@ import { useQuery, useMutation } from 'react-query'
 import { templateAPI, weddingAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import { processImage } from '../../utils/imageProcessor'
-import { eventUsesCouple, eventUsesProgramme, eventUsesTables } from '../../utils/eventTypes'
+import { eventUsesCouple, eventUsesProgramme, eventUsesTables, getEventDisplayTitle } from '../../utils/eventTypes'
 import {
   ArrowLeftIcon,
   EyeIcon,
@@ -833,7 +833,7 @@ export default function InvitationDesigner() {
             </h1>
             <p className="text-xs text-gray-500">
               {templateName || 'Template'}
-              {wedding && ` — ${wedding.brideName} & ${wedding.groomName}`}
+              {wedding && ` — ${getEventDisplayTitle(wedding)}`}
             </p>
           </div>
         </div>

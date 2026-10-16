@@ -5,6 +5,7 @@ import { formatMoney } from '../../utils/currency'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import toast from 'react-hot-toast'
+import { getEventDisplayTitle } from '../../utils/eventTypes'
 import {
   PrinterIcon,
   EyeIcon,
@@ -204,7 +205,7 @@ export default function AdminPrintOrders() {
                     </td>
                     <td data-label="Mariage" className="px-4 py-4">
                       <p className="font-medium text-gray-900">
-                        {order.wedding?.brideName} & {order.wedding?.groomName}
+                        {getEventDisplayTitle(order.wedding)}
                       </p>
                       {order.wedding?.template?.name && (
                         <p className="text-xs text-gray-500 mt-0.5">{order.wedding.template.name}</p>
@@ -285,7 +286,7 @@ export default function AdminPrintOrders() {
               <div className="bg-primary-50 rounded-xl p-4">
                 <h4 className="font-medium text-gray-900 mb-3">Mariage</h4>
                 <p className="text-lg font-semibold text-primary-700">
-                  {selectedOrder.wedding?.brideName} & {selectedOrder.wedding?.groomName}
+                  {getEventDisplayTitle(selectedOrder.wedding)}
                 </p>
                 {selectedOrder.wedding?.template && (
                   <div className="mt-2 text-sm text-gray-600">

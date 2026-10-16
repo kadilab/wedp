@@ -20,7 +20,7 @@ import {
   ArrowUpIcon
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid'
-import { EVENT_TYPES, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
+import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventDisplayTitle } from '../../utils/eventTypes'
 
 export default function Templates() {
   const navigate = useNavigate()
@@ -151,7 +151,7 @@ export default function Templates() {
                   <div className="p-3">
                     <p className="font-medium text-gray-900 text-sm truncate">{tpl.name}</p>
                     {linkedWedding && (
-                      <p className="text-xs text-gray-500 mt-0.5 truncate">{linkedWedding.brideName} & {linkedWedding.groomName}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">{getEventDisplayTitle(linkedWedding)}</p>
                     )}
                   </div>
                 </div>

@@ -91,7 +91,7 @@ const DEFAULT_FORM = {
 const isTrue = (v) => v === true || v === 'true'
 
 // Server settings (string values) → form state.
-function formFromSettings(s) {
+function formFromSettings(s, secrets = {}) {
   return {
     siteName: s.siteName || DEFAULT_FORM.siteName,
     siteDescription: s.siteDescription || '',
@@ -118,7 +118,7 @@ function formFromSettings(s) {
     // Never saved yet → same inference as the backend (key prefix).
     kpayMode: s.kpayMode === 'TEST' || s.kpayMode === 'LIVE'
       ? s.kpayMode
-      : (String(s.kpayApiKey || '').startsWith('kpay_test_') ? 'TEST' : 'LIVE'),
+      : (String(secrets.kpayApiKey?.hint || '').startsWith('kpay_test_') ? 'TEST' : 'LIVE'),
     kpayApiKey: s.kpayApiKey || '',
     kpaySecretKey: s.kpaySecretKey || '',
     kpayWebhookSecret: s.kpayWebhookSecret || '',
@@ -207,10 +207,15 @@ function SettingRow({ title, description, children }) {
   )
 }
 
-// Secret value, masked by default with a show/hide button.
-function SecretInput({ id, value, onChange, placeholder }) {
+// Secret value — WRITE-ONLY: the server never sends saved secrets back, only
+// whether one is saved (+ its last 4 characters). Leaving the field empty keeps
+// the saved value; "Effacer" removes it on save (value null).
+function SecretInput({ id, value, onChange, placeholder, saved, disabled }) {
   const [visible, setVisible] = useState(false)
+  const clearing = value === null
+  const savedPlaceholder = saved?.set ? 'Laisser vide pour conserver' : placeholder
   return (
+    <div>
     <div className="relative">
       <input
         id={id}
@@ -218,8 +223,9 @@ function SecretInput({ id, value, onChange, placeholder }) {
         autoComplete="new-password"
         spellCheck={false}
         className="input font-mono pr-10"
-        placeholder={placeholder}
-        value={value}
+        placeholder={clearing ? 'Sera effacée à l’enregistrement' : savedPlaceholder}
+        value={value || ''}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
       />
       <button
@@ -231,6 +237,19 @@ function SecretInput({ id, value, onChange, placeholder }) {
       >
         {visible ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
       </button>
+    </div>
+      {saved?.set && (
+        <p className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+          <CheckCircleIcon className="h-3.5 w-3.5 text-green-600" />
+          <span className="font-mono">{saved.hint}</span>
+          {saved.fromEnv ? '· fichier .env du serveur' : '· enregistrée'}
+          {!saved.fromEnv && !disabled && (
+            clearing
+              ? <button type="button" className="text-primary-600 hover:underline" onClick={() => onChange('')}>Annuler</button>
+              : <button type="button" className="text-red-600 hover:underline" onClick={() => onChange(null)}>Effacer</button>
+          )}
+        </p>
+      )}
     </div>
   )
 }
@@ -317,7 +336,7 @@ export default function AdminSettings() {
   useEffect(() => {
     const s = settingsData?.data?.settings
     if (!s) return
-    const next = formFromSettings(s)
+    const next = formFromSettings(s, settingsData?.data?.secrets)
     setFormData(next)
     setSavedForm(next)
     if (s.siteLogo) setLogoPreview(s.siteLogo)
@@ -325,6 +344,10 @@ export default function AdminSettings() {
     setLogoHeight(h)
     setSavedLogoHeight(h)
   }, [settingsData])
+
+  const secrets = settingsData?.data?.secrets || {}
+  // Payment keys / numbers can only be changed by a SUPER_ADMIN (server-enforced).
+  const canEditPayment = settingsData?.data?.canEditPayment !== false
 
   const isDirty = Boolean(savedForm) &&
     (JSON.stringify(formData) !== JSON.stringify(savedForm) || logoHeight !== savedLogoHeight)
@@ -356,7 +379,12 @@ export default function AdminSettings() {
 
   const handleSubmit = (e) => {
     e?.preventDefault()
-    updateMutation.mutate({ ...formData, printPricing: cleanPrintPricing(formData.printPricing), logoHeight: String(logoHeight) })
+    const payload = { ...formData, printPricing: cleanPrintPricing(formData.printPricing), logoHeight: String(logoHeight) }
+    // Non super-admins cannot change payment settings: don't send them at all.
+    if (!canEditPayment) {
+      Object.keys(payload).forEach(k => { if (/^(kpay|smtp|telegram|google|mobileMoney|invitationPaymentMethods)/.test(k)) delete payload[k] })
+    }
+    updateMutation.mutate(payload)
   }
 
   // Print pricing editor helpers
@@ -388,7 +416,7 @@ export default function AdminSettings() {
   }
 
   const testTelegramMutation = useMutation(
-    () => adminAPI.testTelegram({ botToken: formData.telegramBotToken, chatId: formData.telegramChatId }),
+    () => adminAPI.testTelegram({ botToken: formData.telegramBotToken || undefined, chatId: formData.telegramChatId }),
     {
       onSuccess: (res) => toast.success(res.data.message || 'Test envoyé'),
       onError: (err) => toast.error(err.response?.data?.error || 'Échec du test Telegram')
@@ -423,8 +451,8 @@ export default function AdminSettings() {
     if (mode === formData.kpayMode || kpayModeMutation.isLoading) return
     const toLive = mode === 'LIVE'
     const hasKeys = toLive
-      ? savedForm?.kpayApiKey && savedForm?.kpaySecretKey
-      : savedForm?.kpayTestApiKey && savedForm?.kpayTestSecretKey
+      ? secrets.kpayApiKey?.set && secrets.kpaySecretKey?.set
+      : secrets.kpayTestApiKey?.set && secrets.kpayTestSecretKey?.set
     const ok = await confirmDialog({
       title: toLive ? 'Passer en PRODUCTION ?' : 'Passer en mode TEST ?',
       message: (toLive
@@ -561,25 +589,16 @@ export default function AdminSettings() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Field id={f.api} label="Clé API">
-          <input
-            id={f.api}
-            type="text"
-            autoComplete="off"
-            spellCheck={false}
-            className="input font-mono"
-            placeholder={`${f.prefix}...`}
-            value={apiVal}
-            onChange={(e) => updateField(f.api, e.target.value)}
-          />
-          {apiVal && !apiVal.trim().startsWith(f.prefix) && (
+          <SecretInput id={f.api} value={apiVal} onChange={(v) => updateField(f.api, v)} placeholder={`${f.prefix}...`} saved={secrets[f.api]} disabled={!canEditPayment} />
+          {typeof apiVal === 'string' && apiVal && !apiVal.trim().startsWith(f.prefix) && (
             <p className="text-xs text-amber-600 mt-1">Cette clé ne commence pas par « {f.prefix} ».</p>
           )}
         </Field>
         <Field id={f.secret} label="Clé secrète">
-          <SecretInput id={f.secret} value={formData[f.secret]} onChange={(v) => updateField(f.secret, v)} placeholder="Depuis le dashboard K-PAY" />
+          <SecretInput id={f.secret} value={formData[f.secret]} onChange={(v) => updateField(f.secret, v)} placeholder="Depuis le dashboard K-PAY" saved={secrets[f.secret]} disabled={!canEditPayment} />
         </Field>
         <Field id={f.webhook} label="Secret webhook">
-          <SecretInput id={f.webhook} value={formData[f.webhook]} onChange={(v) => updateField(f.webhook, v)} placeholder="Signature X-KPAY-Signature" />
+          <SecretInput id={f.webhook} value={formData[f.webhook]} onChange={(v) => updateField(f.webhook, v)} placeholder="Signature X-KPAY-Signature" saved={secrets[f.webhook]} disabled={!canEditPayment} />
         </Field>
       </div>
     )
@@ -722,7 +741,7 @@ export default function AdminSettings() {
                     <input id="googleClientId" type="text" autoComplete="off" className="input font-mono" placeholder="xxxxxxxxxx.apps.googleusercontent.com" value={formData.googleClientId} onChange={(e) => updateField('googleClientId', e.target.value)} />
                   </Field>
                   <Field id="googleClientSecret" label="Client Secret" hint="Non utilisé par le flux actuel.">
-                    <SecretInput id="googleClientSecret" value={formData.googleClientSecret} onChange={(v) => updateField('googleClientSecret', v)} placeholder="GOCSPX-..." />
+                    <SecretInput id="googleClientSecret" value={formData.googleClientSecret} onChange={(v) => updateField('googleClientSecret', v)} placeholder="GOCSPX-..." saved={secrets.googleClientSecret} disabled={!canEditPayment} />
                   </Field>
                 </div>
               </Section>
@@ -732,6 +751,12 @@ export default function AdminSettings() {
           {/* ============================== PAYMENT (K-PAY) */}
           {activeTab === 'payment' && (
             <>
+              {!canEditPayment && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 flex gap-2">
+                  <ExclamationTriangleIcon className="h-5 w-5 shrink-0" />
+                  Lecture seule : seul le Super Admin peut modifier les clés API et les moyens de paiement.
+                </div>
+              )}
               {/* Status + environment */}
               <section className={`rounded-2xl border-2 shadow-sm overflow-hidden ${isLive ? 'border-emerald-200' : 'border-amber-300'}`}>
                 <div className={`px-5 sm:px-6 py-5 ${isLive ? 'bg-gradient-to-br from-emerald-50 to-white' : 'bg-gradient-to-br from-amber-50 to-white'}`}>
@@ -902,7 +927,7 @@ export default function AdminSettings() {
                       <input id="kpayBaseUrl" type="text" className="input font-mono" placeholder="https://admin.kpay.site" value={formData.kpayBaseUrl} onChange={(e) => updateField('kpayBaseUrl', e.target.value)} />
                     </Field>
                     <Field id="kpayGatewaySecret" label="Secret de la page de paiement (optionnel)" hint="Vérifie le retour client après un paiement par carte. Par défaut : le secret webhook.">
-                      <SecretInput id="kpayGatewaySecret" value={formData.kpayGatewaySecret} onChange={(v) => updateField('kpayGatewaySecret', v)} placeholder="Par défaut : le secret webhook" />
+                      <SecretInput id="kpayGatewaySecret" value={formData.kpayGatewaySecret} onChange={(v) => updateField('kpayGatewaySecret', v)} placeholder="Par défaut : le secret webhook" saved={secrets.kpayGatewaySecret} disabled={!canEditPayment} />
                     </Field>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -924,6 +949,12 @@ export default function AdminSettings() {
           {/* ============================== MANUAL PAYMENT */}
           {activeTab === 'manual' && (
             <>
+              {!canEditPayment && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 flex gap-2">
+                  <ExclamationTriangleIcon className="h-5 w-5 shrink-0" />
+                  Lecture seule : seul le Super Admin peut modifier les clés API et les moyens de paiement.
+                </div>
+              )}
               <Section title="Tarification des invitations" icon={BanknotesIcon}>
                 <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
                   Le <strong>prix par invitation est défini par design</strong> (sur chaque template), et non
@@ -1108,7 +1139,7 @@ export default function AdminSettings() {
                     <input id="smtpUser" type="text" autoComplete="off" className="input" value={formData.smtpUser} onChange={(e) => updateField('smtpUser', e.target.value)} />
                   </Field>
                   <Field id="smtpPassword" label="Mot de passe">
-                    <SecretInput id="smtpPassword" value={formData.smtpPassword} onChange={(v) => updateField('smtpPassword', v)} />
+                    <SecretInput id="smtpPassword" value={formData.smtpPassword} onChange={(v) => updateField('smtpPassword', v)} saved={secrets.smtpPassword} disabled={!canEditPayment} />
                   </Field>
                 </div>
                 <Field id="emailFrom" label="Email d'expéditeur">
@@ -1140,7 +1171,7 @@ export default function AdminSettings() {
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <Field id="telegramBotToken" label="Bot Token">
-                    <SecretInput id="telegramBotToken" value={formData.telegramBotToken} onChange={(v) => updateField('telegramBotToken', v)} placeholder="123456789:ABC-DEF..." />
+                    <SecretInput id="telegramBotToken" value={formData.telegramBotToken} onChange={(v) => updateField('telegramBotToken', v)} placeholder="123456789:ABC-DEF..." saved={secrets.telegramBotToken} disabled={!canEditPayment} />
                   </Field>
                   <Field id="telegramChatId" label="Chat ID">
                     <input id="telegramChatId" type="text" className="input font-mono" placeholder="-1001234567890" value={formData.telegramChatId} onChange={(e) => updateField('telegramChatId', e.target.value)} />
@@ -1149,7 +1180,7 @@ export default function AdminSettings() {
                 <button
                   type="button"
                   onClick={() => testTelegramMutation.mutate()}
-                  disabled={testTelegramMutation.isLoading || !formData.telegramBotToken || !formData.telegramChatId}
+                  disabled={testTelegramMutation.isLoading || (!formData.telegramBotToken && !secrets.telegramBotToken?.set) || !formData.telegramChatId}
                   className="btn-outline text-sm"
                 >
                   {testTelegramMutation.isLoading ? 'Envoi…' : 'Envoyer un test'}

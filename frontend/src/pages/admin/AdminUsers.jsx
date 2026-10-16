@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/authStore'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import toast from 'react-hot-toast'
+import { getEventDisplayTitle } from '../../utils/eventTypes'
 import {
   MagnifyingGlassIcon,
   UserCircleIcon,
@@ -235,7 +236,7 @@ export default function AdminUsers() {
                       <HeartIcon className="h-6 w-6 text-primary-500" />
                       <div>
                         <h2 className="text-lg font-serif font-bold text-gray-900">
-                          {wedding.brideName} & {wedding.groomName}
+                          {getEventDisplayTitle(wedding)}
                         </h2>
                         <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
                           {wedding.plan && (

@@ -143,6 +143,9 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
 
   const total = Math.round(quantity * pricing.unitPrice * 100) / 100
   const finalTotal = appliedCoupon ? appliedCoupon.finalAmount : total
+  // Free design (price 0) or 100 % coupon: nothing to pay — the request goes
+  // straight to the admin for validation (K-PAY can't charge 0 FC).
+  const isFree = Boolean(pricingData) && quantity > 0 && finalTotal <= 0
   // Card amount preview (the server recomputes it at payment time).
   const usdRate = Number(pricing.usdRate) || 0
   const usdTotal = usdRate > 0
@@ -368,6 +371,22 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
     }
   }
 
+  const requestFree = async () => {
+    setPhase('submitting')
+    try {
+      const orderId = await ensureOrder()
+      await invitationOrderAPI.submitTransaction(weddingId, orderId, { transactionId: 'GRATUIT' })
+      pendingOrderRef.current = null
+      setManualRef('')
+      setPhase('submitted')
+      queryClient.invalidateQueries(['invitation-orders', weddingId])
+      queryClient.invalidateQueries('my-invitation-orders')
+    } catch (err) {
+      setPhase('form')
+      toast.error(err.response?.data?.error || 'Impossible d’envoyer la demande')
+    }
+  }
+
   const copyNumber = async (value) => {
     try {
       await navigator.clipboard.writeText(value)
@@ -489,9 +508,11 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
               <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary-50">
                 <ClockIcon className="h-12 w-12 text-primary-600" />
               </div>
-              <h4 className="mt-5 text-lg font-semibold text-gray-900">Paiement envoyé pour vérification</h4>
+              <h4 className="mt-5 text-lg font-semibold text-gray-900">{manualRef ? 'Paiement envoyé pour vérification' : 'Demande envoyée'}</h4>
               <p className="mt-2 text-sm text-gray-600">
-                Nous vérifions votre transfert (réf. <strong className="font-mono">{manualRef}</strong>).
+                {manualRef
+                  ? <>Nous vérifions votre transfert (réf. <strong className="font-mono">{manualRef}</strong>). </>
+                  : 'Votre demande d’invitations gratuites a été transmise à notre équipe. '}
                 Vos {quantity} invitation{quantity > 1 ? 's seront débloquées' : ' sera débloquée'} dès validation —
                 vous recevrez une notification.
               </p>
@@ -619,7 +640,22 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
                 </div>
               </section>
 
-              {/* Payment — only usable once availability has been checked */}
+              {isFree ? (
+                <section className="rounded-xl border border-green-200 bg-green-50 p-4 space-y-3">
+                  <p className="text-sm text-green-900">
+                    <strong>Rien à payer :</strong> {appliedCoupon ? 'votre code promo couvre la totalité de la commande.' : 'ce modèle est gratuit.'}{' '}
+                    Votre demande est validée par notre équipe, généralement sous quelques heures.
+                  </p>
+                  <button
+                    onClick={requestFree}
+                    disabled={busy || quantity < 1}
+                    className="btn-primary w-full flex items-center justify-center gap-2 py-3 text-base"
+                  >
+                    {busy ? <><Spinner /> Envoi…</> : <><CheckCircleIcon className="h-5 w-5" /> Demander {quantity} invitation{quantity > 1 ? 's' : ''}</>}
+                  </button>
+                </section>
+              ) : (
+              /* Payment — only usable once availability has been checked */
               <section>
                 <p className="text-sm font-semibold text-gray-800 mb-2">Moyen de paiement</p>
 
@@ -910,6 +946,7 @@ export default function BuyQuotaModal({ weddingId, isOpen, onClose }) {
                       : 'Paiement sécurisé — vous validez avec votre code PIN sur votre téléphone.'}
                 </p>
               </section>
+              )}
 
               {/* Order history */}
               {orders.length > 0 && (

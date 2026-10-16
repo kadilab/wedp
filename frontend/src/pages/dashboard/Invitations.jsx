@@ -6,6 +6,7 @@ import { socketService } from '../../services/socket'
 import { useAuthStore } from '../../stores/authStore'
 import BuyQuotaModal from '../../components/invitations/BuyQuotaModal'
 import toast from 'react-hot-toast'
+import { getEventDisplayTitle } from '../../utils/eventTypes'
 import {
   ArrowLeftIcon,
   EnvelopeIcon,
@@ -296,7 +297,7 @@ export default function Invitations() {
           <div>
             <h1 className="text-3xl font-serif font-bold text-gray-900">Invitations</h1>
             {wedding && (
-              <p className="text-gray-600">{wedding.brideName} & {wedding.groomName}</p>
+              <p className="text-gray-600">{getEventDisplayTitle(wedding)}</p>
             )}
           </div>
         </div>

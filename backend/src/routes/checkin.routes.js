@@ -65,7 +65,7 @@ router.post('/scan', authenticate, async (req, res) => {
           plusOnes: invitation.guest.plusOnes
         },
         checkIn: existingCheckIn,
-        message: 'Cet invitÃ© est dÃ©jÃ  enregistrÃ©'
+        message: 'Cet invité est déjà enregistré'
       });
     }
 
@@ -141,7 +141,7 @@ router.post('/scan', authenticate, async (req, res) => {
         rsvpStatus: invitation.guest.rsvpStatus
       },
       checkIn,
-      message: 'Check-in rÃ©ussi!'
+      message: 'Check-in réussi!'
     });
   } catch (error) {
     logger.error('Check-in scan error:', error);
@@ -162,7 +162,7 @@ router.get('/:weddingId', authenticate, async (req, res) => {
     const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
     const checkIns = await prisma.checkIn.findMany({
@@ -231,7 +231,7 @@ router.get('/:weddingId/live', authenticate, async (req, res) => {
     });
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
     const checkedInIds = new Set(wedding.checkIns.map(c => c.guestId));
@@ -295,7 +295,7 @@ router.get('/:weddingId/manifest', authenticate, async (req, res) => {
     });
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
     const checkedInMap = new Map(wedding.checkIns.map(c => [c.guestId, c]));
@@ -344,7 +344,7 @@ router.post('/:weddingId/sync', authenticate, async (req, res) => {
     const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
     const io = req.app.get('io');
@@ -423,15 +423,15 @@ router.delete('/:weddingId/:checkInId', authenticate, async (req, res) => {
     const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
-      return res.status(404).json({ error: 'Mariage non trouvÃ©' });
+      return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
-    const checkIn = await prisma.checkIn.findUnique({
-      where: { id: checkInId }
+    const checkIn = await prisma.checkIn.findFirst({
+      where: { id: checkInId, weddingId }
     });
 
     if (!checkIn) {
-      return res.status(404).json({ error: 'Check-in non trouvÃ©' });
+      return res.status(404).json({ error: 'Check-in non trouvé' });
     }
 
     await prisma.checkIn.delete({
@@ -446,7 +446,7 @@ router.delete('/:weddingId/:checkInId', authenticate, async (req, res) => {
       }
     });
 
-    res.json({ message: 'Check-in annulÃ©' });
+    res.json({ message: 'Check-in annulé' });
   } catch (error) {
     logger.error('Undo check-in error:', error);
     res.status(500).json({ error: 'Erreur serveur' });

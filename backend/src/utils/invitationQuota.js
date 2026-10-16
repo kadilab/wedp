@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 const FREE_QUOTA = 0;
 
 /**
- * Quota d'invitations d'un mariage = 1 gratuite + somme des quantités des
+ * Quota d'invitations d'un mariage = FREE_QUOTA (0) + somme des quantités des
  * commandes (InvitationOrder) approuvées. "used" est dérivé du nombre réel
  * d'invitations déjà générées, donc rien à synchroniser : approuver une
  * commande suffit, la prochaine lecture reflète automatiquement le nouveau total.

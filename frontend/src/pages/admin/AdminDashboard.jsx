@@ -21,14 +21,13 @@ import {
   BanknotesIcon,
   ArrowPathIcon
 } from '@heroicons/react/24/outline'
+import { getEventDisplayTitle } from '../../utils/eventTypes'
 
 // Live K-PAY wallet balance card (uses the K-PAY /payments/balance + /me utils).
-const EVENT_LABELS = { BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
 // Weddings show the couple; other events their title ("& " otherwise).
 const eventName = (w) => {
   if (!w) return '—'
-  if (!w.eventType || w.eventType === 'WEDDING') return `${w.brideName} & ${w.groomName}`
-  return w.eventTitle || EVENT_LABELS[w.eventType] || 'Événement'
+  return getEventDisplayTitle(w)
 }
 const WEDDING_STATUS_LABELS = { DRAFT: 'Brouillon', PENDING_PAYMENT: 'Paiement en attente', PENDING_ACTIVATION: 'Activation en attente', ACTIVE: 'Actif', COMPLETED: 'Terminé', CANCELLED: 'Annulé' }
 

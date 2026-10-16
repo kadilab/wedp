@@ -7,6 +7,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   AreaChart, Area, XAxis, YAxis, CartesianGrid
 } from 'recharts'
+import { getEventDisplayTitle } from '../../utils/eventTypes'
 import {
   ArrowLeftIcon,
   UserGroupIcon,
@@ -132,7 +133,7 @@ export default function WeddingStats() {
           </button>
           <div>
             <h1 className="text-3xl font-serif font-bold text-gray-900">
-              Statistiques · {wedding?.brideName} & {wedding?.groomName}
+              Statistiques · {getEventDisplayTitle(wedding)}
             </h1>
             {wedding?.weddingDate && (
               <p className="text-gray-500 mt-1">

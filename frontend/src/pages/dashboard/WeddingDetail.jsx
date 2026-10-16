@@ -2,7 +2,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { weddingAPI } from '../../services/api'
 import PrintSection from '../../components/invitations/PrintSection'
-import { eventUsesTables, EVENT_TYPE_LABELS } from '../../utils/eventTypes'
+import { eventUsesTables, EVENT_TYPE_LABELS, getEventDisplayTitle } from '../../utils/eventTypes'
 import { tableName } from '../../utils/tables'
 import { format, differenceInCalendarDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -137,9 +137,7 @@ export default function WeddingDetail() {
   const wedding = data?.data?.wedding
   const stats = statsData?.data?.stats || {}
   const isWeddingEvent = wedding && (!wedding.eventType || wedding.eventType === 'WEDDING')
-  const eventDisplayName = wedding
-    ? (isWeddingEvent ? `${wedding.brideName} & ${wedding.groomName}` : (wedding.eventTitle || 'Événement'))
-    : ''
+  const eventDisplayName = wedding ? getEventDisplayTitle(wedding) : ''
   const eventTypeLabel = EVENT_TYPE_LABELS[wedding?.eventType] || 'Mariage'
   // Days-until countdown for the hero chip.
   const daysUntil = wedding?.weddingDate ? differenceInCalendarDays(new Date(wedding.weddingDate), new Date()) : null

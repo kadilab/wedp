@@ -6,6 +6,7 @@ import { confirmDialog } from '../../components/common/confirm'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import toast from 'react-hot-toast'
+import { getEventDisplayTitle } from '../../utils/eventTypes'
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -21,19 +22,16 @@ import {
 } from '@heroicons/react/24/outline'
 
 const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
-const eventDisplayName = (wedding) =>
-  (!wedding.eventType || wedding.eventType === 'WEDDING')
-    ? `${wedding.brideName} & ${wedding.groomName}`
-    : (wedding.eventTitle || EVENT_TYPE_LABELS[wedding.eventType])
+const eventDisplayName = (wedding) => getEventDisplayTitle(wedding)
 
 // Monogram initials for the cover when there is no cover photo.
 const eventInitials = (w) => {
-  if (!w.eventType || w.eventType === 'WEDDING') {
+  if (!w.eventType || w.eventType === 'WEDDING' || w.eventType === 'DOT') {
     const a = (w.brideName || '').trim()[0] || ''
     const b = (w.groomName || '').trim()[0] || ''
     return ((a + b).toUpperCase()) || '♥'
   }
-  const title = (w.eventTitle || EVENT_TYPE_LABELS[w.eventType] || 'E').trim()
+  const title = (w.honoreeName || w.eventTitle || EVENT_TYPE_LABELS[w.eventType] || 'E').trim()
   const parts = title.split(/\s+/).filter(Boolean)
   return (((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase()) || title[0]?.toUpperCase() || 'E'
 }

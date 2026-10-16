@@ -38,7 +38,7 @@ const hexToRgba = (hex, alpha = 1) => {
 }
 
 /**
- * TemplatePreview â€” renders a faithful scaled-down replica of the actual invitation.
+ * TemplatePreview — renders a faithful scaled-down replica of the actual invitation.
  * For canvas-based templates (designElements), renders the real canvas layout scaled to fit.
  * For legacy templates, falls back to a simple colour-matched card.
  */
@@ -93,19 +93,22 @@ export default function TemplatePreview({ template, className = '', weddingData 
     }
     const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
     // Sample fallbacks keep the preview populated even before the form is filled.
+    // Gallery previews (no real event): use the template's own event type so a
+    // birthday design reads "Anniversaire de Sophie", not "Marie & Jean".
+    const evType = weddingData ? wd?.eventType : (template?.eventType || wd?.eventType)
     const sampleEv = {
-      eventType: wd?.eventType,
+      eventType: evType,
       brideName: wd?.brideName || 'Marie',
       groomName: wd?.groomName || 'Jean',
       honoreeName: wd?.honoreeName || 'Sophie',
-      eventTitle: wd?.eventTitle
+      eventTitle: wd?.eventTitle || (weddingData ? '' : ({ CONFERENCE: 'Forum Innovation 2026', OTHER: 'Soirée de gala' }[evType] || ''))
     }
     return {
       bride_name: wd?.brideName || 'Marie',
       groom_name: wd?.groomName || 'Jean',
       honoree_name: wd?.honoreeName || 'Sophie',
       event_title: getEventDisplayTitle(sampleEv),
-      event_type: EVENT_TYPE_LABELS[wd?.eventType] || 'Mariage',
+      event_type: EVENT_TYPE_LABELS[evType] || 'Mariage',
       guest_name: 'Prénom Nom',
       invitation_type: template?.config?.invitationType === 'couple' ? 'Couple' : 'Singleton',
       custom_message: wd?.customMessage || '',
@@ -209,7 +212,7 @@ export default function TemplatePreview({ template, className = '', weddingData 
               />
             )}
 
-            {/* Design elements â€” absolutely positioned, same as InvitationView */}
+            {/* Design elements — absolutely positioned, same as InvitationView */}
             {designElements
               .filter(el => el.visible !== false)
               .map((el, idx) => {

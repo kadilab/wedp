@@ -17,6 +17,7 @@ import {
   CreditCardIcon,
   PhotoIcon,
 } from '@heroicons/react/24/outline'
+import { getEventDisplayTitle } from '../../utils/eventTypes'
 
 const STATUS_META = {
   APPROVED: { label: 'Approuvée', cls: 'bg-green-100 text-green-700', Icon: CheckCircleIcon },
@@ -52,12 +53,10 @@ function StatusBadge({ order }) {
 }
 
 const initials = (u) => `${(u?.firstName || '')[0] || ''}${(u?.lastName || '')[0] || ''}`.toUpperCase() || '?'
-const EVENT_TYPE_LABELS = { BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
 const weddingName = (o) => {
   const w = o.wedding
   if (!w) return '—'
-  if (!w.eventType || w.eventType === 'WEDDING') return `${w.brideName} & ${w.groomName}`
-  return w.eventTitle || EVENT_TYPE_LABELS[w.eventType] || 'Événement'
+  return getEventDisplayTitle(w)
 }
 
 export default function AdminInvitationOrders() {

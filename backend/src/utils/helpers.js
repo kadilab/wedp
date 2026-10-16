@@ -91,25 +91,42 @@ function buildPaginationMeta(total, page, limit) {
 /**
  * Parse CSV content
  */
-function parseCSV(content, delimiter = ',') {
-  const lines = content.split('\n').filter(line => line.trim());
-  if (lines.length < 2) return [];
-  
-  const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
-  const data = [];
-  
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(delimiter);
-    const row = {};
-    
-    headers.forEach((header, index) => {
-      row[header] = values[index]?.trim() || '';
-    });
-    
-    data.push(row);
+function parseCSV(content, delimiter) {
+  // Excel exports: UTF-8 BOM, CRLF line endings, and ';' as separator in
+  // French locales. Quoted fields may contain the separator or "" escapes.
+  const text = String(content || '').replace(/^﻿/, '');
+  const firstLine = text.split(/\r?\n/, 1)[0] || '';
+  const sep = delimiter || ((firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length ? ';' : ',');
+
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
+      else if (c === '"') inQuotes = false;
+      else field += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === sep) { row.push(field); field = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); field = '';
+      if (row.some(v => v.trim() !== '')) rows.push(row);
+      row = [];
+    } else field += c;
   }
-  
-  return data;
+  row.push(field);
+  if (row.some(v => v.trim() !== '')) rows.push(row);
+  if (rows.length < 2) return [];
+
+  const headers = rows[0].map(h => h.trim().toLowerCase());
+  return rows.slice(1).map(values => {
+    const obj = {};
+    headers.forEach((header, index) => { obj[header] = (values[index] ?? '').trim(); });
+    return obj;
+  });
 }
 
 /**
@@ -119,9 +136,9 @@ function mapCSVToGuest(row) {
   return {
     firstName: row['prénom'] || row['prenom'] || row['first_name'] || row['firstname'] || '',
     lastName: row['nom'] || row['last_name'] || row['lastname'] || row['name'] || '',
-    email: row['email'] || row['e-mail'] || '',
-    phone: row['téléphone'] || row['telephone'] || row['phone'] || row['tel'] || '',
-    tableNumber: row['table'] || row['table_number'] || row['numéro_table'] || '',
+    email: row['email'] || row['e-mail'] || row['mail'] || '',
+    phone: row['téléphone'] || row['telephone'] || row['phone'] || row['tel'] || row['whatsapp'] || '',
+    tableNumber: String(row['table'] || row['table_number'] || row['numéro_table'] || row['numéro de table'] || ''),
     plusOnes: parseInt(row['accompagnants'] || row['plus_ones'] || row['guests'] || '0') || 0,
     category: row['catégorie'] || row['categorie'] || row['category'] || row['type'] || '',
     dietaryRestrictions: row['régime'] || row['dietary'] || row['restrictions'] || '',

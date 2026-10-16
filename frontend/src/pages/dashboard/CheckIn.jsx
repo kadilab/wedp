@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { Html5Qrcode } from 'html5-qrcode'
+import { getEventDisplayTitle } from '../../utils/eventTypes'
 import {
   ArrowLeftIcon,
   QrCodeIcon,
@@ -260,7 +261,7 @@ export default function CheckIn() {
         <div>
           <h1 className="text-3xl font-serif font-bold text-gray-900">Check-in</h1>
           {wedding && (
-            <p className="text-gray-600">{wedding.brideName} & {wedding.groomName}</p>
+            <p className="text-gray-600">{getEventDisplayTitle(wedding)}</p>
           )}
         </div>
       </div>

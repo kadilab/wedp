@@ -51,8 +51,13 @@ const io = new Server(httpServer, {
 app.set('io', io);
 app.set('prisma', prisma);
 
-// Trust proxy for rate limiting behind reverse proxy
-app.set('trust proxy', 1);
+// Trust the reverse proxies on the private Docker network (Caddy → nginx →
+// backend = 2 hops). With a fixed hop count of 1, req.ip was Caddy's address
+// for EVERY visitor, so the whole site shared one rate-limit bucket (10 logins
+// per hour for everybody) and logs had no real client IP. Caddy overwrites the
+// client-supplied X-Forwarded-For, so trusting private ranges cannot be
+// spoofed from the internet.
+app.set('trust proxy', 'loopback, linklocal, uniquelocal');
 
 // Security middleware
 app.use(helmet({
@@ -79,14 +84,29 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Auth rate limiting (stricter)
+// Auth rate limiting (stricter, brute-force protection). Only FAILED attempts
+// count, so a legitimate user logging in again is never locked out.
 const authLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // limit each IP to 10 login attempts per hour
-  message: { error: 'Too many login attempts, please try again later.' }
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 failed attempts per IP per window
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de tentatives. Réessayez dans quelques minutes.' }
 });
 app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/google', authLimiter);
+// Account creation / e-mail sending endpoints: cap per IP (spam, mail bombing).
+const accountLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de demandes. Réessayez plus tard.' }
+});
+app.use('/api/auth/register', accountLimiter);
+app.use('/api/auth/forgot-password', accountLimiter);
+app.use('/api/auth/resend-verification', accountLimiter);
 
 // Body parsing — keep the raw body around so webhook signatures (K-PAY) can be
 // verified against the exact bytes received.
@@ -122,7 +142,28 @@ app.use('/uploads/images', express.static(path.join(__dirname, '../uploads/image
 // Everything else under /uploads gets a fresh UUID filename on every upload
 // (never reused/overwritten), so it's safe to cache aggressively - avoids
 // re-downloading the same avatar/background/etc. on every page load.
-const UPLOADS_CACHE_OPTIONS = { maxAge: '7d', immutable: true };
+//
+// User uploads are served from the site's own origin: a file opened directly
+// must never be able to run script (stored XSS → stolen admin session → API
+// keys). `sandbox` gives it an opaque origin with scripts disabled; the
+// generated PDFs above stay outside it (Chrome won't render a PDF in a
+// sandboxed document) — they are produced by the server, not uploaded.
+const UPLOADS_CACHE_OPTIONS = {
+  maxAge: '7d',
+  immutable: true,
+  setHeaders: (res) => {
+    res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; font-src 'self'");
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+  }
+};
+// Never serve markup/script even if such a file reached the disk earlier
+// (uploads accepted any extension before the upload filter was hardened).
+app.use('/uploads', (req, res, next) => {
+  if (/\.(html?|xhtml|xml|js|mjs|php|sh|exe)$/i.test(req.path)) {
+    return res.status(404).end();
+  }
+  next();
+});
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), UPLOADS_CACHE_OPTIONS));
 
 // Health check
@@ -142,8 +183,8 @@ app.post('/api/public/track-visit', async (req, res) => {
 // Public settings (no auth)
 app.get('/api/settings/public', async (req, res) => {
   try {
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
+    // Shared client: a `new PrismaClient()` per request opened a new
+    // connection pool on every page load and never closed it.
     const records = await prisma.setting.findMany({
       where: { key: { in: ['siteName', 'siteLogo', 'logoHeight', 'contactEmail', 'supportPhone', 'printServiceEnabled', 'googleClientId'] } }
     });

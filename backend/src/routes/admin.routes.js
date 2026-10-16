@@ -117,7 +117,7 @@ router.get('/dashboard', authenticate, isAdmin, async (req, res) => {
         orderBy: { createdAt: 'desc' },
         include: {
           user: { select: { firstName: true, lastName: true, email: true } },
-          wedding: { select: { brideName: true, groomName: true, eventType: true, eventTitle: true } }
+          wedding: { select: { brideName: true, groomName: true, eventType: true, eventTitle: true, honoreeName: true } }
         }
       }),
       prisma.user.findMany({
@@ -130,7 +130,7 @@ router.get('/dashboard', authenticate, isAdmin, async (req, res) => {
         take: 5,
         orderBy: { createdAt: 'desc' },
         select: {
-          id: true, brideName: true, groomName: true, eventType: true, eventTitle: true, weddingDate: true, status: true, createdAt: true,
+          id: true, brideName: true, groomName: true, eventType: true, eventTitle: true, honoreeName: true, weddingDate: true, status: true, createdAt: true,
           _count: { select: { guests: true, invitations: true } }
         }
       })
@@ -534,7 +534,7 @@ router.get('/users/:id', authenticate, isAdmin, async (req, res) => {
         payments: {
           orderBy: { createdAt: 'desc' },
           include: {
-            wedding: { select: { brideName: true, groomName: true } }
+            wedding: { select: { brideName: true, groomName: true, eventType: true, eventTitle: true, honoreeName: true } }
           }
         }
       }
@@ -633,6 +633,15 @@ router.put('/users/:id/status', authenticate, isAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Statut invalide' });
     }
 
+    // Staff accounts can only be changed by a SUPER_ADMIN (an ADMIN could
+    // otherwise suspend / demote the owner and take over the platform).
+    if (req.user.role !== 'SUPER_ADMIN') {
+      const target = await prisma.user.findUnique({ where: { id: req.params.id }, select: { role: true } });
+      if (target && (target.role === 'ADMIN' || target.role === 'SUPER_ADMIN')) {
+        return res.status(403).json({ error: 'Seul un Super Admin peut modifier un compte administrateur' });
+      }
+    }
+
     const user = await prisma.user.update({
       where: { id: req.params.id },
       data: { status },
@@ -682,6 +691,15 @@ router.put('/users/:id/role', authenticate, isAdmin, async (req, res) => {
     // Only SUPER_ADMIN can assign SUPER_ADMIN role
     if (role === 'SUPER_ADMIN' && req.user.role !== 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Seul un Super Admin peut attribuer ce rôle' });
+    }
+
+    // Staff accounts can only be changed by a SUPER_ADMIN (an ADMIN could
+    // otherwise suspend / demote the owner and take over the platform).
+    if (req.user.role !== 'SUPER_ADMIN') {
+      const target = await prisma.user.findUnique({ where: { id: req.params.id }, select: { role: true } });
+      if (target && (target.role === 'ADMIN' || target.role === 'SUPER_ADMIN')) {
+        return res.status(403).json({ error: 'Seul un Super Admin peut modifier un compte administrateur' });
+      }
     }
 
     // Prevent removing own SUPER_ADMIN role
@@ -1096,7 +1114,7 @@ router.get('/payments', authenticate, isAdmin, paginationValidation, async (req,
             select: { id: true, firstName: true, lastName: true, email: true }
           },
           wedding: {
-            select: { id: true, brideName: true, groomName: true, slug: true, plan: { select: { id: true, name: true, type: true, price: true } } }
+            select: { id: true, brideName: true, groomName: true, eventType: true, eventTitle: true, honoreeName: true, slug: true, plan: { select: { id: true, name: true, type: true, price: true } } }
           }
         }
       }),
@@ -1281,7 +1299,7 @@ router.get('/invitation-orders', authenticate, isAdmin, paginationValidation, as
             select: { id: true, firstName: true, lastName: true, email: true }
           },
           wedding: {
-            select: { id: true, brideName: true, groomName: true, eventType: true, eventTitle: true, slug: true }
+            select: { id: true, brideName: true, groomName: true, eventType: true, eventTitle: true, honoreeName: true, slug: true }
           }
         }
       }),
@@ -1393,21 +1411,63 @@ router.put('/invitation-orders/:id/reject', authenticate, isAdmin, async (req, r
 // ==================== SETTINGS ====================
 
 // Get all settings
+// ---------------------------------------------------------------------------
+// Secrets & payment configuration
+//
+// Secret values (API/secret keys, webhook secrets, passwords, bot tokens) are
+// WRITE-ONLY: they are never sent back to the browser — only whether one is
+// saved and its last 4 characters. A stolen admin session or a shoulder-surfed
+// screen therefore never reveals them. On save, an empty value means "keep the
+// saved one"; `null` clears it.
+//
+// Payment / messaging configuration can only be changed by a SUPER_ADMIN: an
+// ADMIN could otherwise swap the K-PAY keys or the manual-payment numbers for
+// their own and divert customer payments.
+const SECRET_SETTING_KEYS = [
+  'kpayApiKey', 'kpaySecretKey', 'kpayWebhookSecret',
+  'kpayTestApiKey', 'kpayTestSecretKey', 'kpayTestWebhookSecret',
+  'kpayGatewaySecret', 'smtpPassword', 'telegramBotToken', 'googleClientSecret'
+];
+const isSuperAdminOnlyKey = (key) =>
+  /^(kpay|smtp|telegram|google|mobileMoney|invitationPaymentMethods|orangeMoney|mtn|wave)/.test(key);
+
+const secretHint = (value) => {
+  const v = String(value || '').trim();
+  if (!v) return { set: false, hint: '' };
+  const prefix = (v.match(/^kpay_(live|test)_/) || [''])[0];
+  return { set: true, hint: `${prefix}…${v.slice(-4)}` };
+};
+
 router.get('/settings', authenticate, isAdmin, async (req, res) => {
   try {
     const settingsRecords = await prisma.setting.findMany();
-    
+
     // Convert array of key-value pairs to object
     const settings = {};
+    const secrets = {};
     settingsRecords.forEach(s => {
+      if (SECRET_SETTING_KEYS.includes(s.key)) {
+        secrets[s.key] = secretHint(s.value);
+        return; // never sent back
+      }
       try {
         settings[s.key] = s.type === 'json' ? JSON.parse(s.value) : s.value;
       } catch {
         settings[s.key] = s.value;
       }
     });
+    SECRET_SETTING_KEYS.forEach(k => { if (!secrets[k]) secrets[k] = { set: false, hint: '' }; });
+    // Keys provided through the server environment (.env) instead of the UI.
+    const ENV_BY_KEY = {
+      kpayApiKey: 'KPAY_API_KEY', kpaySecretKey: 'KPAY_SECRET_KEY', kpayWebhookSecret: 'KPAY_WEBHOOK_SECRET',
+      kpayTestApiKey: 'KPAY_TEST_API_KEY', kpayTestSecretKey: 'KPAY_TEST_SECRET_KEY', kpayTestWebhookSecret: 'KPAY_TEST_WEBHOOK_SECRET',
+      kpayGatewaySecret: 'KPAY_GATEWAY_SECRET', smtpPassword: 'SMTP_PASS', googleClientSecret: 'GOOGLE_CLIENT_SECRET'
+    };
+    Object.entries(ENV_BY_KEY).forEach(([k, env]) => {
+      if (!secrets[k].set && process.env[env]) secrets[k] = { ...secretHint(process.env[env]), fromEnv: true };
+    });
 
-    res.json({ settings });
+    res.json({ settings, secrets, canEditPayment: req.user.role === 'SUPER_ADMIN' });
   } catch (error) {
     logger.error('Get settings error:', error);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -1417,12 +1477,46 @@ router.get('/settings', authenticate, isAdmin, async (req, res) => {
 // Update settings
 router.put('/settings', authenticate, isAdmin, async (req, res) => {
   try {
-    const updates = req.body;
-    
+    const updates = req.body && typeof req.body === 'object' ? req.body : {};
+    const isSuperAdmin = req.user.role === 'SUPER_ADMIN';
+
+    // Key names become DB rows: accept plain identifiers only.
+    const keys = Object.keys(updates).filter(k => /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(k));
+
+    // An ADMIN may save the page (the form sends every field) but not CHANGE
+    // payment / messaging settings.
+    if (!isSuperAdmin) {
+      const guarded = keys.filter(isSuperAdminOnlyKey);
+      if (guarded.length) {
+        const current = await prisma.setting.findMany({ where: { key: { in: guarded } } });
+        const byKey = Object.fromEntries(current.map(r => [r.key, r.value]));
+        const changed = guarded.filter(k => {
+          const v = updates[k];
+          if (SECRET_SETTING_KEYS.includes(k)) return v !== '' && v !== undefined; // '' = keep
+          const sv = v !== null && typeof v === 'object' ? JSON.stringify(v) : String(v ?? '');
+          return sv !== (byKey[k] ?? sv); // unknown row → not a change we can judge, allow default
+        });
+        if (changed.length) {
+          return res.status(403).json({ error: 'Seul un Super Admin peut modifier les paramètres de paiement et les clés API.', keys: changed });
+        }
+        guarded.forEach(k => { const i = keys.indexOf(k); if (i >= 0) keys.splice(i, 1); });
+      }
+    }
+
     // Update each setting
-    for (const [key, value] of Object.entries(updates)) {
-      const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
-      const type = typeof value === 'object' ? 'json' : typeof value;
+    for (const key of keys) {
+      const value = updates[key];
+      if (SECRET_SETTING_KEYS.includes(key)) {
+        if (value === null) { // explicit clear
+          await prisma.setting.deleteMany({ where: { key } });
+          continue;
+        }
+        if (value === undefined || String(value).trim() === '') continue; // keep saved secret
+      }
+      let stringValue = value !== null && typeof value === 'object' ? JSON.stringify(value) : String(value);
+      const type = value !== null && typeof value === 'object' ? 'json' : typeof value;
+      // Pasted keys often drag a stray space/newline (silent K-PAY auth failure).
+      if (SECRET_SETTING_KEYS.includes(key)) stringValue = stringValue.trim();
       
       await prisma.setting.upsert({
         where: { key },
@@ -1438,7 +1532,7 @@ router.put('/settings', authenticate, isAdmin, async (req, res) => {
         action: 'UPDATE',
         entity: 'settings',
         entityId: 'global',
-        details: { message: 'Mise à jour des paramètres' },
+        details: { message: 'Mise à jour des paramètres', keys: keys.slice(0, 50) },
         ipAddress: req.ip
       }
     });
@@ -1557,7 +1651,7 @@ router.get('/print-orders', authenticate, isAdmin, async (req, res) => {
       include: {
         wedding: {
           select: {
-            id: true, brideName: true, groomName: true, slug: true, templateId: true,
+            id: true, brideName: true, groomName: true, eventType: true, eventTitle: true, honoreeName: true, slug: true, templateId: true,
             printBackEnabled: true,
             template: { select: { id: true, name: true, category: true, config: true } }
           }
@@ -1605,7 +1699,10 @@ router.get('/print-orders/:id', authenticate, isAdmin, async (req, res) => {
           select: { 
             id: true, 
             brideName: true, 
-            groomName: true, 
+            groomName: true,
+            eventType: true,
+            eventTitle: true,
+            honoreeName: true,
             slug: true,
             template: { select: { name: true, thumbnail: true } }
           }

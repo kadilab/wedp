@@ -94,7 +94,7 @@ router.get('/mine', authenticate, async (req, res) => {
     const orders = await prisma.invitationOrder.findMany({
       where: { userId: req.user.id },
       include: {
-        wedding: { select: { id: true, brideName: true, groomName: true, eventType: true, eventTitle: true, slug: true } }
+        wedding: { select: { id: true, brideName: true, groomName: true, eventType: true, eventTitle: true, honoreeName: true, slug: true } }
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -484,11 +484,8 @@ router.post('/:weddingId/orders/:orderId/proof', authenticate, uploadSingle('pro
  */
 router.put('/:weddingId/orders/:orderId/submit', authenticate, async (req, res) => {
   try {
-    const { transactionId, paymentProvider, payerPhone, proofUrl } = req.body;
-
-    if (!transactionId || !transactionId.trim()) {
-      return res.status(400).json({ error: 'Le numéro de transaction est requis' });
-    }
+    const { paymentProvider, payerPhone, proofUrl } = req.body;
+    let transactionId = typeof req.body.transactionId === 'string' ? req.body.transactionId : '';
 
     const wedding = await findOwnedWedding(req.params.weddingId, req.user);
     if (!wedding) {
@@ -505,6 +502,14 @@ router.put('/:weddingId/orders/:orderId/submit', authenticate, async (req, res) 
 
     if (order.status !== 'PENDING') {
       return res.status(400).json({ error: 'Cette commande a déjà été traitée' });
+    }
+
+    // Free order (price-0 design or 100 % coupon): nothing was paid, so there
+    // is no transaction id — it still goes through admin validation.
+    const isFree = parseFloat(order.totalAmount) <= 0;
+    if (isFree) transactionId = 'GRATUIT';
+    if (!transactionId.trim()) {
+      return res.status(400).json({ error: 'Le numéro de transaction est requis' });
     }
 
     const updated = await prisma.invitationOrder.update({

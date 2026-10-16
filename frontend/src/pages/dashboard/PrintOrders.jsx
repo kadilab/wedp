@@ -6,6 +6,7 @@ import useSiteSettingsStore from '../../stores/siteSettingsStore'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { getEventDisplayTitle } from '../../utils/eventTypes'
 import {
   PrinterIcon,
   EyeIcon,
@@ -18,9 +19,8 @@ import {
   ArrowPathIcon
 } from '@heroicons/react/24/outline'
 
-const EVENT_TYPE_LABELS = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', DOT: 'Mariage coutumier', CEREMONY: 'Cérémonie', CONFERENCE: 'Conférence', OTHER: 'Événement' }
 const eventDisplayName = (w) =>
-  (!w.eventType || w.eventType === 'WEDDING') ? `${w.brideName} & ${w.groomName}` : (w.eventTitle || EVENT_TYPE_LABELS[w.eventType])
+  getEventDisplayTitle(w)
 
 const STATUS_MAP = {
   PENDING: { label: 'En attente de confirmation', color: 'yellow', icon: ClockIcon, step: 1 },

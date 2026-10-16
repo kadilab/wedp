@@ -192,7 +192,7 @@ router.get('/guestbook/:weddingSlug', async (req, res) => {
   try {
     const wedding = await prisma.wedding.findUnique({
       where: { slug: req.params.weddingSlug },
-      select: { id: true, guestbookEnabled: true, brideName: true, groomName: true, eventTitle: true, eventType: true }
+      select: { id: true, guestbookEnabled: true, brideName: true, groomName: true, eventTitle: true, honoreeName: true, eventType: true }
     });
 
     if (!wedding || !wedding.guestbookEnabled) {
@@ -534,7 +534,7 @@ router.get('/:weddingSlug', async (req, res) => {
       where: { slug: weddingSlug },
       select: {
         eventType: true,
-        eventTitle: true,
+        eventTitle: true, honoreeName: true,
         brideName: true,
         groomName: true,
         weddingDate: true,

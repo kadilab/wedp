@@ -1,5 +1,20 @@
 ﻿const express = require('express');
 const router = express.Router();
+
+// Empty form fields arrive as '' — store them as NULL. Guests are unique per
+// (event, email), so '' made every guest after the first one without an
+// e-mail fail.
+const blankToNull = (v) => {
+  if (v === undefined || v === null) return null;
+  const t = String(v).trim();
+  return t === '' ? null : t;
+};
+
+// Readable reason for a guest that could not be saved (never the raw Prisma text).
+const guestErrorMessage = (err) => {
+  if (err?.code === 'P2002') return 'email déjà utilisé par un autre invité';
+  return 'données invalides';
+};
 const { PrismaClient } = require('@prisma/client');
 const XLSX = require('xlsx');
 const { authenticate, isOwner } = require('../middleware/auth.middleware');
@@ -24,7 +39,9 @@ const prisma = new PrismaClient();
 router.post('/:weddingId', authenticate, createGuestValidation, async (req, res) => {
   try {
     const { weddingId } = req.params;
-    const { firstName, lastName, email, phone, tableNumber, category, plusOnes, dietaryRestrictions, notes } = req.body;
+    const { firstName, lastName, tableNumber, category, plusOnes, dietaryRestrictions, notes } = req.body;
+    const email = blankToNull(req.body.email);
+    const phone = blankToNull(req.body.phone);
 
     // Verify wedding ownership
     const wedding = await findAccessibleWedding(req.user, weddingId);
@@ -50,11 +67,11 @@ router.post('/:weddingId', authenticate, createGuestValidation, async (req, res)
         lastName,
         email,
         phone,
-        tableNumber,
+        tableNumber: blankToNull(tableNumber),
         category: category || null,
         plusOnes: plusOnes || 0,
-        dietaryRestrictions,
-        notes
+        dietaryRestrictions: blankToNull(dietaryRestrictions),
+        notes: blankToNull(notes)
       }
     });
 
@@ -145,12 +162,19 @@ router.post('/:weddingId/import', authenticate, uploadSingle('file'), handleUplo
         await prisma.guest.create({
           data: {
             weddingId,
-            ...guestData
+            ...guestData,
+            email: blankToNull(guestData.email),
+            phone: blankToNull(guestData.phone),
+            tableNumber: blankToNull(guestData.tableNumber),
+            category: blankToNull(guestData.category),
+            dietaryRestrictions: blankToNull(guestData.dietaryRestrictions),
+            notes: blankToNull(guestData.notes)
           }
         });
         results.created++;
       } catch (err) {
-        results.errors.push(`${guestData.firstName} ${guestData.lastName}: ${err.message}`);
+        logger.warn(`Import guest failed (${guestData.firstName} ${guestData.lastName}): ${err.message}`);
+        results.errors.push(`${guestData.firstName} ${guestData.lastName} : ${guestErrorMessage(err)}`);
       }
     }
 
@@ -490,7 +514,8 @@ router.post('/:weddingId/bulk', authenticate, async (req, res) => {
         });
         results.created++;
       } catch (err) {
-        results.errors.push(`${guestData.firstName} ${guestData.lastName}: ${err.message}`);
+        logger.warn(`Bulk guest failed (${guestData.firstName} ${guestData.lastName}): ${err.message}`);
+        results.errors.push(`${guestData.firstName} ${guestData.lastName} : ${guestErrorMessage(err)}`);
       }
     }
 
@@ -524,13 +549,28 @@ router.post('/:weddingId/bulk', authenticate, async (req, res) => {
 router.put('/:weddingId/:guestId', authenticate, async (req, res) => {
   try {
     const { weddingId, guestId } = req.params;
-    const { firstName, lastName, email, phone, tableNumber, category, plusOnes, dietaryRestrictions, notes, rsvpStatus } = req.body;
+    const { firstName, lastName, tableNumber, category, plusOnes, dietaryRestrictions, notes, rsvpStatus } = req.body;
+    const email = req.body.email === undefined ? undefined : blankToNull(req.body.email);
+    const phone = req.body.phone === undefined ? undefined : blankToNull(req.body.phone);
 
     // Verify wedding ownership
     const wedding = await findAccessibleWedding(req.user, weddingId);
 
     if (!wedding) {
       return res.status(404).json({ error: 'Mariage non trouvé' });
+    }
+
+    // The guest must belong to THIS event — otherwise any client could edit
+    // another client's guests by pairing their own event id with a foreign
+    // guest id.
+    const owned = await prisma.guest.findFirst({ where: { id: guestId, weddingId }, select: { id: true } });
+    if (!owned) {
+      return res.status(404).json({ error: 'Invité non trouvé' });
+    }
+
+    if (email) {
+      const dup = await prisma.guest.findFirst({ where: { weddingId, email, id: { not: guestId } }, select: { id: true } });
+      if (dup) return res.status(400).json({ error: 'Un invité avec cet email existe déjà' });
     }
 
     const guest = await prisma.guest.update({
@@ -575,9 +615,13 @@ router.delete('/:weddingId/:guestId', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'Mariage non trouvé' });
     }
 
-    await prisma.guest.delete({
-      where: { id: guestId }
+    // Scoped to this event (see the update route above).
+    const { count } = await prisma.guest.deleteMany({
+      where: { id: guestId, weddingId }
     });
+    if (count === 0) {
+      return res.status(404).json({ error: 'Invité non trouvé' });
+    }
 
     res.json({ message: 'Invité supprimé' });
   } catch (error) {

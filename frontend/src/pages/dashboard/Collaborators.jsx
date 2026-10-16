@@ -4,6 +4,7 @@ import { collaboratorAPI, weddingAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { getEventDisplayTitle } from '../../utils/eventTypes'
 import {
   ArrowLeftIcon,
   UserPlusIcon,
@@ -60,7 +61,7 @@ export default function Collaborators() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-serif text-2xl font-bold text-content">Collaborateurs</h1>
-          {wedding && <p className="text-sm text-muted">{wedding.brideName ? `${wedding.brideName} & ${wedding.groomName}` : wedding.eventTitle}</p>}
+          {wedding && <p className="text-sm text-muted">{getEventDisplayTitle(wedding)}</p>}
         </div>
         <button
           onClick={() => inviteMutation.mutate()}
